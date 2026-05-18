@@ -1,16 +1,219 @@
-# React + Vite
+# AthlonX — Plataforma Integral de Gestión y Rendimiento Deportivo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Descripción general
 
-Currently, two official plugins are available:
+**AthlonX** es una plataforma digital orientada a la gestión integral, análisis del rendimiento y fortalecimiento del compromiso deportivo en equipos de distintas disciplinas.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Su objetivo principal es centralizar la información de jugadores, entrenadores y directivos en un solo sistema, facilitando:
 
-## React Compiler
+* Gestión deportiva
+* Seguimiento del rendimiento
+* Control de asistencia
+* Comunicación interna
+* Evaluación estadística
+* Organización táctica
+* Mejora continua del sistema
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+La plataforma está diseñada para ser:
 
-## Expanding the ESLint configuration
+* Escalable
+* Multidisciplinaria
+* Adaptable a distintos deportes
+* Aplicable a entornos institucionales y clubes deportivos
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+
+---
+
+# Objetivos del sistema
+
+## Objetivo principal
+
+Desarrollar una plataforma digital que permita gestionar y supervisar el desempeño deportivo y administrativo de equipos, optimizando la comunicación entre sus integrantes.
+
+## Objetivos específicos
+
+* Centralizar la información deportiva.
+* Facilitar la gestión de entrenamientos.
+* Registrar asistencia y compromiso.
+* Monitorear estadísticas individuales y grupales.
+* Permitir organización táctica del equipo.
+* Mejorar la toma de decisiones mediante reportes.
+* Recibir retroalimentación de usuarios para mejora continua.
+
+---
+
+# Roles del sistema
+
+AthlonX contempla cuatro tipos de usuarios:
+
+## 1. Jugador
+
+Funciones principales:
+
+* Consultar agenda de entrenamientos
+* Visualizar asistencia
+* Consultar estadísticas personales
+* Recibir comunicaciones del equipo
+* Contactar con coach
+* Enviar sugerencias
+
+## 2. Coach / Entrenador
+
+Funciones principales:
+
+* Gestionar entrenamientos
+* Registrar asistencia
+* Evaluar rendimiento
+* Registrar estadísticas
+* Definir formaciones
+* Enviar convocatorias
+* Generar reportes
+
+## 3. Directivo
+
+Funciones principales:
+
+* Supervisar funcionamiento del equipo
+* Gestionar usuarios
+* Gestionar equipos
+* Consultar reportes generales
+* Emitir comunicados institucionales
+
+## 4. Administrador del sistema
+
+Funciones principales:
+
+* Gestionar roles y permisos
+* Mantener seguridad
+* Administrar incidencias
+* Supervisar mejoras del sistema
+* Gestión técnica global
+
+
+
+---
+
+# Funcionalidades principales
+
+## Autenticación
+
+* Inicio de sesión
+* Registro de usuario
+* Recuperación de contraseña
+* Control de acceso por roles
+* Cierre de sesión
+
+---
+
+## Dashboard personalizado
+
+Cada usuario accede a un panel principal adaptado a su rol, desde donde puede navegar por los módulos correspondientes.
+
+---
+
+## Módulos del sistema
+
+### Gestión de entrenamientos
+
+Permite:
+
+* Crear sesiones
+* Editarlas
+* Eliminarlas
+* Asignar horarios
+* Definir tipo de sesión
+
+### Control de asistencia
+
+Permite:
+
+* Registrar presencia
+* Justificar ausencias
+* Calcular porcentaje de asistencia
+* Medir compromiso deportivo
+
+### Estadísticas de rendimiento
+
+Incluye métricas como:
+
+* Pases
+* Tackles
+* Velocidad
+* Aceleración
+* Distancia recorrida
+* Minutos jugados
+* Condición física
+* Participación colectiva
+
+### Comunicación interna
+
+Incluye:
+
+* Convocatorias
+* Anuncios
+* Notificaciones
+* Mensajería institucional
+
+### Mapeo de cancha
+
+Permite:
+
+* Visualizar cancha
+* Asignar posiciones
+* Organizar formaciones
+* Relacionar jugadores con ubicaciones tácticas
+
+### Mejora continua
+
+Permite:
+
+* Enviar sugerencias
+* Reportar fallos
+* Proponer mejoras
+* Seguimiento del estado de propuestas
+
+---
+
+# Casos de uso
+
+## Jugador
+
+### Puede:
+
+* Iniciar sesión
+* Consultar perfil
+* Ver estadísticas
+* Consultar asistencia
+* Ver formaciones
+* Recibir notificaciones
+* Enviar sugerencias
+
+---
+
+## Coach
+
+### Puede:
+
+* Crear entrenamientos
+* Registrar estadísticas
+* Gestionar asistencia
+* Crear formaciones
+* Emitir comunicados
+* Generar reportes
+* Proponer mejoras
+
+---
+
+## Directivo
+
+### Puede:
+
+* Aprobar registros
+* Asignar roles
+* Gestionar equipos
+* Supervisar rendimiento
+* Emitir anuncios
+* Analizar sugerencias
+
+---
