@@ -2,7 +2,13 @@
 
 ## Descripción general
 
-**AthlonX** es una plataforma digital orientada a la gestión integral, análisis del rendimiento y fortalecimiento del compromiso deportivo en equipos de distintas disciplinas.
+**AthlonX** es una plataforma digital orientada a la gestión integral, análisis del rendimiento y fortalecimiento del compromiso deportivo en equipos de diferentes disciplinas, diseñada para cualquier entorno y con proyección a nivel institucional y multidisciplinario.
+Surgió ante la necesidad de centralizar la información deportiva de equipos, permitiendo una conexión efectiva entre jugadores, entrenadores (coaches) y directivos, mediante el acceso a datos relevantes sobre asistencia, rendimiento, estadísticas, comunicación interna y evaluación deportiva.
+AthlonX está concebida como un sistema escalable y adaptable, capaz de soportar distintos formatos de juego y modalidades deportivas. AthlonX presenta una interfaz inicial de bienvenida y presentación del sistema, desde la cual los usuarios pueden acceder a las opciones de inicio de sesión o registro. El sistema contempla un proceso de autenticación seguro que permite el acceso mediante identificador de usuario o correo electrónico, junto con una contraseña personal, garantizando el control de acceso según el rol asignado.
+Durante el proceso de registro, el usuario podrá crear una cuenta dentro de la plataforma y seleccionar su rol principal, el cual puede ser jugador, entrenador (coach) o directivo. Dicho rol define los permisos, funcionalidades y vistas disponibles dentro del sistema, asegurando una experiencia acorde a las responsabilidades de cada tipo de usuario.
+Una vez autenticado, el usuario accede a un panel principal (dashboard) personalizado, donde se presenta información relevante de acuerdo con su rol. Este panel actúa como punto central de navegación hacia los distintos módulos de la plataforma.
+Finalmente, AthlonX cuenta con un módulo de mejora continua, donde los usuarios pueden enviar sugerencias, observaciones y propuestas de mejora relacionadas con la plataforma, promoviendo la evolución constante del sistema y la participación activa de sus usuarios.
+
 
 Su objetivo principal es centralizar la información de jugadores, entrenadores y directivos en un solo sistema, facilitando:
 
