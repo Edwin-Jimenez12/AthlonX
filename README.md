@@ -48,6 +48,14 @@ Desarrollar una plataforma digital que permita gestionar y supervisar el desempe
 * Recibir retroalimentación de usuarios para mejora continua.
 
 ---
+## Personal que se necesitará 
+* Desarrollador de software (FrontEnd)
+* Desarrollador de software (BackEnd)
+* Diseñador grafico
+* Administrador de base de datos (DataBase)
+* Abogado (Financiero y Derechos)
+* Kpi (Key performance indicator)
+
 
 # Roles del sistema
 
