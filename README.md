@@ -54,7 +54,7 @@ Desarrollar una plataforma digital que permita gestionar y supervisar el desempe
 * Diseñador grafico
 * Administrador de base de datos (DataBase)
 * Abogado (Financiero y Derechos)
-* Kpi (Key performance indicator)
+* Kpi (Key performance indicator) Analista estadistico de rendimiento
 
 
 # Roles del sistema
