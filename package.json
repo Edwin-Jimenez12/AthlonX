@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "deploy": "wrangler deploy",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -24,7 +25,8 @@
     "eslint-config-next": "^15.4.0",
     "postcss": "^8.5.13",
     "tailwindcss": "^4.2.4",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "wrangler": "^4.103.0"
   },
   "packageManager": "yarn@4.17.0"
 }
