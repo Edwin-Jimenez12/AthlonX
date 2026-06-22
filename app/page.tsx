@@ -5,9 +5,9 @@ export default function Home() {
     <main className="min-h-screen w-full bg-[#242427]">
         <Menu />
         <section className="flex min-h-[calc(100vh-70px)] flex-col items-center justify-center gap-4 p-4 text-white">
-            <img className="w-100" src="/MarcaAthlonX/Logo.svg" alt="Logo" />
-            <img className="w-125" src="/MarcaAthlonX/AthlonX.svg" alt="NombreMarca" />
-            <p className="max-w-xl text-center text-2xl font-bold">
+            <img className="w-65 md:w-100" src="/MarcaAthlonX/Logo.svg" alt="Logo" />
+            <img className="w-75 md:w-125" src="/MarcaAthlonX/AthlonX.svg" alt="NombreMarca" />
+            <p className="max-w-xl text-center text-xl font-bold">
                 Donde la disciplina se transforma en resultados
             </p>
             <div className="flex gap-4">
