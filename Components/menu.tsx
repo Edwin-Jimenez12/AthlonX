@@ -5,9 +5,9 @@ import { useState } from 'react'
 
 function Menu() {
   const [open, setOpen] = useState(false)
-
+  
   return (
-    <div className="bg-[#18181B]/70">
+    <div className=" bg-[#18181B]/70 ">
       <div className="mx-3 flex justify-between py-4 md:items-center md:px-4 md:py-2 md:shadow-xl">
         <div className="flex items-center gap-2">
           <img
@@ -23,6 +23,7 @@ function Menu() {
         </div>
 
         <div className="hidden items-center gap-5 text-white md:flex">
+          <button className="cursor-pointer">Inicio</button>
           <button className="cursor-pointer">Nosotros</button>
           <button className="cursor-pointer">Planes</button>
           <button className="cursor-pointer">Contactanos</button>
@@ -38,11 +39,15 @@ function Menu() {
         </button>
       </div>
 
-      <div className={`fixed h-screen w-screen flex flex-col items-center text-white md:hidden 
-      bg-[#18181B]/30 border-white/20 backdrop-blur-md transition-transform duration-450 ease-in-out ${
-        open ? 'translate-x-0' : 'translate-x-full'
+      <div className={`fixed h-screen flex flex-col items-center text-white md:hidden 
+      bg-[#18181B]/30 border-white/20 backdrop-blur-md transition-transform duration-450 ease-in-out rounded-xl ${
+        open ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
+        <div className="flex w-screen justify-between border-b border-white/20 px-10 py-5">
+          <button>Inicio</button>
+          <ChevronRight />
+        </div>
         <div className="flex w-screen justify-between border-b border-white/20 px-10 py-5">
           <button>Nosotros</button>
           <ChevronRight />
