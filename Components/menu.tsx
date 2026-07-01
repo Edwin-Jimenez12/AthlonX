@@ -11,14 +11,9 @@ function Menu() {
       <div className="mx-3 flex justify-between py-4 md:items-center md:px-4 md:py-2 md:shadow-xl">
         <div className="flex items-center gap-2">
           <img
-            className="w-16 cursor-pointer md:w-20"
-            src="/MarcaAthlonX/Logo.svg"
+            className="w-16 cursor-pointer md:w-55"
+            src="/MarcaAthlonX/MarcaHorizontal.svg"
             alt="Logo"
-          />
-          <img
-            className="w-32 cursor-pointer md:w-40"
-            src="/MarcaAthlonX/AthlonX.svg"
-            alt="ATLHONX"
           />
         </div>
 
