@@ -10,10 +10,12 @@ export default function Home() {
                 Donde la disciplina se transforma en resultados
             </p>
             <div className="flex gap-4">
-                <button className="cursor-pointer rounded-full border border-white px-4 py-2 transition duration-300 hover:scale-105">
+                <button className="cursor-pointer rounded-full border border-[#B4FF45] px-4 py-2 transition duration-300 
+                hover:scale-105 shadow-[0_0_10px_#B4FF45] hover:shadow-[0_0_20px_#B4FF45]">
                     Iniciar Sesión
                 </button>
-                <button className="cursor-pointer rounded-full border border-white px-4 py-2 transition duration-300 hover:scale-105">
+                <button className="cursor-pointer rounded-full border border-[#B4FF45] px-4 py-2 transition duration-300 
+                hover:scale-105 shadow-[0_0_10px_#B4FF45] hover:shadow-[0_0_20px_#B4FF45]">
                     Registrarse
                 </button>
             </div>

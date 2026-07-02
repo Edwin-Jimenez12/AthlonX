@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu as MenuIcon, ChevronRight, X } from 'lucide-react'
+import { Menu as MenuIcon, ChevronRight, X, Minus } from 'lucide-react'
 import { useState } from 'react'
 
 function Menu() {
@@ -8,21 +8,46 @@ function Menu() {
   
   return (
     <div className=" bg-[#18181B]/70 ">
-      <div className="mx-3 flex justify-between py-4 md:items-center md:px-4 md:py-2 md:shadow-xl">
+      <div className="mx-3 flex justify-between py-4 md:items-center md:px-4 md:py-3 md:shadow-xl">
         <div className="flex items-center gap-2">
           <img
-            className="w-16 cursor-pointer md:w-55"
+            className="w-50 cursor-pointer md:w-55"
             src="/MarcaAthlonX/MarcaHorizontal.svg"
             alt="Logo"
           />
         </div>
 
         <div className="hidden items-center gap-5 text-white md:flex">
-          <button className="cursor-pointer">Inicio</button>
-          <button className="cursor-pointer">Nosotros</button>
-          <button className="cursor-pointer">Planes</button>
-          <button className="cursor-pointer">Contactanos</button>
-          <button className="cursor-pointer">Iniciar sesión</button>
+          <div className="group flex flex-col items-center hover:text-[#B4FF45] duration-300 cursor-pointer ">
+            <button className="mb-[-10px]">
+              Inicio
+            </button>
+            <Minus className='tex-invisible group-hover:block'/>
+          </div>
+          <div className="flex flex-col items-center hover:text-[#B4FF45] duration-300 cursor-pointer ">
+            <button className="mb-[-10px]">
+              Nosotros
+            </button>
+            <Minus className=''/>
+          </div>
+          <div className="flex flex-col items-center hover:text-[#B4FF45] duration-300 cursor-pointer ">
+            <button className="mb-[-10px]">
+              Planes
+            </button>
+            <Minus className=''/>
+          </div>
+          <div className="flex flex-col items-center hover:text-[#B4FF45] duration-300 cursor-pointer ">
+            <button className="mb-[-10px]">
+              Contactanos
+            </button>
+            <Minus className=''/>
+          </div>
+          <div className="flex flex-col items-center hover:text-[#B4FF45] duration-300 cursor-pointer ">
+            <button className="mb-[-10px]">
+              Iniciar sesión
+            </button>
+            <Minus className=''/>
+          </div>
         </div>
 
         <button
@@ -39,9 +64,10 @@ function Menu() {
         open ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="flex w-screen justify-between border-b border-white/20 px-10 py-5">
+        <div className="flex w-screen justify-between border-b border-white/20 px-10 py-5
+        ">
           <button>Inicio</button>
-          <ChevronRight />
+          
         </div>
         <div className="flex w-screen justify-between border-b border-white/20 px-10 py-5">
           <button>Nosotros</button>
