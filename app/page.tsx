@@ -97,8 +97,7 @@ export default function Home() {
       overflow-y-auto
       bg-black/75
       px-5 py-12
-      backdrop-blur-md
-    "
+      backdrop-blur-md"
   >
     <div
       onClick={(event) => event.stopPropagation()}

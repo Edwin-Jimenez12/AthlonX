@@ -1,9 +1,11 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react'
 
 export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'login' | 'register' }) {
+  const router = useRouter()
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
@@ -21,6 +23,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
     }
     localStorage.setItem('athlonx-auth', 'true')
     setMessage(isRegister ? 'Cuenta creada correctamente.' : 'Sesión iniciada correctamente.')
+
+    if (!isRegister) {
+      router.push('/dashboard')
+    }
   }
 
   return (
