@@ -2,7 +2,7 @@ export const resumenDashboard = {
   torneosActivos: 1,
   equiposRegistrados: 14,
   partidosJugados: 18,
-  jugadores: 112,
+  atletas: 112,
 }
 
 export const torneoActivo = {
@@ -50,7 +50,7 @@ export const categorias = [
   {
     id: 'desarrollo',
     nombre: '2da División',
-    descripcion: 'Jugadores y equipos en crecimiento',
+    descripcion: 'Atletas y equipos en crecimiento',
     equipos: 5,
     partidos: 6,
     tabla: [

@@ -1,8 +1,9 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/dashboard/estadisticas/page": "app/dashboard/estadisticas/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/partidos/page": "app/dashboard/partidos/page.js",
+  "/dashboard/torneos/liga-panamena-rugby/equipos/page": "app/dashboard/torneos/liga-panamena-rugby/equipos/page.js",
+  "/dashboard/torneos/liga-panamena-rugby/page": "app/dashboard/torneos/liga-panamena-rugby/page.js",
+  "/dashboard/torneos/liga-panamena-rugby/partidos/page": "app/dashboard/torneos/liga-panamena-rugby/partidos/page.js",
+  "/dashboard/torneos/liga-panamena-rugby/puntajes/page": "app/dashboard/torneos/liga-panamena-rugby/puntajes/page.js",
   "/dashboard/torneos/page": "app/dashboard/torneos/page.js",
   "/icon.svg/route": "app/icon.svg/route.js",
   "/page": "app/page.js"

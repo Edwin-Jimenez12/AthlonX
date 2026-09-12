@@ -72,6 +72,42 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
+// Validate ../../app/dashboard/torneos/liga-panamena-rugby/equipos/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby/equipos">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/equipos/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/dashboard/torneos/liga-panamena-rugby/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/dashboard/torneos/liga-panamena-rugby/partidos/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby/partidos">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/partidos/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/dashboard/torneos/liga-panamena-rugby/puntajes/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby/puntajes">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/puntajes/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/dashboard/torneos/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos">> = Specific

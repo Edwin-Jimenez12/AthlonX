@@ -5,7 +5,7 @@ const summary = [
   { label: 'Puntos anotados', value: '486', icon: Trophy },
   { label: 'Tries registrados', value: '72', icon: TrendingUp },
   { label: 'Partidos jugados', value: '18', icon: BarChart3 },
-  { label: 'Jugadores activos', value: '112', icon: Users },
+  { label: 'Atletas activos', value: '112', icon: Users },
 ]
 
 export default function StatisticsPage() {

@@ -1,24 +1,30 @@
 {
   "app": {
-    "[project]/app/_not-found/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
-    "[project]/app/dashboard/estadisticas/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
     "[project]/app/dashboard/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
       "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
     ],
-    "[project]/app/dashboard/partidos/page": [
+    "[project]/app/dashboard/torneos/liga-panamena-rugby/equipos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/dashboard/torneos/liga-panamena-rugby/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/dashboard/torneos/liga-panamena-rugby/partidos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/dashboard/torneos/liga-panamena-rugby/puntajes/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",

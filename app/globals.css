@@ -44,3 +44,9 @@ h3 {
 .font-body {
   font-family: var(--font-inter), sans-serif !important;
 }
+
+@media print {
+  @page {
+    margin: 0;
+  }
+}
