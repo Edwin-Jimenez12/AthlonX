@@ -117,3 +117,174 @@ create policy "Users can view their roles" on public.user_roles for select using
 create policy "Authenticated users can view organizations" on public.organizations for select to authenticated using (true);
 create policy "Users can create organizations" on public.organizations for insert to authenticated with check (auth.uid() = created_by);
 create policy "Members can view memberships" on public.organization_members for select to authenticated using (auth.uid() = user_id);
+
+-- AthlonX organization and invitation migration.
+-- Provisional profiles are not auth users until their invitation is claimed.
+update public.organizations set type = 'liga' where type = 'federacion_liga';
+alter table public.organizations drop constraint if exists organizations_type_check;
+alter table public.organizations add constraint organizations_type_check
+  check (type in ('federacion', 'union', 'liga', 'club', 'equipo', 'academia', 'organizacion_deportiva', 'otro'));
+alter table public.organizations add column if not exists parent_organization_id uuid references public.organizations(id) on delete set null;
+alter table public.organizations add column if not exists slug text;
+alter table public.organizations add column if not exists description text;
+alter table public.profiles add column if not exists last_seen_at timestamptz;
+alter table public.profiles add column if not exists is_online boolean not null default false;
+
+create table if not exists public.pending_profiles (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  participation_type text not null check (participation_type in ('entrenador', 'directivo', 'staff', 'atleta')),
+  email text,
+  status text not null default 'pending_claim' check (status in ('pending_claim', 'claimed', 'revoked')),
+  claimed_user_id uuid references auth.users(id) on delete set null,
+  claimed_at timestamptz,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.organization_members add column if not exists pending_profile_id uuid references public.pending_profiles(id) on delete cascade;
+alter table public.organization_members alter column user_id drop not null;
+alter table public.organization_members drop constraint if exists organization_members_identity_check;
+alter table public.organization_members add constraint organization_members_identity_check
+  check (user_id is not null or pending_profile_id is not null);
+
+create table if not exists public.team_divisions (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  discipline text not null default 'rugby',
+  created_at timestamptz not null default now(),
+  unique (team_id, name)
+);
+
+create table if not exists public.team_members (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.organizations(id) on delete cascade,
+  profile_id uuid references public.profiles(id) on delete set null,
+  pending_profile_id uuid references public.pending_profiles(id) on delete set null,
+  role text not null check (role in ('directivo', 'entrenador', 'staff', 'atleta')),
+  status text not null default 'active' check (status in ('active', 'pending', 'revoked')),
+  created_at timestamptz not null default now(),
+  check (profile_id is not null or pending_profile_id is not null)
+);
+
+create table if not exists public.team_division_members (
+  id uuid primary key default gen_random_uuid(),
+  division_id uuid not null references public.team_divisions(id) on delete cascade,
+  team_member_id uuid not null references public.team_members(id) on delete cascade,
+  status text not null default 'active' check (status in ('active', 'pending', 'revoked')),
+  unique (division_id, team_member_id)
+);
+
+alter table public.organization_invites add column if not exists pending_profile_id uuid references public.pending_profiles(id) on delete cascade;
+alter table public.organization_invites add column if not exists team_id uuid references public.organizations(id) on delete set null;
+alter table public.organization_invites add column if not exists division_id uuid references public.team_divisions(id) on delete set null;
+alter table public.organization_invites add column if not exists status text not null default 'active';
+alter table public.organization_invites add column if not exists claimed_at timestamptz;
+
+alter table public.pending_profiles enable row level security;
+alter table public.team_divisions enable row level security;
+alter table public.team_members enable row level security;
+alter table public.team_division_members enable row level security;
+
+drop policy if exists "Authenticated users can view pending profiles" on public.pending_profiles;
+drop policy if exists "Authenticated users can view team divisions" on public.team_divisions;
+drop policy if exists "Authenticated users can view team members" on public.team_members;
+drop policy if exists "Authenticated users can view division members" on public.team_division_members;
+
+create policy "Authenticated users can view pending profiles" on public.pending_profiles for select to authenticated using (true);
+create policy "Authenticated users can view team divisions" on public.team_divisions for select to authenticated using (true);
+create policy "Authenticated users can view team members" on public.team_members for select to authenticated using (true);
+create policy "Authenticated users can view division members" on public.team_division_members for select to authenticated using (true);
+
+grant usage on schema public to authenticated;
+grant select, insert, update on public.pending_profiles, public.team_divisions, public.team_members, public.team_division_members to authenticated;
+grant select, insert, update on public.organization_invites to authenticated;
+
+create extension if not exists pgcrypto;
+
+create or replace function public.create_participation_invite(
+  p_organization_id uuid,
+  p_pending_profile_id uuid,
+  p_role text,
+  p_team_id uuid default null,
+  p_division_id uuid default null
+)
+returns table (invite_id uuid, invitation_code text, expires_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text := upper('AX-' || encode(gen_random_bytes(4), 'hex'));
+  v_expires_at timestamptz := now() + interval '3 minutes';
+  v_invite_id uuid;
+begin
+  if not exists (
+    select 1 from public.organization_members
+    where organization_id = p_organization_id
+      and user_id = auth.uid()
+      and role in ('owner', 'directivo')
+      and status = 'active'
+  ) then
+    raise exception 'No tienes permisos para generar invitaciones';
+  end if;
+
+  insert into public.organization_invites (
+    organization_id, pending_profile_id, team_id, division_id,
+    code_hash, role, expires_at, created_by
+  )
+  values (
+    p_organization_id, p_pending_profile_id, p_team_id, p_division_id,
+    encode(digest(v_code, 'sha256'), 'hex'), p_role, v_expires_at, auth.uid()
+  )
+  returning id into v_invite_id;
+
+  return query select v_invite_id, v_code, v_expires_at;
+end;
+$$;
+
+create or replace function public.claim_participation_invite(p_code text)
+returns table (pending_profile_id uuid, full_name text, participation_type text, organization_id uuid, team_id uuid, division_id uuid)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_invite public.organization_invites%rowtype;
+begin
+  select * into v_invite
+  from public.organization_invites
+  where code_hash = encode(digest(upper(trim(p_code)), 'sha256'), 'hex')
+    and used_at is null
+    and expires_at > now()
+  for update;
+
+  if not found then
+    raise exception 'El código es inválido o ya expiró';
+  end if;
+
+  update public.organization_invites
+  set used_at = now(), used_by = auth.uid(), claimed_at = now(), status = 'claimed'
+  where id = v_invite.id;
+
+  update public.pending_profiles
+  set status = 'claimed', claimed_user_id = auth.uid(), claimed_at = now()
+  where id = v_invite.pending_profile_id;
+
+  insert into public.organization_members (organization_id, user_id, pending_profile_id, role, status)
+  values (v_invite.organization_id, auth.uid(), v_invite.pending_profile_id, v_invite.role, 'active')
+  on conflict (organization_id, user_id, role) do update set status = 'active';
+
+  return query
+  select p.id, p.full_name, p.participation_type,
+    v_invite.organization_id, v_invite.team_id, v_invite.division_id
+  from public.pending_profiles p
+  where p.id = v_invite.pending_profile_id;
+end;
+$$;
+
+revoke all on function public.create_participation_invite(uuid, uuid, text, uuid, uuid) from public;
+revoke all on function public.claim_participation_invite(text) from public;
+grant execute on function public.create_participation_invite(uuid, uuid, text, uuid, uuid) to authenticated;
+grant execute on function public.claim_participation_invite(text) to authenticated;

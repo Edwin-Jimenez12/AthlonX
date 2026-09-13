@@ -54,10 +54,28 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
+// Validate ../../app/dashboard/organizaciones/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/organizaciones">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/organizaciones/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/dashboard/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/dashboard">> = Specific
   const handler = {} as typeof import("../../app/dashboard/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/dashboard/participantes/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/participantes">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/participantes/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -72,19 +90,19 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
-// Validate ../../app/dashboard/torneos/liga-panamena-rugby/equipos/page.tsx
+// Validate ../../app/dashboard/perfil/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby/equipos">> = Specific
-  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/equipos/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/perfil">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/perfil/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
 }
 
-// Validate ../../app/dashboard/torneos/liga-panamena-rugby/page.tsx
+// Validate ../../app/dashboard/torneos/[torneo]/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby">> = Specific
-  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/[torneo]">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/[torneo]/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -99,19 +117,19 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
-// Validate ../../app/dashboard/torneos/liga-panamena-rugby/puntajes/page.tsx
+// Validate ../../app/dashboard/torneos/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos/liga-panamena-rugby/puntajes">> = Specific
-  const handler = {} as typeof import("../../app/dashboard/torneos/liga-panamena-rugby/puntajes/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos">> = Specific
+  const handler = {} as typeof import("../../app/dashboard/torneos/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
 }
 
-// Validate ../../app/dashboard/torneos/page.tsx
+// Validate ../../app/invitacion/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/dashboard/torneos">> = Specific
-  const handler = {} as typeof import("../../app/dashboard/torneos/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/invitacion">> = Specific
+  const handler = {} as typeof import("../../app/invitacion/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

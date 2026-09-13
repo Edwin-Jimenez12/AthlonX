@@ -101,7 +101,7 @@ export default function Home() {
   >
     <div
       onClick={(event) => event.stopPropagation()}
-      className="relative w-full max-w-md"
+      className="relative w-full max-w-2xl"
     >
       <button
         type="button"

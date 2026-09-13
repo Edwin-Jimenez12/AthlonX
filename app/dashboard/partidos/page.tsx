@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { CalendarDays, HeartPulse, MapPin, Brain, Square, FileDown, ChevronDown, ArrowRightLeft } from 'lucide-react'
+import { CalendarDays, Heart, MapPin, Brain, Square, FileDown, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import { categorias, jugadoresPartido, partidoActual, proximosPartidos } from '../../../simulaDatos'
 import TournamentHeader from '../../../Components/tournament-header'
 
@@ -11,6 +11,8 @@ export default function MatchesPage() {
   const [activeRole, setActiveRole] = useState('espectador')
 
   useEffect(() => {
+    const storedRole = window.localStorage.getItem('athlonx-active-role')
+    if (storedRole) setActiveRole(storedRole)
     const syncRole = (event: Event) => setActiveRole((event as CustomEvent<string>).detail)
     window.addEventListener('athlonx-role-change', syncRole)
     return () => window.removeEventListener('athlonx-role-change', syncRole)
@@ -22,7 +24,7 @@ export default function MatchesPage() {
       <div className="mx-auto max-w-7xl px-6 pt-6 md:px-10"><TournamentHeader activeSection="Partidos" /></div>
 
       <section className="mx-auto max-w-7xl p-6 md:p-10">
-        <div className="grid gap-5 xl:grid-cols-[230px_minmax(0,1fr)_230px]"><PlayerList team="Cuervos" players={jugadoresPartido.Cuervos} activeRole={activeRole} /><LiveMatch /><PlayerList team="Titanes" players={jugadoresPartido.Titanes} activeRole={activeRole} /></div>
+        <div className="grid gap-5 xl:grid-cols-[230px_minmax(0,1fr)_230px]"><PlayerList team="Cuervos" players={jugadoresPartido.Cuervos} activeRole={activeRole} /><LiveMatch activeRole={activeRole} /><PlayerList team="Titanes" players={jugadoresPartido.Titanes} activeRole={activeRole} /></div>
 
         <UpcomingMatches />
         <FixturesMenu selectedFixture={selectedFixture} onSelect={setSelectedFixture} />
@@ -33,8 +35,20 @@ export default function MatchesPage() {
   )
 }
 
-function LiveMatch() {
+function LiveMatch({ activeRole }: { activeRole: string }) {
   const [completedChanges, setCompletedChanges] = useState<{ team: 'local' | 'visitante'; teamName: string; out: string; in: string }[]>([])
+  const [score, setScore] = useState({ local: partidoActual.localPuntos, visitante: partidoActual.visitantePuntos })
+  const [events, setEvents] = useState({ localTries: 2, visitanteTries: 2, localConversiones: 2, visitanteConversiones: 1, localPenales: 2, visitantePenales: 3 })
+  const [pendingEvent, setPendingEvent] = useState<{ side: 'local' | 'visitante'; label: string; points: number; event: 'Tries' | 'Conversiones' | 'Penales' } | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(261)
+  const [isClockPaused, setIsClockPaused] = useState(true)
+  const [matchPeriod, setMatchPeriod] = useState(partidoActual.periodo === '2do tiempo' ? 'Segundo tiempo' : 'Primer tiempo')
+
+  useEffect(() => {
+    if (isClockPaused) return
+    const timer = window.setInterval(() => setElapsedSeconds((current) => current + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [isClockPaused])
 
   useEffect(() => {
     const handleCompletedChange = (event: Event) => {
@@ -46,13 +60,21 @@ function LiveMatch() {
   }, [])
 
   const stats = [
-    ['Tries', '2', '2'],
-    ['Conversiones', '2', '1'],
-    ['Penales', '2', '3'],
+    ['Tries', String(events.localTries), String(events.visitanteTries)],
+    ['Conversiones', String(events.localConversiones), String(events.visitanteConversiones)],
+    ['Penales', String(events.localPenales), String(events.visitantePenales)],
     ['Tarjetas amarillas', '1', '2'],
     ['Tarjetas rojas', '0', '0'],
     ['Cambios', String(5 + completedChanges.filter((change) => change.team === 'local').length), String(4 + completedChanges.filter((change) => change.team === 'visitante').length)],
   ]
+  const requestEvent = (side: 'local' | 'visitante', event: 'Tries' | 'Conversiones' | 'Penales', points: number, label: string) => setPendingEvent({ side, event, points, label })
+  const confirmEvent = () => {
+    if (!pendingEvent) return
+    const prefix = pendingEvent.side
+    setScore((current) => ({ ...current, [prefix]: current[prefix] + pendingEvent.points }))
+    setEvents((current) => ({ ...current, [`${prefix}${pendingEvent.event}`]: current[`${prefix}${pendingEvent.event}` as keyof typeof current] + 1 }))
+    setPendingEvent(null)
+  }
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-[#081522] text-white shadow-sm">
@@ -65,12 +87,13 @@ function LiveMatch() {
       </div>
 
       <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <TeamScore name={partidoActual.local} logo={partidoActual.localLogo} score={partidoActual.localPuntos} />
+        <div><TeamScore name={partidoActual.local} logo={partidoActual.localLogo} score={score.local} />{activeRole === 'directivo' && <><MatchControls onAction={(event, points, label) => requestEvent('local', event, points, label)} />{pendingEvent?.side === 'local' && <EventConfirmation event={pendingEvent} onConfirm={confirmEvent} onCancel={() => setPendingEvent(null)} />}</>}</div>
         <div className="text-center">
-          <p className="text-4xl font-black">{partidoActual.tiempo}</p>
-          <p className="text-sm text-slate-400">{partidoActual.periodo}</p>
+          <p className="text-4xl font-black">{formatMatchTime(elapsedSeconds)}</p>
+          <select value={matchPeriod} onChange={(event) => setMatchPeriod(event.target.value)} disabled={activeRole !== 'directivo'} className="mt-1 bg-transparent text-center text-sm text-slate-400 outline-none disabled:appearance-none"><option className="text-[#17212b]">Primer tiempo</option><option className="text-[#17212b]">Segundo tiempo</option></select>
+          {activeRole === 'directivo' && <div className="mt-3 flex flex-col items-center gap-2"><div className="flex flex-wrap justify-center gap-1"><button type="button" onClick={() => setElapsedSeconds((current) => Math.max(0, current - 10))} className="rounded-md border border-white/20 px-2 py-1 text-[11px] font-bold">-10 s</button><button type="button" onClick={() => setElapsedSeconds((current) => current + 10)} className="rounded-md border border-white/20 px-2 py-1 text-[11px] font-bold">+10 s</button></div><div className="flex flex-wrap justify-center gap-1"><button type="button" onClick={() => setIsClockPaused(true)} disabled={isClockPaused} className="rounded-md border border-white/20 px-2 py-1 text-[11px] font-bold disabled:opacity-40">Pausar</button><button type="button" onClick={() => setIsClockPaused(false)} disabled={!isClockPaused} className="rounded-md border border-[#70b719] px-2 py-1 text-[11px] font-bold text-[#B4FF45] disabled:opacity-40">Reanudar</button></div><button type="button" onClick={() => { setElapsedSeconds(0); setIsClockPaused(true) }} className="rounded-md border border-red-300 px-3 py-1 text-[11px] font-bold text-red-300">Reiniciar tiempo</button></div>}
         </div>
-        <TeamScore name={partidoActual.visitante} logo={partidoActual.visitanteLogo} score={partidoActual.visitantePuntos} />
+        <div><TeamScore name={partidoActual.visitante} logo={partidoActual.visitanteLogo} score={score.visitante} />{activeRole === 'directivo' && <><MatchControls onAction={(event, points, label) => requestEvent('visitante', event, points, label)} />{pendingEvent?.side === 'visitante' && <EventConfirmation event={pendingEvent} onConfirm={confirmEvent} onCancel={() => setPendingEvent(null)} />}</>}</div>
       </div>
 
       <div className="mx-5 mb-5 overflow-hidden rounded-xl border border-white/10">
@@ -89,7 +112,7 @@ function LiveMatch() {
         <p className="text-xs font-bold uppercase tracking-[.18em] text-slate-400">Indicadores de jugadores</p>
         <div className="mt-3 grid gap-2 text-sm text-slate-200 sm:grid-cols-3">
           <span className="flex items-center gap-2"><Square size={15} fill="#facc15" className="text-yellow-500" /> Tarjeta amarilla</span>
-          <span className="flex items-center gap-2"><HeartPulse size={16} className="text-red-500" /> Jugador lesionado</span>
+          <span className="flex items-center gap-2"><Heart size={16} className="text-red-500" /> Jugador lesionado</span>
           <span className="flex items-center gap-2"><Brain size={16} className="text-orange-500" /> Conmoción cerebral</span>
           <span className="flex items-center gap-2"><Square size={15} fill="#ef4444" className="text-red-500" /> Tarjeta roja</span>
         </div>
@@ -126,14 +149,23 @@ function PlayerGroup({ title, players, substitutes, statusByPlayer, indicatorByP
   const [indicatorReason, setIndicatorReason] = useState('')
   const isDirectivo = activeRole === 'directivo'
   const isEntrenador = activeRole === 'entrenador'
-  return <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p><div className="mt-2 space-y-2">{players.map((player) => { const changedIn = changes.some((change) => change.in === player.nombre); const canRequest = isEntrenador && title === 'En cancha'; const statuses = [...(statusByPlayer[player.nombre] ?? []), ...(indicatorByPlayer[player.nombre] ?? [])]; return <div key={player.numero}><button type="button" onClick={() => { setPlayerOut(player.nombre); onSelect(selectedPlayer === player.numero ? null : player.numero) }} disabled={isEntrenador && !canRequest} className="flex w-full items-center gap-2 rounded-lg bg-slate-50 p-2 text-left hover:bg-[#e9fbd0] disabled:cursor-default"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e9fbd0] font-bold text-[#4c8500]">{player.numero}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold">{player.nombre}</span>{changedIn && <span className="text-xs font-bold text-[#4c8500]">CAMBIO</span>}<PlayerStatus statuses={statuses} /></button>{selectedPlayer === player.numero && <div className="rounded-b-lg border border-t-0 border-slate-200 bg-white p-2"><p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{isDirectivo ? 'Registrar indicador' : isEntrenador ? 'Solicitar cambio' : 'Información del jugador'}</p>{isDirectivo && <div className="space-y-2">{indicatorReasons[player.nombre]?.length > 0 && <div className="space-y-2"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Motivos registrados</p>{indicatorReasons[player.nombre].map((reason, index) => <div key={`${player.nombre}-${index}`} className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">{indicatorByPlayer[player.nombre]?.[index] === 'yellow' && <Square size={14} fill="#facc15" className="mt-0.5 shrink-0 text-yellow-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'red' && <Square size={14} fill="#ef4444" className="mt-0.5 shrink-0 text-red-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'injured' && <HeartPulse size={15} className="mt-0.5 shrink-0 text-red-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'concussion' && <Brain size={15} className="mt-0.5 shrink-0 text-orange-500" />}<span>{reason}</span></div>)}</div>}<div className="grid grid-cols-2 gap-1 text-xs"><button type="button" onClick={() => setSelectedIndicator('yellow')} className="rounded-md p-2 text-left hover:bg-yellow-50"><Square size={13} fill="#facc15" className="mr-1 inline text-yellow-500" />Amarilla</button><button type="button" onClick={() => setSelectedIndicator('red')} className="rounded-md p-2 text-left hover:bg-red-50"><Square size={13} fill="#ef4444" className="mr-1 inline text-red-500" />Roja</button><button type="button" onClick={() => setSelectedIndicator('injured')} className="rounded-md p-2 text-left hover:bg-red-50"><HeartPulse size={14} className="mr-1 inline text-red-500" />Lesión</button><button type="button" onClick={() => setSelectedIndicator('concussion')} className="rounded-md p-2 text-left hover:bg-orange-50"><Brain size={14} className="mr-1 inline text-orange-500" />Conmoción</button></div>{selectedIndicator && <div className="rounded-lg border border-slate-200 bg-slate-50 p-2"><label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Motivo</label><textarea value={indicatorReason} onChange={(event) => setIndicatorReason(event.target.value)} placeholder="Describe lo ocurrido" rows={3} className="mt-1 w-full resize-none rounded-md border border-slate-200 px-2 py-2 text-sm" /><button type="button" disabled={!indicatorReason.trim()} onClick={() => { onApplyIndicator(player.nombre, selectedIndicator, indicatorReason.trim()); setSelectedIndicator(''); setIndicatorReason('') }} className="mt-2 w-full rounded-md bg-[#081522] px-2 py-2 text-xs font-bold text-white disabled:opacity-40">Aplicar indicador</button></div>}</div>}{canRequest && <div className="space-y-2"><select value={playerOut} onChange={(event) => setPlayerOut(event.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-2 text-sm"><option value="">Jugador que sale</option>{players.map((item) => <option key={item.numero} value={item.nombre}>{item.nombre}</option>)}</select><select value={playerIn} onChange={(event) => setPlayerIn(event.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-2 text-sm"><option value="">Jugador suplente que entra</option>{substitutes.map((item) => <option key={item.numero} value={item.nombre}>{item.nombre}</option>)}</select><button type="button" disabled={!playerOut || !playerIn} onClick={() => onRequestChange({ out: playerOut, in: playerIn })} className="flex w-full items-center justify-center gap-1 rounded-md bg-[#081522] px-2 py-2 text-xs font-bold text-white disabled:opacity-40"><ArrowRightLeft size={13} /> Solicitar cambio</button></div>}{!isDirectivo && !isEntrenador && <p className="text-xs text-slate-500">Sin acciones disponibles para este rol.</p>}</div>}</div> })}</div></div>
+  return <div className="mt-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p><div className="mt-2 space-y-2">{players.map((player) => { const changedIn = changes.some((change) => change.in === player.nombre); const canRequest = isEntrenador && title === 'En cancha'; const statuses = [...(statusByPlayer[player.nombre] ?? []), ...(indicatorByPlayer[player.nombre] ?? [])]; return <div key={player.numero}><button type="button" onClick={() => { setPlayerOut(player.nombre); onSelect(selectedPlayer === player.numero ? null : player.numero) }} disabled={isEntrenador && !canRequest} className="flex w-full items-center gap-2 rounded-lg bg-slate-50 p-2 text-left hover:bg-[#e9fbd0] disabled:cursor-default"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e9fbd0] font-bold text-[#4c8500]">{player.numero}</span><span className="min-w-0 flex-1 truncate text-sm font-semibold">{player.nombre}</span>{changedIn && <span className="text-xs font-bold text-[#4c8500]">CAMBIO</span>}<PlayerStatus statuses={statuses} /></button>{selectedPlayer === player.numero && <div className="rounded-b-lg border border-t-0 border-slate-200 bg-white p-2"><p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{isDirectivo ? 'Registrar indicador' : isEntrenador ? 'Solicitar cambio' : 'Información del jugador'}</p>{isDirectivo && <div className="space-y-2">{indicatorReasons[player.nombre]?.length > 0 && <div className="space-y-2"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Motivos registrados</p>{indicatorReasons[player.nombre].map((reason, index) => <div key={`${player.nombre}-${index}`} className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">{indicatorByPlayer[player.nombre]?.[index] === 'yellow' && <Square size={14} fill="#facc15" className="mt-0.5 shrink-0 text-yellow-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'red' && <Square size={14} fill="#ef4444" className="mt-0.5 shrink-0 text-red-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'injured' && <Heart size={15} className="mt-0.5 shrink-0 text-red-500" />}{indicatorByPlayer[player.nombre]?.[index] === 'concussion' && <Brain size={15} className="mt-0.5 shrink-0 text-orange-500" />}<span>{reason}</span></div>)}</div>}<div className="grid grid-cols-2 gap-1 text-xs"><button type="button" onClick={() => setSelectedIndicator('yellow')} className="rounded-md p-2 text-left hover:bg-yellow-50"><Square size={13} fill="#facc15" className="mr-1 inline text-yellow-500" />Amarilla</button><button type="button" onClick={() => setSelectedIndicator('red')} className="rounded-md p-2 text-left hover:bg-red-50"><Square size={13} fill="#ef4444" className="mr-1 inline text-red-500" />Roja</button><button type="button" onClick={() => setSelectedIndicator('injured')} className="rounded-md p-2 text-left hover:bg-red-50"><Heart size={14} className="mr-1 inline text-red-500" />Lesión</button><button type="button" onClick={() => setSelectedIndicator('concussion')} className="rounded-md p-2 text-left hover:bg-orange-50"><Brain size={14} className="mr-1 inline text-orange-500" />Conmoción</button></div>{selectedIndicator && <div className="rounded-lg border border-slate-200 bg-slate-50 p-2"><label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Motivo</label><textarea value={indicatorReason} onChange={(event) => setIndicatorReason(event.target.value)} placeholder="Describe lo ocurrido" rows={3} className="mt-1 w-full resize-none rounded-md border border-slate-200 px-2 py-2 text-sm" /><button type="button" disabled={!indicatorReason.trim()} onClick={() => { onApplyIndicator(player.nombre, selectedIndicator, indicatorReason.trim()); setSelectedIndicator(''); setIndicatorReason('') }} className="mt-2 w-full rounded-md bg-[#081522] px-2 py-2 text-xs font-bold text-white disabled:opacity-40">Aplicar indicador</button></div>}</div>}{canRequest && <div className="space-y-2"><select value={playerOut} onChange={(event) => setPlayerOut(event.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-2 text-sm"><option value="">Jugador que sale</option>{players.map((item) => <option key={item.numero} value={item.nombre}>{item.nombre}</option>)}</select><select value={playerIn} onChange={(event) => setPlayerIn(event.target.value)} className="w-full rounded-md border border-slate-200 px-2 py-2 text-sm"><option value="">Jugador suplente que entra</option>{substitutes.map((item) => <option key={item.numero} value={item.nombre}>{item.nombre}</option>)}</select><button type="button" disabled={!playerOut || !playerIn} onClick={() => onRequestChange({ out: playerOut, in: playerIn })} className="flex w-full items-center justify-center gap-1 rounded-md bg-[#081522] px-2 py-2 text-xs font-bold text-white disabled:opacity-40"><ArrowRightLeft size={13} /> Solicitar cambio</button></div>}{!isDirectivo && !isEntrenador && <p className="text-xs text-slate-500">Sin acciones disponibles para este rol.</p>}</div>}</div> })}</div></div>
 }
 
 function PlayerStatus({ statuses }: { statuses: ('yellow' | 'red' | 'injured' | 'concussion')[] }) {
-  return <span className="flex shrink-0 items-center gap-1" aria-label="Estado del jugador">{statuses.includes('yellow') && <Square size={15} fill="#facc15" className="text-yellow-500" aria-label="Tarjeta amarilla" />}{statuses.includes('red') && <Square size={15} fill="#ef4444" className="text-red-500" aria-label="Tarjeta roja" />}{statuses.includes('injured') && <HeartPulse size={16} className="text-red-500" aria-label="Jugador lesionado" />}{statuses.includes('concussion') && <Brain size={16} className="text-orange-500" aria-label="Conmoción cerebral" />}</span>
+  return <span className="flex shrink-0 items-center gap-1" aria-label="Estado del jugador">{statuses.includes('yellow') && <Square size={15} fill="#facc15" className="text-yellow-500" aria-label="Tarjeta amarilla" />}{statuses.includes('red') && <Square size={15} fill="#ef4444" className="text-red-500" aria-label="Tarjeta roja" />}{statuses.includes('injured') && <Heart size={16} className="text-red-500" aria-label="Jugador lesionado" />}{statuses.includes('concussion') && <Brain size={16} className="text-orange-500" aria-label="Conmoción cerebral" />}</span>
+}
+
+function MatchControls({ onAction }: { onAction: (event: 'Tries' | 'Conversiones' | 'Penales', points: number, label: string) => void }) {
+  return <div className="mt-4 grid grid-cols-2 gap-1 text-xs"><button type="button" onClick={() => onAction('Tries', 5, 'try')} className="rounded-md border border-[#70b719] px-2 py-2 font-bold text-[#4c8500]">+ Try</button><button type="button" onClick={() => onAction('Conversiones', 2, 'conversión')} className="rounded-md border border-[#70b719] px-2 py-2 font-bold text-[#4c8500]">+ Conversión</button><button type="button" onClick={() => onAction('Penales', 3, 'penal')} className="col-span-2 rounded-md bg-[#e9fbd0] px-2 py-2 font-bold text-[#365e00]">+ Penal</button></div>
+}
+
+function EventConfirmation({ event, onConfirm, onCancel }: { event: { label: string }; onConfirm: () => void; onCancel: () => void }) {
+  return <div className="mt-2 rounded-lg border border-[#70b719] bg-[#f4f8ef] p-2 text-left text-xs text-[#365e00]"><p>¿Confirmar {event.label}?</p><div className="mt-2 flex gap-1"><button type="button" onClick={onConfirm} className="flex-1 rounded-md bg-[#081522] px-2 py-1.5 font-bold text-white">Confirmar</button><button type="button" onClick={onCancel} className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 font-semibold text-slate-600">Cancelar</button></div></div>
 }
 
 function TeamScore({ name, logo, score }: { name: string; logo: string; score: number }) { return <div className="flex items-center justify-center gap-4"><TeamLogo src={logo} name={name} /><div><p className="text-lg font-bold">{name}</p><p className="text-5xl font-black text-[#B4FF45]">{score}</p></div></div> }
+function formatMatchTime(totalSeconds: number) { const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0'); const seconds = (totalSeconds % 60).toString().padStart(2, '0'); return `${minutes}:${seconds}` }
 function TeamLogo({ src, name }: { src: string; name: string }) { return src ? <img src={src} alt={`Logo de ${name}`} className="h-16 w-16 object-contain" /> : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-[#70b719]">{name.slice(0, 2).toUpperCase()}</span> }
 
 function UpcomingMatches() { return <section className="mt-8"><div className="mb-4 flex items-center justify-between"><div><h2 className="text-2xl font-bold">Próximos partidos</h2><p className="text-slate-500">Agenda de la siguiente jornada.</p></div><CalendarDays className="text-[#70b719]" /></div><div className="grid gap-4 lg:grid-cols-3">{proximosPartidos.map((match) => <article key={match.hora} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">PROGRAMADO</span><div className="mt-4 flex items-center justify-between gap-2"><TeamLogo src={match.localLogo} name={match.local} /><div className="text-center"><p className="font-bold">{match.hora}</p><p className="text-xs text-slate-500">{match.categoria}</p></div><TeamLogo src={match.visitanteLogo} name={match.visitante} /></div><div className="mt-4 flex items-center justify-between text-sm text-slate-500"><span><MapPin className="mr-1 inline" size={15} />Cancha principal</span><span>{match.fecha}</span></div><Link href="/dashboard/torneos/liga-panamena-rugby#fixture" className="mt-4 block w-full rounded-lg border border-[#70b719] px-4 py-2 text-center font-semibold text-[#4c8500] hover:bg-[#e9fbd0]">Ver en el cronograma · Próximamente</Link></article>)}</div></section> }

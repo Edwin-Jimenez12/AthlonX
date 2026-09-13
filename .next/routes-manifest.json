@@ -1,1 +1,128 @@
-{"version":3,"caseSensitive":false,"basePath":"","rewrites":{"beforeFiles":[],"afterFiles":[],"fallback":[]},"redirects":[{"source":"/:path+/","destination":"/:path+","permanent":true,"internal":true,"regex":"^(?:\\/((?:[^\\/]+?)(?:\\/(?:[^\\/]+?))*))\\/$"}],"headers":[]}
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/dashboard/torneos/[torneo]",
+      "regex": "^/dashboard/torneos/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtorneo": "nxtPtorneo"
+      },
+      "namedRegex": "^/dashboard/torneos/(?<nxtPtorneo>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/equipos",
+      "regex": "^/dashboard/equipos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/equipos(?:/)?$"
+    },
+    {
+      "page": "/dashboard/estadisticas",
+      "regex": "^/dashboard/estadisticas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/estadisticas(?:/)?$"
+    },
+    {
+      "page": "/dashboard/organizaciones",
+      "regex": "^/dashboard/organizaciones(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/organizaciones(?:/)?$"
+    },
+    {
+      "page": "/dashboard/participantes",
+      "regex": "^/dashboard/participantes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/participantes(?:/)?$"
+    },
+    {
+      "page": "/dashboard/partidos",
+      "regex": "^/dashboard/partidos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/partidos(?:/)?$"
+    },
+    {
+      "page": "/dashboard/perfil",
+      "regex": "^/dashboard/perfil(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/perfil(?:/)?$"
+    },
+    {
+      "page": "/dashboard/torneos",
+      "regex": "^/dashboard/torneos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/torneos(?:/)?$"
+    },
+    {
+      "page": "/dashboard/torneos/liga-panamena-rugby/partidos",
+      "regex": "^/dashboard/torneos/liga\\-panamena\\-rugby/partidos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/torneos/liga\\-panamena\\-rugby/partidos(?:/)?$"
+    },
+    {
+      "page": "/icon.svg",
+      "regex": "^/icon\\.svg(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icon\\.svg(?:/)?$"
+    },
+    {
+      "page": "/invitacion",
+      "regex": "^/invitacion(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/invitacion(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

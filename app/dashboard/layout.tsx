@@ -3,11 +3,11 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Menu, Settings, Trophy, X } from 'lucide-react'
+import { Menu, Trophy, UserCircle, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const navigation = [
-  ['Dashboard', BarChart3, '/dashboard'],
+  ['Mi perfil', UserCircle, '/dashboard/perfil'],
   ['Torneos', Trophy, '/dashboard/torneos'],
 ] as const
 
@@ -41,6 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const closeMenu = () => setMenuOpen(false)
   const changeRole = (role: string) => {
     setActiveRole(role)
+    window.localStorage.setItem('athlonx-active-role', role)
     window.dispatchEvent(new CustomEvent('athlonx-role-change', { detail: role }))
   }
 
@@ -66,8 +67,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </nav>
-        <div className="mt-8 border-t border-white/10 pt-5"><label className="block text-xs uppercase tracking-wider text-slate-500">Vista activa</label><select value={activeRole} onChange={(event) => changeRole(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold capitalize text-white outline-none focus:border-[#B4FF45]"><option className="text-[#17212b]" value="espectador">Espectador</option><option className="text-[#17212b]" value="atleta">Atleta</option><option className="text-[#17212b]" value="entrenador">Entrenador</option><option className="text-[#17212b]" value="directivo">Directivo</option></select></div>
-        <button type="button" onClick={() => setNotice('Configuración estará disponible en próximas actualizaciones.')} className="absolute bottom-24 flex items-center gap-4 text-slate-400 hover:text-white"><Settings size={20} /> Configuración</button>
         <div className="absolute bottom-7 left-6 right-6 flex items-center gap-2 border-t border-white/10 pt-4"><span className="whitespace-nowrap text-[11px] text-slate-400">Desarrollado por</span><span className="text-slate-600">|</span><img src="/NexDigital.svg" alt="Nex Digital" className="w-24 opacity-75" /></div>
       </aside>
       {pathname !== '/dashboard' && <div className="border-b border-slate-200 bg-white px-6 py-5 print:hidden lg:ml-64 md:px-10"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4"><div><p className="font-heading text-2xl font-black uppercase tracking-wide text-[#17212b]">{sectionLabel}</p><p className="font-body text-sm font-normal text-[#4c8500]">{profileName}</p></div></div></div>}
