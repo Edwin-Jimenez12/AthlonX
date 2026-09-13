@@ -15,6 +15,13 @@
       "static/css/f6a842e3b413a2bc.css",
       "static/chunks/app/layout-3f95732071788e31.js"
     ],
+    "/invitacion/page": [
+      "static/chunks/webpack-6b552abb30e00dcc.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-37e0f0325134c4d7.js",
+      "static/chunks/main-app-7def45ca0c238c10.js",
+      "static/chunks/app/invitacion/page-0971b72c3fc6f2ac.js"
+    ],
     "/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
@@ -24,13 +31,6 @@
       "static/chunks/650-269842ca260fc98c.js",
       "static/chunks/203-f5a15b8493a57e91.js",
       "static/chunks/app/page-568ae6372204a6a2.js"
-    ],
-    "/invitacion/page": [
-      "static/chunks/webpack-6b552abb30e00dcc.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-37e0f0325134c4d7.js",
-      "static/chunks/main-app-7def45ca0c238c10.js",
-      "static/chunks/app/invitacion/page-0971b72c3fc6f2ac.js"
     ],
     "/dashboard/layout": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
@@ -42,12 +42,21 @@
       "static/chunks/203-f5a15b8493a57e91.js",
       "static/chunks/app/dashboard/layout-85e5f0b045381fb5.js"
     ],
-    "/dashboard/estadisticas/page": [
+    "/dashboard/equipos/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-37e0f0325134c4d7.js",
       "static/chunks/main-app-7def45ca0c238c10.js",
-      "static/chunks/app/dashboard/estadisticas/page-7221697974543879.js"
+      "static/chunks/app/dashboard/equipos/page-d62ce98bd54708b4.js"
+    ],
+    "/dashboard/partidos/page": [
+      "static/chunks/webpack-6b552abb30e00dcc.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-37e0f0325134c4d7.js",
+      "static/chunks/main-app-7def45ca0c238c10.js",
+      "static/chunks/203-f5a15b8493a57e91.js",
+      "static/chunks/324-0e57f8380c02c7bf.js",
+      "static/chunks/app/dashboard/partidos/page-976c5b00e026342d.js"
     ],
     "/dashboard/organizaciones/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
@@ -58,12 +67,12 @@
       "static/chunks/650-269842ca260fc98c.js",
       "static/chunks/app/dashboard/organizaciones/page-ba4e4c3709e3a66c.js"
     ],
-    "/dashboard/equipos/page": [
+    "/dashboard/estadisticas/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-37e0f0325134c4d7.js",
       "static/chunks/main-app-7def45ca0c238c10.js",
-      "static/chunks/app/dashboard/equipos/page-d62ce98bd54708b4.js"
+      "static/chunks/app/dashboard/estadisticas/page-7221697974543879.js"
     ],
     "/dashboard/participantes/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
@@ -74,6 +83,15 @@
       "static/chunks/650-269842ca260fc98c.js",
       "static/chunks/app/dashboard/participantes/page-a907c7436728807d.js"
     ],
+    "/dashboard/torneos/page": [
+      "static/chunks/webpack-6b552abb30e00dcc.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-37e0f0325134c4d7.js",
+      "static/chunks/main-app-7def45ca0c238c10.js",
+      "static/chunks/44530001-61eba8602745b10c.js",
+      "static/chunks/650-269842ca260fc98c.js",
+      "static/chunks/app/dashboard/torneos/page-371621608f274173.js"
+    ],
     "/dashboard/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
@@ -82,15 +100,6 @@
       "static/chunks/44530001-61eba8602745b10c.js",
       "static/chunks/650-269842ca260fc98c.js",
       "static/chunks/app/dashboard/page-3b86a88b410ce1a8.js"
-    ],
-    "/dashboard/perfil/page": [
-      "static/chunks/webpack-6b552abb30e00dcc.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-37e0f0325134c4d7.js",
-      "static/chunks/main-app-7def45ca0c238c10.js",
-      "static/chunks/44530001-61eba8602745b10c.js",
-      "static/chunks/650-269842ca260fc98c.js",
-      "static/chunks/app/dashboard/perfil/page-163a193aac089ffc.js"
     ],
     "/dashboard/torneos/liga-panamena-rugby/partidos/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
@@ -110,23 +119,14 @@
       "static/chunks/650-269842ca260fc98c.js",
       "static/chunks/app/dashboard/torneos/[torneo]/page-aa47d51073c916e2.js"
     ],
-    "/dashboard/partidos/page": [
-      "static/chunks/webpack-6b552abb30e00dcc.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-37e0f0325134c4d7.js",
-      "static/chunks/main-app-7def45ca0c238c10.js",
-      "static/chunks/203-f5a15b8493a57e91.js",
-      "static/chunks/324-0e57f8380c02c7bf.js",
-      "static/chunks/app/dashboard/partidos/page-976c5b00e026342d.js"
-    ],
-    "/dashboard/torneos/page": [
+    "/dashboard/perfil/page": [
       "static/chunks/webpack-6b552abb30e00dcc.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-37e0f0325134c4d7.js",
       "static/chunks/main-app-7def45ca0c238c10.js",
       "static/chunks/44530001-61eba8602745b10c.js",
       "static/chunks/650-269842ca260fc98c.js",
-      "static/chunks/app/dashboard/torneos/page-371621608f274173.js"
+      "static/chunks/app/dashboard/perfil/page-163a193aac089ffc.js"
     ]
   }
 }
