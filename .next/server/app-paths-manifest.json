@@ -1,16 +1,16 @@
 {
-  "/icon.svg/route": "app/icon.svg/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/invitacion/page": "app/invitacion/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
   "/page": "app/page.js",
-  "/dashboard/equipos/page": "app/dashboard/equipos/page.js",
-  "/dashboard/partidos/page": "app/dashboard/partidos/page.js",
-  "/dashboard/organizaciones/page": "app/dashboard/organizaciones/page.js",
+  "/invitacion/page": "app/invitacion/page.js",
   "/dashboard/estadisticas/page": "app/dashboard/estadisticas/page.js",
-  "/dashboard/participantes/page": "app/dashboard/participantes/page.js",
-  "/dashboard/torneos/page": "app/dashboard/torneos/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/torneos/liga-panamena-rugby/partidos/page": "app/dashboard/torneos/liga-panamena-rugby/partidos/page.js",
   "/dashboard/torneos/[torneo]/page": "app/dashboard/torneos/[torneo]/page.js",
-  "/dashboard/perfil/page": "app/dashboard/perfil/page.js"
+  "/dashboard/torneos/liga-panamena-rugby/partidos/page": "app/dashboard/torneos/liga-panamena-rugby/partidos/page.js",
+  "/dashboard/equipos/page": "app/dashboard/equipos/page.js",
+  "/dashboard/organizaciones/page": "app/dashboard/organizaciones/page.js",
+  "/dashboard/perfil/page": "app/dashboard/perfil/page.js",
+  "/dashboard/participantes/page": "app/dashboard/participantes/page.js",
+  "/dashboard/partidos/page": "app/dashboard/partidos/page.js",
+  "/dashboard/torneos/page": "app/dashboard/torneos/page.js"
 }
