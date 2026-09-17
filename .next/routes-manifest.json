@@ -48,6 +48,36 @@
       "namedRegex": "^/dashboard(?:/)?$"
     },
     {
+      "page": "/dashboard/actualizaciones",
+      "regex": "^/dashboard/actualizaciones(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/actualizaciones(?:/)?$"
+    },
+    {
+      "page": "/dashboard/busqueda",
+      "regex": "^/dashboard/busqueda(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/busqueda(?:/)?$"
+    },
+    {
+      "page": "/dashboard/configuracion",
+      "regex": "^/dashboard/configuracion(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/configuracion(?:/)?$"
+    },
+    {
+      "page": "/dashboard/entrenador",
+      "regex": "^/dashboard/entrenador(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/entrenador(?:/)?$"
+    },
+    {
+      "page": "/dashboard/equipo",
+      "regex": "^/dashboard/equipo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/equipo(?:/)?$"
+    },
+    {
       "page": "/dashboard/equipos",
       "regex": "^/dashboard/equipos(?:/)?$",
       "routeKeys": {},
@@ -82,6 +112,12 @@
       "regex": "^/dashboard/perfil(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/dashboard/perfil(?:/)?$"
+    },
+    {
+      "page": "/dashboard/staff",
+      "regex": "^/dashboard/staff(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/staff(?:/)?$"
     },
     {
       "page": "/dashboard/torneos",

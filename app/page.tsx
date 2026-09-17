@@ -4,6 +4,7 @@ import { ArrowRight, BarChart3, CalendarDays, ClipboardList, MapPin, ShieldCheck
 import { useEffect, useState } from 'react'
 import Menu from '../Components/menu'
 import AuthPanel from '../Components/auth-panel'
+import { PlatformUpdates } from '../Components/platform-updates'
 
 const highlights = [
   { icon: CalendarDays, title: 'Torneos', text: 'Organiza cada jornada' },
@@ -50,7 +51,7 @@ export default function Home() {
             <p className="font-heading text-xs font-semibold uppercase tracking-[.42em] text-[#B4FF45]">Nosotros</p>
             <h2 className="font-display mt-5 text-5xl uppercase leading-none md:text-7xl">El rendimiento <span className="text-[#B4FF45]">también se organiza</span></h2>
             <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">AthlonX conecta la gestión de torneos con el rendimiento deportivo. Diseñamos una plataforma para que equipos y organizadores tengan claridad, control y mejores decisiones.</p>
-            <div className="mt-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">{['Torneos mejor organizados', 'Datos útiles en tiempo real', 'Gestiona más equipos y jugadores'].map((item, index) => <div key={item} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4"><span className="font-metric text-2xl text-[#B4FF45]">0{index + 1}</span><span className="font-heading text-lg">{item}</span></div>)}</div>
+            <div className="mt-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">{['Torneos mejor organizados', 'Datos útiles en tiempo real', 'Gestiona más equipos y atletas'].map((item, index) => <div key={item} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4"><span className="font-metric text-2xl text-[#B4FF45]">0{index + 1}</span><span className="font-heading text-lg">{item}</span></div>)}</div>
           </div>
           <div className="rounded-[2rem] border border-white/15 bg-[#0b1722]/80 p-5 shadow-2xl backdrop-blur-xl md:p-7">
             <div className="flex items-center justify-between border-b border-white/10 pb-5"><div><p className="font-heading text-xs uppercase tracking-[.3em] text-slate-400">Torneo sevens</p><p className="font-display mt-1 text-3xl uppercase">Partido en vivo</p></div><span className="rounded-full border border-[#B4FF45]/40 bg-[#B4FF45]/10 px-3 py-1 text-xs font-bold text-[#B4FF45]">EN VIVO</span></div>
@@ -70,6 +71,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <PlatformUpdates />
       <section id="contacto" className="relative px-6 py-24 md:px-14 lg:px-24">
         <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_1fr]">
           <div className="rounded-[2rem] border border-white/15 bg-[#0b1722]/85 p-6 shadow-2xl backdrop-blur-xl md:p-9">

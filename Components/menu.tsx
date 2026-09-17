@@ -8,6 +8,7 @@ const links = [
   { label: 'Inicio', href: '/' },
   { label: 'Nosotros', href: '#nosotros' },
   { label: 'Torneos', href: '#torneos' },
+  { label: 'Actualizaciones', href: '#actualizaciones' },
   { label: 'Contacto', href: '#contacto' },
 ]
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -48,6 +48,7 @@ type FixtureDate = {
   calendarDate?: string | null;
   isLocked: boolean;
 };
+type TournamentDivision = { id: string; name: string; sortOrder: number };
 type MatchPlayer = {
   id: string;
   teamId: string;
@@ -81,6 +82,16 @@ type SubstitutionRecord = {
   playerInId?: string | null;
   status: string;
 };
+type TournamentReportStats = {
+  tries: number;
+  conversions: number;
+  penalties: number;
+  yellowCards: number;
+  redCards: number;
+  injuries: number;
+  concussions: number;
+  substitutions: number;
+};
 type EventStatValues = Record<ScoreAction | IndicatorType, number>;
 type EventStats = {
   home: EventStatValues;
@@ -96,10 +107,12 @@ type Tournament = {
   startDate?: string;
   endDate?: string;
   teams: Team[];
+  divisionRows: TournamentDivision[];
   fixture: FixtureMatch[];
   fixtureDates: FixtureDate[];
   players: MatchPlayer[];
   createdBy?: string;
+  reportStats: TournamentReportStats;
 };
 
 const emptyEventStats = (): EventStats => {
@@ -206,15 +219,26 @@ const timeLabel = (time?: string) => {
     ? `${hour > 12 ? hour - 12 : hour || 12}:${String(minute || 0).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`
     : time;
 };
+const emptyTournamentReportStats = (): TournamentReportStats => ({
+  tries: 0,
+  conversions: 0,
+  penalties: 0,
+  yellowCards: 0,
+  redCards: 0,
+  injuries: 0,
+  concussions: 0,
+  substitutions: 0,
+});
 
 export default function TournamentPage() {
   const params = useParams<{ torneo: string }>();
   const router = useRouter();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [section, setSection] = useState("Resumen");
-  const [role, setRole] = useState("espectador");
+  const [role, setRole] = useState("atleta");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [printReport, setPrintReport] = useState(false);
   useEffect(() => {
     const load = async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -225,6 +249,11 @@ export default function TournamentPage() {
         .eq("slug", params.torneo)
         .maybeSingle();
       if (!data) return;
+      const { data: divisionRows } = await supabase
+        .from("tournament_divisions")
+        .select("id,name,sort_order")
+        .eq("tournament_id", data.id)
+        .order("sort_order");
       const { data: links } = await supabase
         .from("tournament_teams")
         .select(
@@ -270,6 +299,36 @@ export default function TournamentPage() {
             .select("id,fixture_id,scheduled_time,local_score,visitor_score,status,period,is_paused,started_at,elapsed_seconds,local_team_id,visitor_team_id,teams!matches_local_team_id_fkey(name,logo_url),visitor:teams!matches_visitor_team_id_fkey(name,logo_url),tournament_divisions(name)")
             .in("fixture_id", fixtureIds)
         : { data: [] };
+      const matchIds = (matchRows ?? [])
+        .map((match: any) => match.id)
+        .filter((matchId: unknown): matchId is string => Boolean(matchId));
+      const [{ data: eventRows }, { data: substitutionRows }] = matchIds.length
+        ? await Promise.all([
+            supabase
+              .from("match_events")
+              .select("event_type")
+              .in("match_id", matchIds),
+            supabase
+              .from("substitution_requests")
+              .select("id")
+              .in("match_id", matchIds)
+              .eq("status", "completed"),
+          ])
+        : [{ data: [] }, { data: [] }];
+      const reportStats = (eventRows ?? []).reduce(
+        (stats, event: { event_type?: string }) => {
+          if (event.event_type === "try") stats.tries += 1;
+          if (event.event_type === "conversion") stats.conversions += 1;
+          if (event.event_type === "penalty") stats.penalties += 1;
+          if (event.event_type === "yellow_card") stats.yellowCards += 1;
+          if (event.event_type === "red_card") stats.redCards += 1;
+          if (event.event_type === "injured") stats.injuries += 1;
+          if (event.event_type === "concussion") stats.concussions += 1;
+          return stats;
+        },
+        emptyTournamentReportStats(),
+      );
+      reportStats.substitutions = substitutionRows?.length ?? 0;
       const fixture = (matchRows ?? []).map((match: any) => ({
         id: match.id,
         fixtureId: match.fixture_id,
@@ -300,6 +359,7 @@ export default function TournamentPage() {
         startDate: data.start_date ?? undefined,
         endDate: data.end_date ?? undefined,
         teams,
+        divisionRows: (divisionRows ?? []).map((division) => ({ id: division.id, name: division.name, sortOrder: division.sort_order })),
         fixture,
         fixtureDates: (fixtureRows ?? []).map((fixture) => ({
           id: fixture.id,
@@ -309,6 +369,7 @@ export default function TournamentPage() {
         })),
         players,
         createdBy: data.created_by,
+        reportStats,
       });
     };
     void load();
@@ -321,8 +382,10 @@ export default function TournamentPage() {
   }, [params.torneo]);
   const divisions = useMemo(
     () =>
-      Array.from(new Set(tournament?.teams.map((team) => team.division) ?? [])),
-    [tournament],
+      tournament?.divisionRows.length
+        ? tournament.divisionRows.map((division) => division.name)
+        : Array.from(new Set(tournament?.teams.map((team) => team.division) ?? [])),
+    [tournament?.divisionRows, tournament?.teams],
   );
   if (!tournament)
     return (
@@ -337,16 +400,17 @@ export default function TournamentPage() {
     ["Divisiones", divisions.length],
   ];
   return (
-    <main className="min-h-screen bg-[#f4f6f8] px-5 py-8 text-[#17212b] lg:pl-72 lg:pr-10">
+    <>
+      <main className={`min-h-screen bg-[#f4f6f8] px-5 py-8 text-[#17212b] lg:pl-72 lg:pr-10 ${printReport ? "print:hidden" : ""}`}>
       <div className="mx-auto max-w-7xl">
         <button
           type="button"
           onClick={() => router.push("/dashboard/torneos")}
-          className="mb-5 inline-flex items-center gap-2 font-semibold text-[#4c8500]"
+          className="mb-5 inline-flex items-center gap-2 font-semibold text-[#4c8500] print:hidden"
         >
           <ArrowLeft size={18} /> Volver a torneos
         </button>
-        <header className="rounded-2xl bg-[#081522] p-6 text-white shadow-sm md:p-10">
+        <header className="rounded-2xl bg-[#081522] p-6 text-white shadow-sm md:p-10 print:hidden">
           <p className="font-heading text-sm uppercase tracking-[.2em] text-[#B4FF45]">
             Vista pública del torneo
           </p>
@@ -391,10 +455,34 @@ export default function TournamentPage() {
           ))}
         </div>}
         {section === "Resumen" && (
+          <div className="mt-6 flex justify-end print:hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setPrintReport(true);
+                window.setTimeout(() => window.print(), 0);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#081522] px-4 py-3 font-bold text-white hover:bg-[#172b3b]"
+            >
+              <FileDown size={17} /> Generar reporte U.P.R.
+            </button>
+          </div>
+        )}
+        {section === "Resumen" && (
           <Summary tournament={visibleTournament} divisions={divisions} />
         )}
         {section === "Equipos" && (
-          <Teams teams={tournament.teams} location={tournament.location} />
+          <Teams
+            tournamentId={tournament.id}
+            teams={tournament.teams}
+            divisions={tournament.divisionRows}
+            location={tournament.location}
+            canManage={canManageTournament}
+            onTeamAdded={(team) => setTournament((current) => current ? { ...current, teams: [...current.teams, team] } : current)}
+            onTeamRemoved={(teamId) => setTournament((current) => current ? { ...current, teams: current.teams.filter((team) => team.id !== teamId) } : current)}
+            onDivisionAdded={(division) => setTournament((current) => current ? { ...current, divisionRows: [...current.divisionRows, division] } : current)}
+            onDivisionRemoved={(divisionId) => setTournament((current) => current ? { ...current, divisionRows: current.divisionRows.filter((division) => division.id !== divisionId) } : current)}
+          />
         )}
         {section === "Jugadores" && (
           <Players
@@ -412,7 +500,7 @@ export default function TournamentPage() {
           />
         )}
         {section === "Puntajes" && (
-          <Scores teams={tournament.teams} divisions={divisions} />
+          <Scores teams={tournament.teams} divisions={divisions} matches={matches} />
         )}
         {section === "Fixtures" && (
           <Fixtures
@@ -426,7 +514,158 @@ export default function TournamentPage() {
           />
         )}
       </div>
-    </main>
+      </main>
+      {printReport && (
+        <PrintableTournamentReport
+          tournament={tournament}
+          divisions={divisions}
+          matches={matches}
+        />
+      )}
+    </>
+  );
+}
+
+function PrintableTournamentReport({
+  tournament,
+  divisions,
+  matches,
+}: {
+  tournament: Tournament;
+  divisions: string[];
+  matches: FixtureMatch[];
+}) {
+  const completedMatches = matches.filter(
+    (match) => match.status === "finished",
+  ).length;
+  const liveMatches = matches.filter((match) => match.status === "live").length;
+  const scheduledMatches = matches.filter(
+    (match) => match.status !== "finished" && match.status !== "live",
+  ).length;
+  const category = divisions.length === 1 ? divisions[0] : "Todas las divisiones";
+  const reportDate = new Intl.DateTimeFormat("es-PA", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+  const stats = tournament.reportStats;
+  const hasIncidents =
+    stats.yellowCards > 0 ||
+    stats.redCards > 0 ||
+    stats.injuries > 0 ||
+    stats.concussions > 0;
+
+  return (
+    <section className="hidden min-h-screen bg-white p-10 text-black print:block">
+      <div className="flex items-start justify-between">
+        <img
+          src="/MarcaAthlonX/MarcaNegro.svg"
+          alt="AthlonX"
+          className="h-16 w-48 object-contain object-left"
+        />
+        <img
+          src="/upr.png"
+          alt="Unión Panameña de Rugby"
+          className="h-20 w-36 object-contain object-right"
+        />
+      </div>
+
+      <header className="mt-8 border-b-2 border-black pb-5 text-center">
+        <p className="text-sm font-bold uppercase tracking-[.2em]">
+          Reporte oficial para la Unión Panameña de Rugby
+        </p>
+        <h1 className="mt-2 text-3xl font-black uppercase">
+          {tournament.name}
+        </h1>
+        <p className="mt-2 text-sm">
+          AthlonX · Rugby 7s · Temporada {tournament.season} · {reportDate}
+        </p>
+        <p className="mt-1 text-sm">Categoría: {category}</p>
+      </header>
+
+      <ReportSection title="1. Objetivo">
+        <p>
+          Presentar el estado deportivo y operativo del torneo, centralizando
+          la información de equipos, partidos, resultados e incidencias para
+          facilitar la supervisión de la Unión Panameña de Rugby.
+        </p>
+      </ReportSection>
+
+      <ReportSection title="2. Estadísticas">
+        <div className="grid grid-cols-3 gap-3">
+          <ReportMetric label="Equipos" value={tournament.teams.length} />
+          <ReportMetric label="Divisiones" value={divisions.length} />
+          <ReportMetric label="Partidos" value={matches.length} />
+          <ReportMetric label="Finalizados" value={completedMatches} />
+          <ReportMetric label="En vivo" value={liveMatches} />
+          <ReportMetric label="Pendientes" value={scheduledMatches} />
+          <ReportMetric label="Tries" value={stats.tries} />
+          <ReportMetric label="Conversiones" value={stats.conversions} />
+          <ReportMetric label="Penales" value={stats.penalties} />
+        </div>
+      </ReportSection>
+
+      <ReportSection title="3. Incidencias">
+        {hasIncidents ? (
+          <ul className="grid grid-cols-2 gap-x-8 gap-y-2">
+            <li>Tarjetas amarillas: {stats.yellowCards}</li>
+            <li>Tarjetas rojas: {stats.redCards}</li>
+            <li>Lesiones: {stats.injuries}</li>
+            <li>Conmociones cerebrales: {stats.concussions}</li>
+            <li>Cambios realizados: {stats.substitutions}</li>
+          </ul>
+        ) : (
+          <p>No se registraron incidencias durante el período reportado.</p>
+        )}
+      </ReportSection>
+
+      <ReportSection title="4. Objetivos logrados">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>Registro de {tournament.teams.length} equipos participantes.</li>
+          <li>Organización de {divisions.length} división o divisiones.</li>
+          <li>Programación y seguimiento de {matches.length} partidos.</li>
+          <li>Centralización de estadísticas e incidencias deportivas.</li>
+          <li>Disponibilidad de información para supervisión institucional.</li>
+        </ul>
+      </ReportSection>
+
+      <ReportSection title="5. Conclusión y veredicto sobre el sistema">
+        <p>
+          AthlonX permite centralizar la operación del torneo y consultar su
+          información deportiva desde una sola plataforma. Con los datos
+          registrados en esta fecha, el sistema cumple su objetivo principal
+          de organizar equipos, fixtures, partidos y estadísticas. Se
+          recomienda continuar validando la captura de incidencias y los
+          resultados en tiempo real durante las siguientes fechas.
+        </p>
+      </ReportSection>
+    </section>
+  );
+}
+
+function ReportSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-7">
+      <h2 className="border-b border-black pb-1 text-lg font-black uppercase">
+        {title}
+      </h2>
+      <div className="mt-3 text-sm leading-6">{children}</div>
+    </section>
+  );
+}
+
+function ReportMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="border border-slate-300 p-3 text-center">
+      <p className="text-xs font-bold uppercase">{label}</p>
+      <p className="mt-1 text-xl font-black">{value}</p>
+    </div>
   );
 }
 
@@ -491,75 +730,60 @@ function Summary({
           {!tournament.fixture.length && <Empty text="El fixture aún no ha sido generado" />}
         </div>
       </article>
-      <Standings teams={tournament.teams} divisions={divisions} />
+      <Standings teams={tournament.teams} divisions={divisions} matches={tournament.fixture} />
     </section>
   );
 }
-function Teams({ teams, location }: { teams: Team[]; location?: string }) {
+function Teams({ tournamentId, teams, divisions, location, canManage, onTeamAdded, onTeamRemoved, onDivisionAdded, onDivisionRemoved }: { tournamentId?: string; teams: Team[]; divisions: TournamentDivision[]; location?: string; canManage: boolean; onTeamAdded: (team: Team) => void; onTeamRemoved: (teamId: string) => void; onDivisionAdded: (division: TournamentDivision) => void; onDivisionRemoved: (divisionId: string) => void }) {
+  const [newDivision, setNewDivision] = useState("");
+  const [newTeam, setNewTeam] = useState("");
+  const [newTeamDivision, setNewTeamDivision] = useState(divisions[0]?.id ?? "");
   const [notice, setNotice] = useState("");
-  return (
-    <>
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="font-heading text-3xl font-black uppercase">
-          Equipos del torneo
-        </h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {teams.map((team) => (
-            <article
-              key={`${team.division}-${team.name}`}
-              className="rounded-xl border border-slate-200 p-5"
-            >
-              <div className="flex items-center gap-5">
-                <TeamLogo name={team.name} logo={team.logo} />
-                <div>
-                  <h3 className="text-2xl font-bold">{team.name}</h3>
-                  <p className="text-sm text-[#70b719]">{team.division}</p>
-                </div>
-              </div>
-              <div className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500">
-                <p>
-                  <MapPin className="mr-2 inline" size={16} />
-                  {location || "Sin ubicación registrada"}
-                </p>
-                <p className="mt-2">
-                  <Users className="mr-2 inline" size={17} />0 miembros
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setNotice(
-                    `La vista de ${team.name} estará disponible en próximas actualizaciones.`,
-                  )
-                }
-                className="mt-5 w-full rounded-lg border border-[#70b719] px-4 py-2 font-semibold text-[#4c8500] hover:bg-[#e9fbd0]"
-              >
-                Visitar equipo
-              </button>
-            </article>
-          ))}
-          {!teams.length && <Empty text="0 equipos registrados" />}
-        </div>
-      </section>
-      {notice && (
-        <div
-          role="status"
-          className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-[#081522] px-5 py-4 text-center text-sm font-semibold text-white shadow-2xl"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <span>{notice}</span>
-            <button
-              type="button"
-              onClick={() => setNotice("")}
-              className="text-[#B4FF45]"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
+
+  async function addDivision(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !tournamentId || !newDivision.trim()) return;
+    const { data, error } = await supabase.from("tournament_divisions").insert({ tournament_id: tournamentId, name: newDivision.trim(), sort_order: divisions.length }).select("id,name,sort_order").single();
+    if (error || !data) return setNotice(error?.message || "No se pudo crear la división.");
+    onDivisionAdded({ id: data.id, name: data.name, sortOrder: data.sort_order });
+    setNewDivision("");
+    setNewTeamDivision(data.id);
+    setNotice("División agregada correctamente.");
+  }
+
+  async function addTeam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !tournamentId || !newTeam.trim() || !newTeamDivision) return;
+    const division = divisions.find((item) => item.id === newTeamDivision);
+    if (!division) return;
+    const { data: team, error: teamError } = await supabase.from("teams").insert({ name: newTeam.trim(), city: location || null }).select("id,name,logo_url").single();
+    if (teamError || !team) return setNotice(teamError?.message || "No se pudo crear el equipo.");
+    const { error: linkError } = await supabase.from("tournament_teams").insert({ tournament_id: tournamentId, division_id: newTeamDivision, team_id: team.id });
+    if (linkError) return setNotice(linkError.message);
+    onTeamAdded({ id: team.id, name: team.name, logo: team.logo_url, divisionId: newTeamDivision, division: division.name });
+    setNewTeam("");
+    setNotice("Equipo agregado al torneo.");
+  }
+
+  async function removeTeam(team: Team) {
+    if (!supabase || !tournamentId || !team.id || !window.confirm(`¿Eliminar ${team.name} de este torneo?`)) return;
+    const { error } = await supabase.from("tournament_teams").delete().eq("tournament_id", tournamentId).eq("team_id", team.id);
+    if (error) return setNotice(error.message);
+    onTeamRemoved(team.id);
+    setNotice("Equipo retirado del torneo.");
+  }
+
+  async function removeDivision(division: TournamentDivision) {
+    if (!supabase || !division.id) return;
+    if (teams.some((team) => team.divisionId === division.id)) return setNotice("Retira primero los equipos de esta división.");
+    if (!window.confirm(`¿Eliminar la división ${division.name}?`)) return;
+    const { error } = await supabase.from("tournament_divisions").delete().eq("id", division.id);
+    if (error) return setNotice(error.message);
+    onDivisionRemoved(division.id);
+    setNotice("División eliminada.");
+  }
+
+  return <section className="mt-6 space-y-6"><div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><p className="font-heading text-sm uppercase tracking-[.2em] text-[#70b719]">Estructura competitiva</p><h2 className="font-heading text-3xl font-black uppercase">Divisiones</h2></div><span className="rounded-full bg-[#e9fbd0] px-3 py-1 text-sm font-bold text-[#4c8500]">{divisions.length} registradas</span></div><div className="mt-5 flex flex-wrap gap-3">{divisions.map((division) => <div key={division.id} className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2"><span className="font-semibold">{division.name}</span>{canManage && <button type="button" onClick={() => void removeDivision(division)} className="cursor-pointer text-sm font-bold text-red-500">Eliminar</button>}</div>)}{!divisions.length && <Empty text="No hay divisiones registradas" />}</div>{canManage && <form onSubmit={addDivision} className="mt-5 flex flex-col gap-2 sm:flex-row"><input required value={newDivision} onChange={(event) => setNewDivision(event.target.value)} placeholder="Nueva división" className="flex-1 rounded-lg border border-slate-300 px-4 py-3" /><button type="submit" className="cursor-pointer rounded-lg bg-[#B4FF45] px-5 py-3 font-bold text-[#081522]">Agregar división</button></form>}</div><div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="flex items-center justify-between gap-3"><div><p className="font-heading text-sm uppercase tracking-[.2em] text-[#70b719]">Participantes</p><h2 className="font-heading text-3xl font-black uppercase">Equipos del torneo</h2></div><span className="rounded-full bg-[#081522] px-3 py-1 text-sm font-bold text-white">{teams.length} equipos</span></div>{canManage && <form onSubmit={addTeam} className="mt-5 grid gap-3 sm:grid-cols-[1fr_220px_auto]"><input required value={newTeam} onChange={(event) => setNewTeam(event.target.value)} placeholder="Nombre del equipo" className="rounded-lg border border-slate-300 px-4 py-3" /><select required value={newTeamDivision} onChange={(event) => setNewTeamDivision(event.target.value)} className="cursor-pointer rounded-lg border border-slate-300 px-4 py-3"><option value="">Seleccionar división</option>{divisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select><button type="submit" className="cursor-pointer rounded-lg bg-[#B4FF45] px-5 py-3 font-bold text-[#081522]">Agregar equipo</button></form>}<div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{teams.map((team) => <article key={`${team.divisionId}-${team.id}`} className="rounded-xl border border-slate-200 p-5"><div className="flex items-center gap-5"><TeamLogo name={team.name} logo={team.logo} /><div><h3 className="text-2xl font-bold">{team.name}</h3><p className="text-sm text-[#70b719]">{team.division}</p></div></div><div className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500"><p><MapPin className="mr-2 inline" size={16} />{location || "Sin ubicación registrada"}</p><p className="mt-2"><Users className="mr-2 inline" size={17} />0 miembros</p></div>{canManage && team.id && <button type="button" onClick={() => void removeTeam(team)} className="mt-5 w-full cursor-pointer rounded-lg border border-red-300 px-4 py-2 font-semibold text-red-600 hover:bg-red-50">Retirar del torneo</button>}</article>)}{!teams.length && <Empty text="0 equipos registrados" />}</div></div>{notice && <div role="status" className="rounded-xl bg-[#081522] px-5 py-4 text-sm font-semibold text-white">{notice}</div>}</section>;
 }
 
 function Players({
@@ -1116,6 +1340,7 @@ function Matches({
   const secondsRef = useRef(0);
   const [running, setRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [matchStatus, setMatchStatus] = useState("scheduled");
   const [period, setPeriod] = useState<"first_half" | "second_half">(
     "first_half",
   );
@@ -1216,6 +1441,7 @@ function Matches({
       setSeconds(0);
       setRunning(false);
       setIsPaused(false);
+      setMatchStatus("scheduled");
       setPeriod("first_half");
       return;
     }
@@ -1228,6 +1454,7 @@ function Matches({
     setSeconds(initialSeconds);
     secondsRef.current = initialSeconds;
     setIsPaused(Boolean(selectedMatch.isPaused));
+    setMatchStatus(selectedMatch.status ?? "scheduled");
     setPeriod(selectedMatch.period ?? "first_half");
     setRunning(selectedMatch.status === "live" && !selectedMatch.isPaused);
     setConfirmation(null);
@@ -1252,6 +1479,7 @@ function Matches({
           away: data.visitor_score ?? 0,
         });
         setIsPaused(Boolean(data.is_paused));
+        setMatchStatus(data.status ?? "scheduled");
         setPeriod(data.period ?? "first_half");
         setRunning(data.status === "live" && !data.is_paused);
         setSeconds(secondsFromMatch(data));
@@ -1309,6 +1537,7 @@ function Matches({
           away: updated.visitor_score ?? 0,
         });
         setIsPaused(Boolean(updated.is_paused));
+        setMatchStatus(updated.status ?? "scheduled");
         setPeriod(updated.period ?? "first_half");
         setRunning(updated.status === "live" && !updated.is_paused);
         setSeconds(secondsFromMatch(updated));
@@ -1342,12 +1571,14 @@ function Matches({
   useEffect(() => {
     if (!canManage || !supabase || !matchId || !running) return;
     const heartbeat = window.setInterval(async () => {
+      const checkpoint = new Date().toISOString();
       const { error } = await supabase
         .from("matches")
         .update({
           status: "live",
           is_paused: false,
           elapsed_seconds: secondsRef.current,
+          started_at: checkpoint,
         })
         .eq("id", matchId);
       if (error) setSyncError(error.message);
@@ -1374,6 +1605,7 @@ function Matches({
     } else {
       setRunning(true);
       setIsPaused(false);
+      setMatchStatus("live");
       setConfirmation(null);
     }
     setBusy(false);
@@ -1388,6 +1620,7 @@ function Matches({
       .update({
         is_paused: true,
         elapsed_seconds: secondsRef.current,
+        started_at: null,
       })
       .eq("id", matchId);
 
@@ -1396,6 +1629,7 @@ function Matches({
     } else {
       setRunning(false);
       setIsPaused(true);
+      setMatchStatus("live");
     }
 
     setBusy(false);
@@ -1430,6 +1664,7 @@ function Matches({
         is_paused: false,
         finished_at: new Date().toISOString(),
         elapsed_seconds: secondsRef.current,
+        started_at: null,
       })
       .eq("id", matchId);
 
@@ -1438,6 +1673,7 @@ function Matches({
     } else {
       setRunning(false);
       setIsPaused(false);
+      setMatchStatus("finished");
       setConfirmation(null);
       setFinishConfirmation("");
     }
@@ -1769,7 +2005,7 @@ function Matches({
   }
 
   const clock = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-  const isFinished = selectedMatch?.status === "finished" && !running;
+  const isFinished = matchStatus === "finished";
   const statusLabel = running
     ? "EN VIVO"
     : isPaused
@@ -1997,13 +2233,63 @@ function UpcomingMatches({ matches }: { matches: FixtureMatch[] }) {
     </section>
   );
 }
+type StandingRow = {
+  team: Team;
+  points: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  for: number;
+  against: number;
+};
+
+function buildStandings(teams: Team[], matches: FixtureMatch[]): StandingRow[] {
+  const rows = teams.map((team) => ({ team, points: 0, played: 0, wins: 0, draws: 0, losses: 0, for: 0, against: 0 }));
+
+  matches.filter((match) => match.status === "finished").forEach((match) => {
+    const local = rows.find((row) => row.team.id === match.localTeamId);
+    const visitor = rows.find((row) => row.team.id === match.visitorTeamId);
+    if (!local || !visitor) return;
+
+    const localScore = match.localScore ?? 0;
+    const visitorScore = match.visitorScore ?? 0;
+    local.played += 1;
+    visitor.played += 1;
+    local.for += localScore;
+    local.against += visitorScore;
+    visitor.for += visitorScore;
+    visitor.against += localScore;
+
+    if (localScore === visitorScore) {
+      local.points += 1;
+      visitor.points += 1;
+      local.draws += 1;
+      visitor.draws += 1;
+    } else if (localScore > visitorScore) {
+      local.points += 3;
+      local.wins += 1;
+      visitor.losses += 1;
+    } else {
+      visitor.points += 3;
+      visitor.wins += 1;
+      local.losses += 1;
+    }
+  });
+
+  return rows.sort((first, second) => second.points - first.points || (second.for - second.against) - (first.for - first.against) || second.for - first.for || first.team.name.localeCompare(second.team.name));
+}
+
 function Standings({
   teams,
   divisions,
+  matches,
 }: {
   teams: Team[];
   divisions: string[];
+  matches: FixtureMatch[];
 }) {
+  const rows = buildStandings(teams, matches);
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h2 className="font-heading text-3xl font-black uppercase">
@@ -2045,22 +2331,17 @@ function Standings({
             </tr>
           </thead>
           <tbody>
-            {teams.map((team, index) => (
+            {rows.map((row, index) => (
               <tr
-                key={`${team.division}-${team.name}`}
+                key={row.team.id ?? `${row.team.division}-${row.team.name}`}
                 className="border-b border-slate-100"
               >
                 <td className="px-3 py-4 font-bold text-[#70b719]">
                   {index + 1}
                 </td>
-                <td className="px-3 py-4 font-semibold">{team.name}</td>
-                {["0", "0", "0", "0", "0", "0", "0"].map((value, cell) => (
-                  <td
-                    key={cell}
-                    className={`px-3 py-4 text-center ${cell === 0 ? "bg-[#f0f8e8] text-lg font-black text-[#4c8500]" : "text-slate-500"}`}
-                  >
-                    {value}
-                  </td>
+                <td className="px-3 py-4 font-semibold">{row.team.name}</td>
+                {[row.points, row.played, row.wins, row.draws, row.losses, row.for, row.against, row.for - row.against].map((value, cell) => (
+                  <td key={cell} className={`px-3 py-4 text-center ${cell === 0 ? "bg-[#f0f8e8] text-lg font-black text-[#4c8500]" : "text-slate-500"}`}>{value}</td>
                 ))}
               </tr>
             ))}
@@ -2072,7 +2353,10 @@ function Standings({
   );
 }
 
-function Scores({ teams, divisions }: { teams: Team[]; divisions: string[] }) {
+function Scores({ teams, divisions, matches }: { teams: Team[]; divisions: string[]; matches: FixtureMatch[] }) {
+  const standings = buildStandings(teams, matches);
+  const completedMatches = matches.filter((match) => match.status === "finished");
+
   return (
     <div className="mt-6">
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -2087,19 +2371,23 @@ function Scores({ teams, divisions }: { teams: Team[]; divisions: string[] }) {
         </div>
       </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
-        <Standings teams={teams} divisions={divisions} />
+        <Standings teams={teams} divisions={divisions} matches={matches} />
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="font-display text-3xl uppercase">Líderes</h2>
           <p className="mt-1 text-slate-500">Destacados del torneo.</p>
           <div className="mt-5 space-y-3">
-            {[["Máximo anotador", teams[0]?.name || "Sin resultados", "0 puntos", "bg-[#e9fbd0]"], ["Más tries", "Sin resultados", "0 tries", "bg-[#eef3ff]"], ["Mejor defensa", teams[1]?.name || "Sin resultados", "0 puntos recibidos", "bg-[#fff3d9]"]].map(([title, name, value, color]) => <div key={title} className={`rounded-xl p-4 ${color}`}><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p><p className="mt-1 text-lg font-bold">{name}</p><p className="text-sm text-slate-600">{value}</p></div>)}
+            {[
+              ["Mejor ataque", standings[0]?.team.name || "Sin resultados", `${standings[0]?.for ?? 0} puntos a favor`, "bg-[#e9fbd0]"],
+              ["Mejor diferencia", standings[0]?.team.name || "Sin resultados", `${(standings[0]?.for ?? 0) - (standings[0]?.against ?? 0)} diferencia`, "bg-[#eef3ff]"],
+              ["Partidos finalizados", String(completedMatches.length), "resultados registrados", "bg-[#fff3d9]"],
+            ].map(([title, name, value, color]) => <div key={title} className={`rounded-xl p-4 ${color}`}><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p><p className="mt-1 text-lg font-bold">{name}</p><p className="text-sm text-slate-600">{value}</p></div>)}
           </div>
         </article>
       </section>
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="font-display text-3xl uppercase">Resultados recientes</h2>
         <p className="mt-1 text-slate-500">Partidos finalizados por fecha.</p>
-        <Empty text="No hay resultados registrados" />
+        {completedMatches.length ? completedMatches.slice(0, 8).map((match) => <div key={match.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 py-3 text-sm"><span>Fecha {match.date} · {match.division}</span><strong>{match.local} {match.localScore ?? 0} - {match.visitorScore ?? 0} {match.visitor}</strong></div>) : <Empty text="No hay resultados registrados" />}
       </section>
     </div>
   )
@@ -2913,32 +3201,28 @@ function buildAutomaticFixturePlan(
   if (!pairs.length) return [];
 
   const plan: PlannedMatch[] = [];
+  const pairUsage = new Map<string, number>();
   let pairIndex = 0;
 
   for (let date = 1; date <= totalDates; date += 1) {
-    const usedTeams = new Set<string>();
-    const usedPairs = new Set<string>();
     let previousPair: RoundRobinPair | null = null;
 
     for (let matchNumber = 0; matchNumber < matchesPerDate; matchNumber += 1) {
-      const availablePairs = pairs.filter((pair) => {
-        const pairKey = `${pair.local.id}-${pair.visitor.id}`;
-        const usesTeam = usedTeams.has(pair.local.id ?? "") || usedTeams.has(pair.visitor.id ?? "");
-        return !usedPairs.has(pairKey) && !usesTeam;
-      });
-
-      const restedPairs = availablePairs.filter((pair) => {
+      const restedPairs = pairs.filter((pair) => {
         if (!previousPair) return true;
-        return pair.local.id !== previousPair.local.id &&
-          pair.local.id !== previousPair.visitor.id &&
-          pair.visitor.id !== previousPair.local.id &&
-          pair.visitor.id !== previousPair.visitor.id;
+        return !sameTeamInPair(pair, previousPair);
       });
-
-      const candidates = restedPairs.length ? restedPairs : availablePairs;
-      const selected = candidates.length
-        ? seededShuffle(candidates, `${date}-${matchNumber}`)[0]
-        : pairs[pairIndex % pairs.length];
+      const candidates = restedPairs.length ? restedPairs : pairs;
+      const minimumUsage = Math.min(
+        ...candidates.map((pair) => pairUsage.get(pairKey(pair)) ?? 0),
+      );
+      const balancedCandidates = candidates.filter(
+        (pair) => (pairUsage.get(pairKey(pair)) ?? 0) === minimumUsage,
+      );
+      const selected = seededShuffle(
+        balancedCandidates.length ? balancedCandidates : candidates,
+        `${date}-${matchNumber}-${pairIndex}`,
+      )[0] ?? pairs[pairIndex % pairs.length];
 
       const shouldSwapSides = date % 2 === 0;
       plan.push({
@@ -2948,16 +3232,22 @@ function buildAutomaticFixturePlan(
         visitor: shouldSwapSides ? selected.local : selected.visitor,
       });
 
-      const pairKey = `${selected.local.id}-${selected.visitor.id}`;
-      usedPairs.add(pairKey);
-      usedTeams.add(selected.local.id ?? "");
-      usedTeams.add(selected.visitor.id ?? "");
+      pairUsage.set(pairKey(selected), (pairUsage.get(pairKey(selected)) ?? 0) + 1);
       previousPair = selected;
       pairIndex += 1;
     }
   }
 
   return plan;
+}
+
+function pairKey(pair: RoundRobinPair) {
+  return [pair.local.id, pair.visitor.id].sort().join(":");
+}
+
+function sameTeamInPair(first: RoundRobinPair, second: RoundRobinPair) {
+  const firstTeams = new Set([first.local.id, first.visitor.id]);
+  return firstTeams.has(second.local.id) || firstTeams.has(second.visitor.id);
 }
 
 function seededShuffle<T>(items: T[], seed: string): T[] {

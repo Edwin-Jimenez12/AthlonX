@@ -9,11 +9,13 @@ type Profile = {
   email_verified: boolean
   last_seen_at: string | null
 }
+type AffiliationLabel = { role: string; role_label: string | null; organization_name: string | null; team_name: string | null }
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [email, setEmail] = useState('')
   const [roles, setRoles] = useState<string[]>([])
+  const [affiliations, setAffiliations] = useState<AffiliationLabel[]>([])
   const [accountType, setAccountType] = useState<'persona' | 'organizacion'>('persona')
   const [loading, setLoading] = useState(true)
 
@@ -30,14 +32,16 @@ export default function ProfilePage() {
         return
       }
 
-      const [{ data: profileData }, { data: roleData }] = await Promise.all([
+      const [{ data: profileData }, { data: roleData }, { data: affiliationData }] = await Promise.all([
         supabase.from('profiles').select('full_name, phone, email_verified, last_seen_at').eq('id', data.user.id).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', data.user.id),
+        supabase.from('profile_affiliation_labels').select('role, role_label, organization_name, team_name').eq('user_id', data.user.id),
       ])
 
       setEmail(data.user.email ?? '')
       setProfile(profileData)
       setRoles(roleData?.map(({ role }) => role) ?? [])
+      setAffiliations(affiliationData ?? [])
       setAccountType(data.user.user_metadata?.account_type === 'organizacion' ? 'organizacion' : 'persona')
       if (!profileData?.full_name && data.user.user_metadata?.account_type === 'organizacion' && data.user.user_metadata?.organization_name) {
         setProfile({ full_name: data.user.user_metadata.organization_name, phone: null, email_verified: data.user.email_confirmed_at != null, last_seen_at: null })
@@ -86,6 +90,7 @@ export default function ProfilePage() {
             <div className="mt-5 flex flex-wrap gap-2">
               {roles.length ? roles.map((role) => <span key={role} className="rounded-full bg-[#e9fbd0] px-4 py-2 text-sm font-bold capitalize text-[#4c8500]">{role}</span>) : <span className="text-slate-500">Sin roles asignados</span>}
             </div>
+            {affiliations.length > 0 && <div className="mt-6 border-t border-slate-100 pt-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Etiquetas visibles</p><div className="mt-3 space-y-2">{affiliations.map((affiliation, index) => <div key={`${affiliation.role}-${affiliation.organization_name || affiliation.team_name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2"><span className="font-semibold text-[#17212b]">{affiliation.role_label || affiliation.role}</span><span className="text-xs text-slate-500">{affiliation.team_name || affiliation.organization_name}</span></div>)}</div></div>}
           </article>
         </section>
       </div>

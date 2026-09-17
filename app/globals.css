@@ -4,6 +4,83 @@ html {
   scroll-behavior: smooth;
 }
 
+:root {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+body {
+  background: #07131e;
+}
+
+body[data-theme='light'] {
+  background: #f3f6f8;
+}
+
+body:has(main) {
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+html[data-theme='dark'] body main {
+  background-color: #07131e !important;
+  color: #e8eef3;
+}
+
+html[data-theme='dark'] body main section,
+html[data-theme='dark'] body main article {
+  border-color: #263b4d !important;
+}
+
+html[data-theme='dark'] body main input,
+html[data-theme='dark'] body main select,
+html[data-theme='dark'] body main textarea {
+  border-color: #31485c !important;
+  background-color: #0d1d2b !important;
+  color: #f7fafc !important;
+}
+
+html[data-theme='dark'] body main .bg-white {
+  background-color: #0d1d2b !important;
+}
+
+html[data-theme='dark'] body main .text-\[\#081522\],
+html[data-theme='dark'] body main .text-\[\#17212b\] {
+  color: #f7fafc !important;
+}
+
+html[data-theme='dark'] body main .text-slate-500,
+html[data-theme='dark'] body main .text-slate-600 {
+  color: #9bb0c2 !important;
+}
+
+html[data-theme='light'] body main.bg-\[\#07131e\] {
+  background-color: #f3f6f8 !important;
+  color: #17212b !important;
+}
+
+html[data-theme='light'] body main.bg-\[\#07131e\] .bg-\[\#0b1d2c\],
+html[data-theme='light'] body main.bg-\[\#07131e\] .bg-\[\#0d1d2b\],
+html[data-theme='light'] body main.bg-\[\#07131e\] .bg-\[\#102536\] {
+  background-color: #ffffff !important;
+  color: #17212b !important;
+}
+
+html[data-theme='light'] body main.bg-\[\#07131e\] .text-white {
+  color: #17212b !important;
+}
+
+html[data-theme='light'] body main.bg-\[\#07131e\] .text-slate-300,
+html[data-theme='light'] body main.bg-\[\#07131e\] .text-slate-400 {
+  color: #64748b !important;
+}
+
+html[data-theme='light'] body main.bg-\[\#07131e\] [class*='border-\[#'] {
+  border-color: #d5dee7 !important;
+}
+
 /* Keep tournament cards consistent with the light dashboard surface. */
 article.overflow-hidden.rounded-3xl.border-slate-200.bg-\[\#081522\].text-white {
   background-color: #ffffff;
