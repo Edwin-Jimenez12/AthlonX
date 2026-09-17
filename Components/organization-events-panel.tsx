@@ -1,9 +1,11 @@
 'use client'
 
-import { CalendarDays, Check, Dumbbell, Megaphone, MapPin, Trophy, Users } from 'lucide-react'
+import { CalendarDays, Check, Dumbbell, Megaphone, Trophy, Users } from 'lucide-react'
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { LocationFields } from './location-fields'
+import { PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
 
 type Discipline = { id: string; name: string; code: string }
@@ -80,6 +82,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       season: new Date(startDate).getFullYear().toString(),
       start_date: startDate,
       end_date: endDate,
+      country: PANAMA_COUNTRY,
       location: location.trim() || null,
       status: 'draft',
       created_by: userData.user.id,
@@ -148,7 +151,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" placeholder="Copa AthlonX" /></label>
             <label className="block text-sm font-semibold">Disciplina<select required value={disciplineId} onChange={(event) => setDisciplineId(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="">Seleccionar</option>{disciplines.map((discipline) => <option key={discipline.id} value={discipline.id}>{discipline.name}</option>)}</select></label>
-            <label className="block text-sm font-semibold">Ubicación<div className="mt-2 flex items-center rounded-xl border border-white/15 bg-[#0d2232] px-4"><MapPin size={16} className="mr-2 text-[#b4ff45]" /><input value={location} onChange={(event) => setLocation(event.target.value)} className="w-full bg-transparent py-3 outline-none placeholder:text-slate-500" placeholder="Ciudad o complejo" /></div></label>
+            <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />
             <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
             <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
           </div>

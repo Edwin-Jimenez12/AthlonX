@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from 'react'
 import { AffiliationRequestPanel } from '../../../Components/affiliation-request-panel'
 import { OrganizationEventsPanel } from '../../../Components/organization-events-panel'
 import { OrganizationRelationshipPanel } from '../../../Components/organization-relationship-panel'
+import { LocationFields } from '../../../Components/location-fields'
+import { normalizePanamaCity } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
 
 type Organization = { id: string; name: string; type: string; country: string; province: string | null; city: string | null; phone: string | null; institutional_email: string | null; logo_url: string | null; description: string | null; slug: string | null; status: string }
@@ -37,11 +39,11 @@ export default function OrganizationsPage() {
   const [city, setCity] = useState('')
   const [email, setEmail] = useState('')
   const [description, setDescription] = useState('')
-  const [province, setProvince] = useState('')
   const [phone, setPhone] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [status, setStatus] = useState('active')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [activeOrganizationId, setActiveOrganizationId] = useState('')
   const [message, setMessage] = useState('')
 
   async function loadOrganizations() {
@@ -53,6 +55,11 @@ export default function OrganizationsPage() {
       supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name'),
     ])
     setOrganizations(data ?? [])
+    const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
+    const { data: activeContext } = storedContextId
+      ? await supabase.from('user_contexts').select('organization_id, context_type').eq('id', storedContextId).maybeSingle()
+      : { data: null }
+    setActiveOrganizationId(activeContext?.context_type === 'organization' ? activeContext.organization_id ?? '' : data?.[0]?.id ?? '')
     setDisciplines(disciplineRows ?? [])
     setModalities(modalityRows ?? [])
     if (data?.length) {
@@ -68,13 +75,22 @@ export default function OrganizationsPage() {
 
   useEffect(() => { void loadOrganizations() }, [])
 
+  useEffect(() => {
+    const syncContext = (event: Event) => {
+      const context = (event as CustomEvent<{ contextType?: string; organizationId?: string }>).detail
+      if (context?.contextType === 'organization' && context.organizationId) setActiveOrganizationId(context.organizationId)
+    }
+    window.addEventListener('athlonx-context-change', syncContext)
+    return () => window.removeEventListener('athlonx-context-change', syncContext)
+  }, [])
+
   async function createOrganization(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setMessage('')
     if (!supabase) return setMessage('Supabase no está configurado.')
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) return setMessage('Debes iniciar sesión para crear una organización.')
-    const organizationData = { name: name.trim(), type, country: country.trim(), province: province.trim() || null, city: city.trim() || null, phone: phone.trim() || null, institutional_email: email.trim() || null, logo_url: logoUrl.trim() || null, description: description.trim() || null, slug: slugify(name), status }
+    const organizationData = { name: name.trim(), type, country: 'Panamá', province: null, city: city.trim() || null, phone: phone.trim() || null, institutional_email: email.trim() || null, logo_url: logoUrl.trim() || null, description: description.trim() || null, slug: slugify(name), status }
     const query = editingId
       ? supabase.from('organizations').update(organizationData).eq('id', editingId).select('id, name, type, country, province, city, phone, institutional_email, logo_url, description, slug, status').single()
       : supabase.from('organizations').insert({ ...organizationData, created_by: userData.user.id }).select('id, name, type, country, province, city, phone, institutional_email, logo_url, description, slug, status').single()
@@ -100,7 +116,6 @@ export default function OrganizationsPage() {
       setCity('')
       setEmail('')
       setDescription('')
-      setProvince('')
       setPhone('')
       setLogoUrl('')
       setStatus('active')
@@ -117,8 +132,7 @@ export default function OrganizationsPage() {
     setName(organization.name)
     setType(organization.type)
     setCountry(organization.country)
-    setProvince(organization.province || '')
-    setCity(organization.city || '')
+    setCity(normalizePanamaCity(organization.city || organization.province))
     setPhone(organization.phone || '')
     setEmail(organization.institutional_email || '')
     setLogoUrl(organization.logo_url || '')
@@ -133,7 +147,6 @@ export default function OrganizationsPage() {
   function cancelEditing() {
     setEditingId(null)
     setName('')
-    setProvince('')
     setCity('')
     setPhone('')
     setEmail('')
@@ -155,7 +168,7 @@ export default function OrganizationsPage() {
               <label className="block text-sm font-bold text-[#17212b]">Nombre<input value={name} onChange={(event) => setName(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="Nex Digital" /></label>
               <label className="block text-sm font-bold text-[#17212b]">Tipo<select value={type} onChange={(event) => setType(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">{organizationTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <fieldset className="rounded-xl border border-slate-200 p-4"><legend className="px-1 text-sm font-bold text-[#17212b]">Disciplinas representadas</legend><p className="mt-1 text-xs text-slate-500">Puedes seleccionar varias, por ejemplo un comité olímpico.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{disciplines.map((discipline) => <label key={discipline.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold has-[:checked]:border-[#70b719] has-[:checked]:bg-[#e9fbd0]"><input type="checkbox" checked={selectedDisciplines.includes(discipline.id)} onChange={(event) => { setSelectedDisciplines((current) => event.target.checked ? [...current, discipline.id] : current.filter((id) => id !== discipline.id)); if (!event.target.checked) setSelectedModalities((current) => current.filter((id) => !modalities.some((modality) => modality.id === id && modality.discipline_id === discipline.id))) }} />{discipline.name}</label>)}</div>{selectedDisciplines.length > 0 && <div className="mt-4 border-t border-slate-200 pt-4"><p className="text-sm font-bold text-[#17212b]">Modalidades</p><p className="mt-1 text-xs text-slate-500">Define las modalidades que esta organización administra.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{modalities.filter((modality) => selectedDisciplines.includes(modality.discipline_id)).map((modality) => <label key={modality.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold has-[:checked]:border-[#70b719] has-[:checked]:bg-[#e9fbd0]"><input type="checkbox" checked={selectedModalities.includes(modality.id)} onChange={(event) => setSelectedModalities((current) => event.target.checked ? [...current, modality.id] : current.filter((id) => id !== modality.id))} />{modality.name}</label>)}</div></div>}</fieldset>
-              <div className="grid gap-4 sm:grid-cols-3"><label className="block text-sm font-bold text-[#17212b]">País<input value={country} onChange={(event) => setCountry(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block text-sm font-bold text-[#17212b]">Provincia<input value={province} onChange={(event) => setProvince(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block text-sm font-bold text-[#17212b]">Ciudad<input value={city} onChange={(event) => setCity(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label></div>
+              <LocationFields country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} variant="light" />
               <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm font-bold text-[#17212b]">Correo institucional<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="contacto@nexdigital.com" /></label><label className="block text-sm font-bold text-[#17212b]">Teléfono<input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="+507 6000-0000" /></label></div>
               <label className="block text-sm font-bold text-[#17212b]">URL del logo<input type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="https://..." /></label>
               <label className="block text-sm font-bold text-[#17212b]">Estado<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"><option value="active">Activa</option><option value="suspended">Suspendida</option><option value="archived">Archivada</option></select></label>
@@ -165,9 +178,9 @@ export default function OrganizationsPage() {
           </form>
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-heading text-2xl font-black uppercase text-[#081522]">Mis organizaciones</h2><div className="mt-5 space-y-3">{organizations.length ? organizations.map((organization) => <article key={organization.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-heading text-xl font-black uppercase text-[#081522]">{organization.name}</h3><p className="mt-1 text-sm capitalize text-[#4c8500]">{organizationTypes.find(([value]) => value === organization.type)?.[1] ?? organization.type}</p></div><div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-bold ${organization.status === 'active' ? 'bg-[#e9fbd0] text-[#4c8500]' : 'bg-slate-100 text-slate-500'}`}>{organization.status === 'active' ? 'Activa' : organization.status === 'suspended' ? 'Suspendida' : 'Archivada'}</span><button type="button" onClick={() => void startEditing(organization)} className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:border-[#70b719]">Editar</button></div></div><p className="mt-3 text-sm text-slate-500">{organization.city || organization.country}</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Disciplinas</p><div className="mt-1 flex flex-wrap gap-2">{(organizationDisciplineNames[organization.id] ?? []).length ? organizationDisciplineNames[organization.id].map((discipline) => <span key={discipline} className="rounded-full bg-[#e9fbd0] px-2 py-1 text-xs font-semibold text-[#4c8500]">{discipline}</span>) : <span className="text-sm text-slate-400">Sin disciplinas asignadas</span>}</div><p className="mt-2 font-mono text-xs text-slate-400">/{organization.slug || slugify(organization.name)}</p></article>) : <p className="text-slate-500">Todavía no tienes organizaciones registradas.</p>}</div></section>
         </div>
-        <OrganizationEventsPanel organizationId={editingId || organizations[0]?.id} disciplines={disciplines} />
-        <AffiliationRequestPanel sourceOrganizationId={editingId || organizations[0]?.id} title="Vincular directivos y staff" />
-        <OrganizationRelationshipPanel sourceOrganizationId={editingId || organizations[0]?.id} />
+        <OrganizationEventsPanel organizationId={editingId || activeOrganizationId || organizations[0]?.id} disciplines={disciplines} />
+        <AffiliationRequestPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} title="Vincular directivos y staff" />
+        <OrganizationRelationshipPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} />
         {message && <div role="status" className="rounded-xl bg-[#081522] p-4 font-semibold text-white">{message}</div>}
       </div>
     </main>

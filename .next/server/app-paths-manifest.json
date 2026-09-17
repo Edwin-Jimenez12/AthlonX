@@ -1,22 +1,8 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/page": "app/page.js",
-  "/invitacion/page": "app/invitacion/page.js",
-  "/dashboard/actualizaciones/page": "app/dashboard/actualizaciones/page.js",
   "/dashboard/busqueda/page": "app/dashboard/busqueda/page.js",
-  "/dashboard/entrenador/page": "app/dashboard/entrenador/page.js",
   "/dashboard/configuracion/page": "app/dashboard/configuracion/page.js",
-  "/dashboard/estadisticas/page": "app/dashboard/estadisticas/page.js",
   "/dashboard/equipos/page": "app/dashboard/equipos/page.js",
-  "/dashboard/equipo/page": "app/dashboard/equipo/page.js",
   "/dashboard/organizaciones/page": "app/dashboard/organizaciones/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/partidos/page": "app/dashboard/partidos/page.js",
   "/dashboard/participantes/page": "app/dashboard/participantes/page.js",
-  "/dashboard/torneos/page": "app/dashboard/torneos/page.js",
-  "/dashboard/perfil/page": "app/dashboard/perfil/page.js",
-  "/dashboard/staff/page": "app/dashboard/staff/page.js",
-  "/dashboard/torneos/[torneo]/page": "app/dashboard/torneos/[torneo]/page.js",
-  "/dashboard/torneos/liga-panamena-rugby/partidos/page": "app/dashboard/torneos/liga-panamena-rugby/partidos/page.js"
+  "/dashboard/perfil/page": "app/dashboard/perfil/page.js"
 }

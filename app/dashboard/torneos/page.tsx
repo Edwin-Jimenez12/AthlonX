@@ -3,13 +3,15 @@
 import { CalendarDays, MapPin, Plus, Trophy, Users, X } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { LocationFields } from '../../../Components/location-fields'
+import { normalizePanamaCity, PANAMA_COUNTRY } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
 
 type Team = { name: string; division: string }
 type FixtureMatch = { date: number; division: string; local: string; visitor: string }
 type Discipline = { id: string; code: string; name: string }
 type Organization = { id: string; name: string }
-type Tournament = { id?: string; name: string; status: string; season: string; cover: string; teams: Team[]; fixture: FixtureMatch[]; discipline?: string; createdBy?: string; location?: string; startDate?: string; endDate?: string }
+type Tournament = { id?: string; name: string; status: string; season: string; cover: string; teams: Team[]; fixture: FixtureMatch[]; discipline?: string; createdBy?: string; country?: string; location?: string; startDate?: string; endDate?: string }
 const fixture: string[][] = []
 const categorias: { id: string; nombre: string; tabla: { equipo: string }[] }[] = []
 
@@ -23,7 +25,7 @@ export default function TournamentsPage() {
   const [name, setName] = useState('')
   const [seasonNumber, setSeasonNumber] = useState('2')
   const [year, setYear] = useState('2026')
-  const [location, setLocation] = useState('Ciudad de Panamá')
+  const [location, setLocation] = useState('Panamá')
   const [startDate, setStartDate] = useState('2026-09-12')
   const [endDate, setEndDate] = useState('2026-09-14')
   const [format, setFormat] = useState('Liga todos contra todos')
@@ -74,7 +76,7 @@ export default function TournamentsPage() {
       if (!supabase) return
       await supabase.rpc('ensure_my_organization')
       const [{ data }, { data: organizationRows }, { data: disciplineRows }] = await Promise.all([
-        supabase.from('tournaments').select('id, name, status, season, cover_url, discipline_id, created_by, location, start_date, end_date').order('created_at', { ascending: false }),
+        supabase.from('tournaments').select('id, name, status, season, cover_url, discipline_id, created_by, country, location, start_date, end_date').order('created_at', { ascending: false }),
         supabase.from('organizations').select('id, name').order('name'),
         supabase.from('disciplines').select('id, code, name').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
       ])
@@ -83,7 +85,7 @@ export default function TournamentsPage() {
         setDisciplines(disciplineRows)
         setDisciplineId((current) => current || disciplineRows.find((item) => item.code === 'rugby')?.id || disciplineRows[0]?.id || '')
       }
-      if (data) setDatabaseTournaments(data.map((item) => ({ id: item.id, name: item.name, status: item.status, season: item.season, cover: item.cover_url || '/upr.png', teams: [], fixture: [], createdBy: item.created_by, location: item.location || '', startDate: item.start_date || '', endDate: item.end_date || '', discipline: disciplineRows?.find((discipline) => discipline.id === item.discipline_id)?.name })))
+      if (data) setDatabaseTournaments(data.map((item) => ({ id: item.id, name: item.name, status: item.status, season: item.season, cover: item.cover_url || '/upr.png', teams: [], fixture: [], createdBy: item.created_by, country: item.country || PANAMA_COUNTRY, location: item.location || '', startDate: item.start_date || '', endDate: item.end_date || '', discipline: disciplineRows?.find((discipline) => discipline.id === item.discipline_id)?.name })))
     }
     void loadTournaments()
   }, [])
@@ -104,12 +106,12 @@ export default function TournamentsPage() {
 
   async function updateTournament(tournamentId: string, changes: { name: string; season: string; location: string; start_date: string | null; end_date: string | null; status: string }) {
     if (!supabase) return
-    const { data, error } = await supabase.from('tournaments').update(changes).eq('id', tournamentId).select('id, name, status, season, location, start_date, end_date').single()
+    const { data, error } = await supabase.from('tournaments').update(changes).eq('id', tournamentId).select('id, name, status, season, country, location, start_date, end_date').single()
     if (error || !data) {
       setCreateError(error?.message || 'No se pudo actualizar el torneo en Supabase.')
       return
     }
-    setDatabaseTournaments((current) => current.map((item) => item.id === tournamentId ? { ...item, name: data.name, status: data.status, season: data.season, location: data.location || '', startDate: data.start_date || '', endDate: data.end_date || '' } : item))
+    setDatabaseTournaments((current) => current.map((item) => item.id === tournamentId ? { ...item, name: data.name, status: data.status, season: data.season, country: data.country || PANAMA_COUNTRY, location: data.location || '', startDate: data.start_date || '', endDate: data.end_date || '' } : item))
     setEditingTournament(null)
   }
 
@@ -126,7 +128,7 @@ export default function TournamentsPage() {
       const { data: userData } = await supabase.auth.getUser()
       if (!userData.user) { setCreateError('No hay una sesión activa en Supabase. Inicia sesión e inténtalo nuevamente.'); return }
       newTournament.createdBy = userData.user.id
-      const { data: inserted, error } = await supabase.from('tournaments').insert({ name: newTournament.name, slug: slugify(newTournament.name), season: newTournament.season, start_date: startDate, end_date: endDate, location, cover_url: cover, status: 'published', created_by: userData.user.id, organization_id: organizationId || null, discipline_id: disciplineId }).select('id').single()
+      const { data: inserted, error } = await supabase.from('tournaments').insert({ name: newTournament.name, slug: slugify(newTournament.name), season: newTournament.season, start_date: startDate, end_date: endDate, country: PANAMA_COUNTRY, location, cover_url: cover, status: 'published', created_by: userData.user.id, organization_id: organizationId || null, discipline_id: disciplineId }).select('id').single()
       if (error || !inserted) { setCreateError(error?.message || 'No se pudo crear el torneo en Supabase.'); return }
       for (const [index, division] of divisions.entries()) {
         const { data: divisionRow, error: divisionError } = await supabase.from('tournament_divisions').insert({ tournament_id: inserted.id, name: division, sort_order: index }).select('id').single()
@@ -179,7 +181,7 @@ export default function TournamentsPage() {
 function TournamentEditor({ tournament, onSave, onClose }: { tournament: Tournament; onSave: (id: string, changes: { name: string; season: string; location: string; start_date: string | null; end_date: string | null; status: string }) => Promise<void>; onClose: () => void }) {
   const [name, setName] = useState(tournament.name)
   const [season, setSeason] = useState(tournament.season)
-  const [location, setLocation] = useState(tournament.location || '')
+  const [location, setLocation] = useState(normalizePanamaCity(tournament.location))
   const [startDate, setStartDate] = useState(tournament.startDate || '')
   const [endDate, setEndDate] = useState(tournament.endDate || '')
   const [status, setStatus] = useState(tournament.status)
@@ -190,7 +192,7 @@ function TournamentEditor({ tournament, onSave, onClose }: { tournament: Tournam
     await onSave(tournament.id, { name: name.trim(), season: season.trim(), location: location.trim(), start_date: startDate || null, end_date: endDate || null, status })
   }
 
-  return <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4"><form onSubmit={handleSubmit} className="mx-auto my-8 max-w-2xl rounded-2xl bg-white p-6 shadow-2xl md:p-8"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-wider text-[#70b719]">Gestión del torneo</p><h2 className="mt-1 font-heading text-3xl font-black uppercase text-[#081522]">Editar torneo</h2></div><button type="button" onClick={onClose} className="cursor-pointer text-2xl text-slate-500" aria-label="Cerrar">×</button></div><div className="mt-6 space-y-4"><label className="block font-semibold">Nombre<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><div className="grid gap-4 sm:grid-cols-2"><label className="block font-semibold">Temporada<input value={season} onChange={(event) => setSeason(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block font-semibold">Estado<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="in_progress">En curso</option><option value="finished">Finalizado</option></select></label></div><label className="block font-semibold">Ubicación<input value={location} onChange={(event) => setLocation(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><div className="grid gap-4 sm:grid-cols-2"><label className="block font-semibold">Fecha de inicio<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block font-semibold">Fecha de finalización<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3" /></label></div></div><div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="cursor-pointer rounded-xl border border-slate-300 px-5 py-3 font-semibold">Cancelar</button><button type="submit" className="cursor-pointer rounded-xl bg-[#B4FF45] px-5 py-3 font-bold text-[#081522]">Guardar cambios</button></div></form></div>
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4"><form onSubmit={handleSubmit} className="mx-auto my-8 max-w-2xl rounded-2xl bg-white p-6 shadow-2xl md:p-8"><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-wider text-[#70b719]">Gestión del torneo</p><h2 className="mt-1 font-heading text-3xl font-black uppercase text-[#081522]">Editar torneo</h2></div><button type="button" onClick={onClose} className="cursor-pointer text-2xl text-slate-500" aria-label="Cerrar">×</button></div><div className="mt-6 space-y-4"><label className="block font-semibold">Nombre<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><div className="grid gap-4 sm:grid-cols-2"><label className="block font-semibold">Temporada<input value={season} onChange={(event) => setSeason(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block font-semibold">Estado<select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="in_progress">En curso</option><option value="finished">Finalizado</option></select></label></div><LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} variant="light" /><div className="grid gap-4 sm:grid-cols-2"><label className="block font-semibold">Fecha de inicio<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3" /></label><label className="block font-semibold">Fecha de finalización<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full cursor-pointer rounded-xl border border-slate-300 px-4 py-3" /></label></div></div><div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="cursor-pointer rounded-xl border border-slate-300 px-5 py-3 font-semibold">Cancelar</button><button type="submit" className="cursor-pointer rounded-xl bg-[#B4FF45] px-5 py-3 font-bold text-[#081522]">Guardar cambios</button></div></form></div>
 }
 
 function TournamentDetail({ tournament, onClose }: { tournament: Tournament; onClose: () => void }) {
@@ -279,10 +281,7 @@ function Creator({ name, setName, seasonNumber, setSeasonNumber, year, setYear, 
               </label>
             </div>
 
-            <label className="block">
-              <span className="mb-1 block font-semibold">Ubicación</span>
-              <input value={location} onChange={(event) => setLocation(event.target.value)} className="w-full rounded-lg border border-slate-300 px-4 py-3" />
-            </label>
+            <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} variant="light" />
 
             <div className="rounded-xl border border-slate-200 p-4">
               <p className="font-bold">Calendario y formato</p>

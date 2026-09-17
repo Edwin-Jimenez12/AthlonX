@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Building2, CalendarDays, ClipboardCheck, ClipboardList, Menu, Megaphone, MessageSquare, Search, Shield, Users } from 'lucide-react'
+import { BarChart3, Building2, CalendarDays, ClipboardCheck, ClipboardList, Menu, Megaphone, MessageSquare, Search, Shield, UserCircle, Users } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 
 type NavigationItem = { label: string; icon: LucideIcon; href: string }
@@ -40,6 +41,12 @@ const staffNavigation: NavigationItem[] = [
   { label: 'Reportes', icon: BarChart3, href: '/dashboard/staff#reportes' },
 ]
 
+const athleteNavigation: NavigationItem[] = [
+  { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
+  { label: 'Mi vista', icon: UserCircle, href: '/dashboard/atleta' },
+  { label: 'Mi cuenta', icon: Users, href: '/dashboard/perfil' },
+]
+
 const organizationNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Organización', icon: Building2, href: '/dashboard/organizaciones' },
@@ -55,6 +62,8 @@ export function DashboardSidebar() {
   const [isTrainer, setIsTrainer] = useState(false)
   const [isStaff, setIsStaff] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [contexts, setContexts] = useState<AccountContext[]>([])
+  const [activeContextId, setActiveContextId] = useState('')
   const close = () => setOpen(false)
 
   useEffect(() => {
@@ -62,17 +71,50 @@ export function DashboardSidebar() {
       if (!supabase) return
       const { data } = await supabase.auth.getUser()
       setAccountType(data.user?.user_metadata?.account_type ?? '')
+      if (!data.user) return
       const metadataRoles = Array.isArray(data.user?.user_metadata?.roles) ? data.user.user_metadata.roles : []
-      const { data: storedRoles } = data.user ? await supabase.from('user_roles').select('role').eq('user_id', data.user.id) : { data: [] }
+      const [{ data: storedRoles }, accountContexts] = await Promise.all([
+        supabase.from('user_roles').select('role').eq('user_id', data.user.id),
+        loadAccountContexts(data.user.id),
+      ])
       setIsTrainer(metadataRoles.includes('entrenador') || Boolean(storedRoles?.some(({ role }) => role === 'entrenador')))
       setIsStaff(metadataRoles.includes('staff') || Boolean(storedRoles?.some(({ role }) => role === 'staff')))
-      const { data: admin } = data.user ? await supabase.from('platform_update_admins').select('user_id').eq('user_id', data.user.id).maybeSingle() : { data: null }
+      const { data: admin } = await supabase.from('platform_update_admins').select('user_id').eq('user_id', data.user.id).maybeSingle()
       setIsPlatformAdmin(Boolean(admin))
+      setContexts(accountContexts)
+      const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
+      setActiveContextId(accountContexts.find((context) => context.id === storedContextId)?.id ?? accountContexts[0]?.id ?? '')
     }
     void loadAccountType()
   }, [])
 
-  const baseNavigation = accountType === 'organizacion' ? organizationNavigation : accountType === 'equipo' ? teamNavigation : isTrainer ? trainerNavigation : isStaff ? staffNavigation : searchNavigation
+  useEffect(() => {
+    const syncContext = (event: Event) => {
+      const context = (event as CustomEvent<AccountContext>).detail
+      if (context?.id) setActiveContextId(context.id)
+    }
+    window.addEventListener('athlonx-context-change', syncContext)
+    return () => window.removeEventListener('athlonx-context-change', syncContext)
+  }, [])
+
+  const activeContext = contexts.find((context) => context.id === activeContextId)
+  const baseNavigation = activeContext?.contextType === 'organization'
+    ? organizationNavigation
+    : activeContext?.contextType === 'team' && activeContext.role === 'entrenador'
+      ? trainerNavigation
+      : activeContext?.contextType === 'team' && activeContext.role === 'staff'
+        ? staffNavigation
+        : activeContext?.contextType === 'team' && activeContext.role === 'atleta'
+          ? athleteNavigation
+          : activeContext?.contextType === 'team'
+            ? teamNavigation
+            : activeContext?.role === 'entrenador'
+              ? trainerNavigation
+              : activeContext?.role === 'staff'
+                ? staffNavigation
+                : activeContext?.role === 'atleta'
+                  ? athleteNavigation
+                  : accountType === 'organizacion' ? organizationNavigation : accountType === 'equipo' ? teamNavigation : isTrainer ? trainerNavigation : isStaff ? staffNavigation : searchNavigation
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/dashboard/actualizaciones' }] : baseNavigation
 
   return <>
