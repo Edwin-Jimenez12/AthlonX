@@ -23,13 +23,13 @@ export function LocationFields({ country, city, onCountryChange, onCityChange, v
     <div className={`grid gap-3 sm:grid-cols-2 ${className}`}>
       <label className={`block text-sm font-bold ${labelClass}`}>
         País
-        <select value={country} onChange={(event) => onCountryChange?.(event.target.value)} required={required} className={`mt-2 w-full cursor-pointer rounded-lg border px-3 py-3 outline-none focus:border-[#b4ff45] ${selectClass}`}>
+        <select value={country} onChange={(event) => onCountryChange?.(event.target.value)} required={required} className={`mt-2 w-full cursor-pointer rounded-[5px] border px-3 py-2.5 outline-none focus:border-[#b4ff45] ${selectClass}`}>
           {ATHLONX_COUNTRIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
       <label className={`block text-sm font-bold ${labelClass}`}>
         Ciudad
-        <select value={city} onChange={(event) => onCityChange(event.target.value)} required={required} className={`mt-2 w-full cursor-pointer rounded-lg border px-3 py-3 outline-none focus:border-[#b4ff45] ${selectClass}`}>
+        <select value={city} onChange={(event) => onCityChange(event.target.value)} required={required} className={`mt-2 w-full cursor-pointer rounded-[5px] border px-3 py-2.5 outline-none focus:border-[#b4ff45] ${selectClass}`}>
           <option value="">Seleccionar ciudad</option>
           {PANAMA_CITIES.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>

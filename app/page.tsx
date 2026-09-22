@@ -30,6 +30,15 @@ export default function Home() {
     return () => window.removeEventListener('athlonx-auth', handleAuth)
   }, [])
 
+  useEffect(() => {
+    if (!authMode) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [authMode])
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#061019] bg-cover bg-center bg-fixed bg-no-repeat text-white" style={{ backgroundImage: "linear-gradient(90deg, rgba(3,10,16,.97) 0%, rgba(3,10,16,.82) 38%, rgba(3,10,16,.2) 78%, rgba(3,10,16,.45) 100%), url('/MarcaAthlonX/fondo.png')", backgroundAttachment: 'fixed', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <Menu />
@@ -94,32 +103,16 @@ export default function Home() {
       </section>
       {authMode && (
   <div
-    onClick={() => setAuthMode(null)}
-    className="fixed inset-0 z-[60] flex items-center justify-center
-      overflow-y-auto
-      bg-black/75
-      px-5 py-12
-      backdrop-blur-md"
+    className="fixed inset-0 z-[60] flex h-[100dvh] items-center justify-center overflow-hidden bg-black/75 px-4 py-4 backdrop-blur-md sm:px-6 sm:py-6"
   >
     <div
-      onClick={(event) => event.stopPropagation()}
-      className="relative w-full max-w-2xl"
+      className="relative flex max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-2xl flex-col"
     >
       <button
         type="button"
         aria-label="Cerrar formulario"
         onClick={() => setAuthMode(null)}
-        className="
-          absolute -right-1 -top-10 z-10
-          rounded-full
-          border border-white/15
-          bg-[#0b141e]/90
-          p-2
-          text-slate-300
-          shadow-lg
-          transition
-          hover:text-white
-        "
+        className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-[5px] border border-white/15 bg-[#0b141e]/90 text-slate-300 shadow-lg transition hover:border-[#B4FF45] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45]"
       >
         <X size={18} />
       </button>

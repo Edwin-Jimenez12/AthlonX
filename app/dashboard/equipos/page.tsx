@@ -39,7 +39,19 @@ export default function TeamsPage() {
       ])
       setOrganizations(orgs ?? [])
       setDisciplines(sports ?? [])
-      if (orgs?.[0]) setOrganizationId(orgs[0].id)
+      const { data: userData } = await supabase.auth.getUser()
+      const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
+      const { data: activeContext } = storedContextId
+        ? await supabase.from('user_contexts').select('organization_id, context_type').eq('id', storedContextId).maybeSingle()
+        : { data: null }
+      const { data: membership } = userData.user
+        ? await supabase.from('organization_members').select('organization_id').eq('user_id', userData.user.id).in('role', ['owner', 'directivo']).eq('status', 'active').limit(1).maybeSingle()
+        : { data: null }
+      const activeOrganizationId = activeContext?.context_type === 'organization'
+        ? activeContext.organization_id
+        : membership?.organization_id
+      const selectedOrganization = orgs?.find((organization) => organization.id === activeOrganizationId) ?? orgs?.[0]
+      if (selectedOrganization) setOrganizationId(selectedOrganization.id)
       if (sports?.[0]) setDisciplineId(sports[0].id)
     }
     void loadBaseData()
@@ -54,6 +66,12 @@ export default function TeamsPage() {
   }
 
   useEffect(() => { void loadTeams() }, [organizationId])
+
+  useEffect(() => {
+    const refreshTeams = () => { void loadTeams() }
+    window.addEventListener('athlonx-affiliation-updated', refreshTeams)
+    return () => window.removeEventListener('athlonx-affiliation-updated', refreshTeams)
+  }, [organizationId])
 
   useEffect(() => {
     async function loadPlayers() {

@@ -2,6 +2,7 @@
 
 import { Building2, CalendarDays, Search, SlidersHorizontal, Trophy, UserRound, Users, X } from 'lucide-react'
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { PANAMA_CITIES } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
 
@@ -116,8 +117,20 @@ export default function SearchPage() {
 function SearchResultCard({ result }: { result: SearchResult }) {
   const initials = result.display_name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
   const isPerson = result.result_type === 'persona'
+  const entityHref = result.result_type === 'persona'
+    ? `/dashboard/perfil/${result.entity_id}`
+    : result.result_type === 'equipo'
+      ? `/dashboard/equipos/${result.entity_id}`
+    : result.result_type === 'organizacion'
+      ? `/dashboard/organizaciones/${result.entity_id}`
+      : result.result_type === 'torneo'
+        ? `/dashboard/torneos/ver/${result.entity_id}`
+        : null
 
-  return <article className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60"><div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">{result.avatar_url ? <img src={result.avatar_url} alt="" className="h-full w-full object-cover" /> : <span>{initials}</span>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full bg-[#b4ff45]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#cfff91]"><ResultIcon type={result.result_type} />{resultTypeLabels[result.result_type]}</span>{result.location && <span className="text-xs text-slate-500">{result.location}</span>}</div><h4 className="mt-3 truncate font-heading text-3xl font-bold text-white">{result.display_name}</h4><div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span>{result.username ? `@${result.username}` : 'Sin nombre de usuario'}</span><span className="font-mono text-[#b4ff45]">{result.athlonx_code}</span></div>{result.discipline_names?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{result.discipline_names.map((discipline) => <span key={discipline} className="rounded-full border border-[#31556b] px-2.5 py-1 text-xs font-semibold text-slate-300">{discipline}</span>)}</div>}{isPerson && result.affiliations?.length > 0 && <div className="mt-4 border-t border-white/10 pt-3"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Afiliaciones</p><div className="mt-2 flex flex-wrap gap-2">{result.affiliations.map((affiliation, index) => <span key={`${affiliation.role}-${affiliation.team_name || affiliation.organization_name}-${index}`} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-slate-300"><strong className="text-white">{affiliation.role_label || affiliation.role}</strong>{' · '}{affiliation.team_name || affiliation.organization_name || 'AthlonX'}</span>)}</div></div>}</div></div></article>
+  const card = <div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">{result.avatar_url ? <img src={result.avatar_url} alt="" className="h-full w-full object-cover" /> : <span>{initials}</span>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full bg-[#b4ff45]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#cfff91]"><ResultIcon type={result.result_type} />{resultTypeLabels[result.result_type]}</span>{result.location && <span className="text-xs text-slate-500">{result.location}</span>}</div><h4 className="mt-3 truncate font-heading text-3xl font-bold text-white">{result.display_name}</h4><div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span>{result.result_type === 'torneo' ? 'Información pública' : result.username ? `@${result.username}` : 'Sin nombre de usuario'}</span><span className="font-mono text-[#b4ff45]">{result.athlonx_code}</span></div>{result.discipline_names?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{result.discipline_names.map((discipline) => <span key={discipline} className="rounded-full border border-[#31556b] px-2.5 py-1 text-xs font-semibold text-slate-300">{discipline}</span>)}</div>}{isPerson && result.affiliations?.length > 0 && <div className="mt-4 border-t border-white/10 pt-3"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Afiliaciones</p><div className="mt-2 flex flex-wrap gap-2">{result.affiliations.map((affiliation, index) => <span key={`${affiliation.role}-${affiliation.team_name || affiliation.organization_name}-${index}`} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-slate-300"><strong className="text-white">{affiliation.role_label || affiliation.role}</strong>{' · '}{affiliation.team_name || affiliation.organization_name || 'AthlonX'}</span>)}</div></div>}</div></div>
+  return entityHref
+    ? <Link href={entityHref} className="block rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60 focus:outline-none focus:ring-2 focus:ring-[#b4ff45]">{card}</Link>
+    : <article className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60">{card}</article>
 }
 
 function EmptyResults({ query, onClear }: { query: string; onClear: () => void }) {

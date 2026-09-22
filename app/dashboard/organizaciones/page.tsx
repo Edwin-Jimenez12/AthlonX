@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { AffiliationRequestPanel } from '../../../Components/affiliation-request-panel'
 import { OrganizationEventsPanel } from '../../../Components/organization-events-panel'
 import { OrganizationRelationshipPanel } from '../../../Components/organization-relationship-panel'
+import { OrganizationTeamRequestPanel } from '../../../Components/organization-team-request-panel'
 import { LocationFields } from '../../../Components/location-fields'
 import { normalizePanamaCity } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
@@ -48,18 +49,23 @@ export default function OrganizationsPage() {
 
   async function loadOrganizations() {
     if (!supabase) return
-    await supabase.rpc('ensure_my_organization')
+    const { error: ensureError } = await supabase.rpc('ensure_my_organization')
+    if (ensureError) setMessage(`No se pudo preparar el perfil de organización: ${ensureError.message}`)
+    const { data: userData } = await supabase.auth.getUser()
     const [{ data }, { data: disciplineRows }, { data: modalityRows }] = await Promise.all([
       supabase.from('organizations').select('id, name, type, country, province, city, phone, institutional_email, logo_url, description, slug, status').order('created_at', { ascending: false }),
       supabase.from('disciplines').select('id, name, code').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
       supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name'),
     ])
     setOrganizations(data ?? [])
+    const { data: membership } = userData.user
+      ? await supabase.from('organization_members').select('organization_id').eq('user_id', userData.user.id).in('role', ['owner', 'directivo']).eq('status', 'active').limit(1).maybeSingle()
+      : { data: null }
     const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
     const { data: activeContext } = storedContextId
       ? await supabase.from('user_contexts').select('organization_id, context_type').eq('id', storedContextId).maybeSingle()
       : { data: null }
-    setActiveOrganizationId(activeContext?.context_type === 'organization' ? activeContext.organization_id ?? '' : data?.[0]?.id ?? '')
+    setActiveOrganizationId(activeContext?.context_type === 'organization' ? activeContext.organization_id ?? '' : membership?.organization_id ?? data?.[0]?.id ?? '')
     setDisciplines(disciplineRows ?? [])
     setModalities(modalityRows ?? [])
     if (data?.length) {
@@ -180,6 +186,7 @@ export default function OrganizationsPage() {
         </div>
         <OrganizationEventsPanel organizationId={editingId || activeOrganizationId || organizations[0]?.id} disciplines={disciplines} />
         <AffiliationRequestPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} title="Vincular directivos y staff" />
+        <OrganizationTeamRequestPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} />
         <OrganizationRelationshipPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} />
         {message && <div role="status" className="rounded-xl bg-[#081522] p-4 font-semibold text-white">{message}</div>}
       </div>
