@@ -8,11 +8,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const isSettings = pathname?.startsWith('/dashboard/configuracion') ?? false
 
-  if (isSettings) return children
+  if (isSettings) return <div className="athlonx-dashboard">{children}</div>
 
-  return <>
+  return <div className="athlonx-dashboard">
     <DashboardSidebar />
     <DashboardHeader />
     {children}
-  </>
+  </div>
 }

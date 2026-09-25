@@ -1,6 +1,6 @@
 {
   "app": {
-    "[project]/app/page": [
+    "[project]/app/dashboard/torneos/ver/[id]/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",

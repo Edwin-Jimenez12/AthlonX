@@ -164,8 +164,9 @@ as $$
       ) relation
     ), '[]'::jsonb),
     'tournaments', coalesce((
-      select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'season', t.season, 'status', t.status, 'location', t.location) order by t.created_at desc)
+      select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name, 'slug', t.slug, 'season', t.season, 'status', t.status, 'location', t.location, 'modality', case when m.id is null then null else jsonb_build_object('id', m.id, 'code', m.code, 'name', m.name) end) order by t.created_at desc)
       from public.tournaments t
+      left join public.sport_modalities m on m.id = t.modality_id
       where t.organization_id = p_organization_id
     ), '[]'::jsonb)
   );
@@ -198,11 +199,13 @@ as $$
         'cover_url', t.cover_url,
         'athlonx_code', t.athlonx_code,
         'discipline', case when d.id is null then null else jsonb_build_object('id', d.id, 'code', d.code, 'name', d.name) end,
+        'modality', case when m.id is null then null else jsonb_build_object('id', m.id, 'code', m.code, 'name', m.name) end,
         'organization', case when o.id is null then null else jsonb_build_object('id', o.id, 'name', o.name, 'athlonx_code', o.athlonx_code, 'handle', o.handle) end,
         'organizer_team', case when ot.id is null then null else jsonb_build_object('id', ot.id, 'name', ot.name, 'athlonx_code', ot.athlonx_code, 'handle', ot.handle) end
       )
       from public.tournaments t
       left join public.disciplines d on d.id = t.discipline_id
+      left join public.sport_modalities m on m.id = t.modality_id
       left join public.organizations o on o.id = t.organization_id
       left join public.teams ot on ot.id = t.organizer_team_id
       where t.id = p_tournament_id and t.is_public = true and t.status in ('published', 'in_progress', 'finished')

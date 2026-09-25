@@ -1,14 +1,17 @@
 {
   "pages": {
-    "/page": [
+    "/dashboard/torneos/ver/[id]/page": [
       "static/chunks/node_modules_next_dist_8db7fb1f._.js",
       "static/chunks/app_icon_svg_mjs_860645cf._.js",
       "static/chunks/app_3e23aa22._.css",
       "static/chunks/app_layout_tsx_0a548d63._.js",
       "static/chunks/node_modules_next_dist_client_components_builtin_global-error_93292415.js",
-      "static/chunks/_99255e74._.js",
-      "static/chunks/node_modules_78f3e941._.js",
-      "static/chunks/app_page_tsx_93292415._.js",
+      "static/chunks/node_modules_85c01049._.js",
+      "static/chunks/_1172983a._.js",
+      "static/chunks/app_dashboard_layout_tsx_93292415._.js",
+      "static/chunks/_ad08c87b._.js",
+      "static/chunks/node_modules_lucide-react_dist_esm_icons_2e65d855._.js",
+      "static/chunks/app_dashboard_torneos_ver_[id]_page_tsx_178bc414._.js",
       "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
       "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
       "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",

@@ -109,15 +109,15 @@ export function DashboardHeader() {
   const activeContext = contexts.find((context) => context.id === activeContextId)
   const organizationContexts = contexts.filter((context) => context.contextType === 'organization')
   const canSwitchContexts = activeContext?.contextType === 'organization' && organizationContexts.length > 0
-  return <header className="border-b border-[#263b4d] px-6 py-4 text-white print:hidden lg:ml-64 md:px-10">
+  return <header className="border-b border-[#1b3548] bg-[#07131e]/95 px-6 py-4 text-white backdrop-blur-xl print:hidden lg:ml-64 md:px-10">
     <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
       <h1 className="truncate font-display text-3xl uppercase tracking-wide sm:text-4xl">{titles[key] || 'AthlonX'}</h1>
       <div className="relative flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
         {canSwitchContexts && <ContextSwitcher contexts={organizationContexts} activeContextId={activeContextId} onChange={selectContext} />}
         <NotificationsMenu />
         <span className="hidden h-7 w-px bg-[#294052] sm:block" />
-        <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-full p-1 pr-2 hover:bg-white/5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b4ff45] font-heading font-bold text-[#07131e]">{initials}</span>
+        <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-[5px] border border-transparent p-1 pr-2 hover:border-[#29485d] hover:bg-white/5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[5px] bg-[#b4ff45] font-heading font-bold text-[#07131e]">{initials}</span>
           <span className="hidden max-w-40 truncate font-semibold sm:block">{profileName}</span>
         </button>
         {profileOpen && <AccountMenu name={profileName} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}

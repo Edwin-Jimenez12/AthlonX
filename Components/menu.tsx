@@ -31,7 +31,7 @@ export default function Menu() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-6">
+    <header className=" inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-6">
       <nav className="mx-auto flex max-w-7xl items-center justify-between rounded-2xl border border-white/15 bg-[#07111d]/70 px-5 py-3 shadow-2xl backdrop-blur-xl md:px-7">
         <Link href="/" onClick={() => selectLink('Inicio')} aria-label="AthlonX, inicio" className="shrink-0 transition hover:opacity-80">
           <img className="w-40 md:w-48" src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" />

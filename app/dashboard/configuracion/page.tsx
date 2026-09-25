@@ -145,7 +145,7 @@ export default function SettingsPage() {
       {menuOpen && <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú lateral" className="fixed inset-0 z-30 cursor-pointer bg-[#020a11]/70 lg:hidden" />}
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#061b2b] px-7 py-8 shadow-2xl transition-transform duration-200 lg:static lg:min-h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-start justify-between">
-          <Link href="/" onClick={() => setMenuOpen(false)} className="border-b border-[#16415b] pb-8"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-48" /><p className="mt-3 text-[10px] uppercase tracking-[.35em] text-slate-500">Gestión deportiva</p></Link>
+          <Link href="/dashboard/busqueda" onClick={() => setMenuOpen(false)} className="border-b border-[#16415b] pb-8"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-48" /></Link>
           <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú lateral" className="ml-3 cursor-pointer rounded-full p-2 text-slate-400 hover:bg-white/10 lg:hidden"><X size={19} /></button>
         </div>
         <nav className="mt-8 space-y-2">{menu.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => selectSection(id)} className={`flex w-full cursor-pointer items-center rounded-2xl px-4 py-3 text-left font-semibold transition ${section === id ? 'bg-[#b4ff45] text-[#07131e]' : 'text-slate-200 hover:bg-white/5'}`}><span className="flex items-center gap-3"><Icon size={19} />{label}</span></button>)}</nav>

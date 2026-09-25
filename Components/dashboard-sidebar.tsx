@@ -17,7 +17,7 @@ const searchNavigation: NavigationItem[] = [
 const teamNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Mi equipo', icon: Shield, href: '/dashboard/equipo' },
-  { label: 'Eventos', icon: CalendarDays, href: '/dashboard/equipo#eventos' },
+  { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
   { label: 'Plantilla', icon: Users, href: '/dashboard/equipo#plantilla' },
   { label: 'Calendario', icon: CalendarDays, href: '/dashboard/equipo#calendario' },
   { label: 'Estadísticas', icon: BarChart3, href: '/dashboard/equipo#estadisticas' },
@@ -50,7 +50,7 @@ const athleteNavigation: NavigationItem[] = [
 const organizationNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Organización', icon: Building2, href: '/dashboard/organizaciones' },
-  { label: 'Eventos', icon: CalendarDays, href: '/dashboard/organizaciones#eventos' },
+  { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
   { label: 'Equipos', icon: Users, href: '/dashboard/equipos' },
   { label: 'Participantes', icon: Shield, href: '/dashboard/participantes' },
 ]
@@ -118,11 +118,11 @@ export function DashboardSidebar() {
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/dashboard/actualizaciones' }] : baseNavigation
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl bg-[#081522] text-white shadow-lg print:hidden lg:hidden"><Menu size={22} /></button>
+    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-[5px] border border-[#29485d] bg-[#081522] text-white shadow-lg print:hidden lg:hidden"><Menu size={22} /></button>
     {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-30 cursor-pointer bg-[#081522]/60 print:hidden lg:hidden" />}
-    <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#081522] px-6 py-7 text-white shadow-2xl transition-transform duration-200 print:hidden lg:z-20 lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-      <Link href="/" onClick={close} className="block border-b border-white/10 pb-7"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-44" /><p className="mt-2 text-[10px] uppercase tracking-[.35em] text-slate-500">Gestión deportiva</p></Link>
-      <nav className="mt-8 space-y-2">{navigation.map(({ label, icon: Icon, href }) => { const isActive = pathname === href.split('#')[0] && !href.includes('#'); return <Link key={href} href={href} onClick={close} className={`flex w-full cursor-pointer items-center gap-4 rounded-xl px-4 py-3 font-heading text-lg transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-[#b4ff45] font-bold text-[#081522]' : 'text-slate-300'}`}><Icon size={20} />{label}</Link> })}</nav>
+    <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[#1b3548] bg-[#07131e] px-5 py-6 text-white shadow-2xl transition-transform duration-200 print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <Link href="/dashboard/busqueda" onClick={close} className="block border-b border-white/10 pb-7"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-44" /></Link>
+      <nav className="mt-8 space-y-2">{navigation.map(({ label, icon: Icon, href }) => { const isActive = pathname === href.split('#')[0] && !href.includes('#'); return <Link key={href} href={href} onClick={close} className={`flex w-full cursor-pointer items-center gap-4 rounded-[5px] px-4 py-3 font-heading text-lg transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-[#b4ff45] font-bold text-[#081522]' : 'text-slate-300'}`}><Icon size={20} />{label}</Link> })}</nav>
     </aside>
   </>
 }

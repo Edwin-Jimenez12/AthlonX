@@ -1,3 +1,4 @@
 {
-  "/page": "app/page.js"
+  "/dashboard/torneos/ver/[id]/page": "app/dashboard/torneos/ver/[id]/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js"
 }

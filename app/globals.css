@@ -24,6 +24,119 @@ body:has(main) {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+/* Shared product language for authenticated screens. The landing page keeps
+   its own composition, while dashboard pages inherit the AthlonX system. */
+.athlonx-dashboard {
+  --ax-bg: #061019;
+  --ax-surface: #0b1d2c;
+  --ax-surface-raised: #102536;
+  --ax-line: #29485d;
+  --ax-text: #e8eef3;
+  --ax-muted: #91a8ba;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 86% 5%, rgba(180, 255, 69, .08), transparent 23rem),
+    radial-gradient(circle at 44% 90%, rgba(19, 87, 125, .2), transparent 30rem),
+    var(--ax-bg);
+  color: var(--ax-text);
+}
+
+.athlonx-dashboard main {
+  min-height: calc(100vh - 76px);
+  background: transparent !important;
+  color: var(--ax-text) !important;
+}
+
+.athlonx-dashboard section,
+.athlonx-dashboard article,
+.athlonx-dashboard aside,
+.athlonx-dashboard fieldset,
+.athlonx-dashboard button,
+.athlonx-dashboard input,
+.athlonx-dashboard select,
+.athlonx-dashboard textarea {
+  border-radius: 5px;
+}
+
+.athlonx-dashboard [class*="rounded-"] {
+  border-radius: 5px !important;
+}
+
+.athlonx-dashboard main [class*="bg-white"],
+.athlonx-dashboard main [class*="bg-[#f3f6f8]"],
+.athlonx-dashboard main [class*="bg-[#f4f6f8]"],
+.athlonx-dashboard main [class*="bg-slate-50"] {
+  background-color: var(--ax-surface) !important;
+  color: var(--ax-text) !important;
+}
+
+.athlonx-dashboard main [class*="bg-[#081522]"],
+.athlonx-dashboard main [class*="bg-[#0b1d2c]"],
+.athlonx-dashboard main [class*="bg-[#0d1d2b]"],
+.athlonx-dashboard main [class*="bg-[#07131e]"] {
+  background-color: var(--ax-surface) !important;
+}
+
+.athlonx-dashboard main [class*="border-slate-200"],
+.athlonx-dashboard main [class*="border-slate-300"],
+.athlonx-dashboard main [class*="border-[#1f4057]"],
+.athlonx-dashboard main [class*="border-[#263b4d]"],
+.athlonx-dashboard main [class*="border-[#29485d]"] {
+  border-color: var(--ax-line) !important;
+}
+
+.athlonx-dashboard main [class*="text-[#17212b]"],
+.athlonx-dashboard main [class*="text-[#081522]"] {
+  color: var(--ax-text) !important;
+}
+
+.athlonx-dashboard main [class*="text-slate-500"],
+.athlonx-dashboard main [class*="text-slate-600"] {
+  color: var(--ax-muted) !important;
+}
+
+.athlonx-dashboard main input,
+.athlonx-dashboard main select,
+.athlonx-dashboard main textarea {
+  border-color: var(--ax-line);
+  background-color: #081522;
+  color: var(--ax-text);
+}
+
+.athlonx-dashboard main input::placeholder,
+.athlonx-dashboard main textarea::placeholder {
+  color: #70899b;
+}
+
+.athlonx-dashboard main [class*="shadow-sm"],
+.athlonx-dashboard main [class*="shadow-xl"] {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .16);
+}
+
+html[data-theme='light'] .athlonx-dashboard {
+  --ax-bg: #f3f6f8;
+  --ax-surface: #ffffff;
+  --ax-surface-raised: #f8fafc;
+  --ax-line: #d5dee7;
+  --ax-text: #17212b;
+  --ax-muted: #64748b;
+  background: var(--ax-bg);
+}
+
+html[data-theme='light'] .athlonx-dashboard main input,
+html[data-theme='light'] .athlonx-dashboard main select,
+html[data-theme='light'] .athlonx-dashboard main textarea {
+  background-color: #ffffff;
+  color: var(--ax-text);
+}
+
+html[data-theme='light'] .athlonx-dashboard main [class*="bg-[#081522]"],
+html[data-theme='light'] .athlonx-dashboard main [class*="bg-[#0b1d2c"],
+html[data-theme='light'] .athlonx-dashboard main [class*="bg-[#0d1d2b"] {
+  background-color: var(--ax-surface) !important;
+  color: var(--ax-text) !important;
+}
+
 html[data-theme='dark'] body main {
   background-color: #07131e !important;
   color: #e8eef3;

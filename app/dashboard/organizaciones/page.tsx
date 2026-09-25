@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { AffiliationRequestPanel } from '../../../Components/affiliation-request-panel'
-import { OrganizationEventsPanel } from '../../../Components/organization-events-panel'
 import { OrganizationRelationshipPanel } from '../../../Components/organization-relationship-panel'
 import { OrganizationTeamRequestPanel } from '../../../Components/organization-team-request-panel'
 import { LocationFields } from '../../../Components/location-fields'
@@ -184,7 +183,6 @@ export default function OrganizationsPage() {
           </form>
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-heading text-2xl font-black uppercase text-[#081522]">Mis organizaciones</h2><div className="mt-5 space-y-3">{organizations.length ? organizations.map((organization) => <article key={organization.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-heading text-xl font-black uppercase text-[#081522]">{organization.name}</h3><p className="mt-1 text-sm capitalize text-[#4c8500]">{organizationTypes.find(([value]) => value === organization.type)?.[1] ?? organization.type}</p></div><div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-bold ${organization.status === 'active' ? 'bg-[#e9fbd0] text-[#4c8500]' : 'bg-slate-100 text-slate-500'}`}>{organization.status === 'active' ? 'Activa' : organization.status === 'suspended' ? 'Suspendida' : 'Archivada'}</span><button type="button" onClick={() => void startEditing(organization)} className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:border-[#70b719]">Editar</button></div></div><p className="mt-3 text-sm text-slate-500">{organization.city || organization.country}</p><p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Disciplinas</p><div className="mt-1 flex flex-wrap gap-2">{(organizationDisciplineNames[organization.id] ?? []).length ? organizationDisciplineNames[organization.id].map((discipline) => <span key={discipline} className="rounded-full bg-[#e9fbd0] px-2 py-1 text-xs font-semibold text-[#4c8500]">{discipline}</span>) : <span className="text-sm text-slate-400">Sin disciplinas asignadas</span>}</div><p className="mt-2 font-mono text-xs text-slate-400">/{organization.slug || slugify(organization.name)}</p></article>) : <p className="text-slate-500">Todavía no tienes organizaciones registradas.</p>}</div></section>
         </div>
-        <OrganizationEventsPanel organizationId={editingId || activeOrganizationId || organizations[0]?.id} disciplines={disciplines} />
         <AffiliationRequestPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} title="Vincular directivos y staff" />
         <OrganizationTeamRequestPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} />
         <OrganizationRelationshipPanel sourceOrganizationId={editingId || activeOrganizationId || organizations[0]?.id} />

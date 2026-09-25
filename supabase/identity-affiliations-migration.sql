@@ -86,9 +86,10 @@ insert into public.sport_modalities (discipline_id, code, name)
 select d.id, seed.code, seed.name
 from public.disciplines d
 cross join (values
-  ('rugby', 'seven', 'Rugby 7'),
-  ('rugby', 'xv', 'Rugby XV'),
-  ('baloncesto', '5x5', 'Baloncesto 5x5')
+  ('rugby', 'seven', 'Rugby Sevens'),
+  ('rugby', 'xv', 'Rugby 15s'),
+  ('baloncesto', '5x5', 'Basketball 5x5'),
+  ('baloncesto', '3x3', 'Basketball 3x3')
 ) as seed(discipline_code, code, name)
 where d.code = seed.discipline_code
 on conflict (discipline_id, code) do update set name = excluded.name;
