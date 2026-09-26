@@ -208,12 +208,21 @@ as $$
       left join public.sport_modalities m on m.id = t.modality_id
       left join public.organizations o on o.id = t.organization_id
       left join public.teams ot on ot.id = t.organizer_team_id
-      where t.id = p_tournament_id and t.is_public = true and t.status in ('published', 'in_progress', 'finished')
+      where t.id = p_tournament_id
+        and (
+          (t.is_public = true and t.status in ('published', 'in_progress', 'finished'))
+          or (t.status = 'draft' and t.created_by = auth.uid())
+        )
     ),
     'divisions', coalesce((
       select jsonb_agg(jsonb_build_object('id', d.id, 'name', d.name, 'sort_order', d.sort_order) order by d.sort_order, d.name)
       from public.tournament_divisions d
       where d.tournament_id = p_tournament_id
+        and exists (
+          select 1 from public.tournaments visible_tournament
+          where visible_tournament.id = p_tournament_id
+            and ((visible_tournament.is_public = true and visible_tournament.status in ('published', 'in_progress', 'finished')) or (visible_tournament.status = 'draft' and visible_tournament.created_by = auth.uid()))
+        )
     ), '[]'::jsonb),
     'teams', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -230,6 +239,11 @@ as $$
       join public.teams t on t.id = tt.team_id
       join public.tournament_divisions d on d.id = tt.division_id
       where tt.tournament_id = p_tournament_id
+        and exists (
+          select 1 from public.tournaments visible_tournament
+          where visible_tournament.id = p_tournament_id
+            and ((visible_tournament.is_public = true and visible_tournament.status in ('published', 'in_progress', 'finished')) or (visible_tournament.status = 'draft' and visible_tournament.created_by = auth.uid()))
+        )
     ), '[]'::jsonb),
     'matches', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -255,6 +269,11 @@ as $$
       left join public.teams local_team on local_team.id = m.local_team_id
       left join public.teams visitor_team on visitor_team.id = m.visitor_team_id
       where f.tournament_id = p_tournament_id
+        and exists (
+          select 1 from public.tournaments visible_tournament
+          where visible_tournament.id = p_tournament_id
+            and ((visible_tournament.is_public = true and visible_tournament.status in ('published', 'in_progress', 'finished')) or (visible_tournament.status = 'draft' and visible_tournament.created_by = auth.uid()))
+        )
     ), '[]'::jsonb)
   );
 $$;

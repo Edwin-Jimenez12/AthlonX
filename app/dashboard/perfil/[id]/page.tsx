@@ -42,7 +42,16 @@ export default function PublicProfilePage() {
         setLoading(false)
         return
       }
-      const payload = response as PublicProfilePayload
+      let payload = response as PublicProfilePayload
+      if (!payload?.profile) {
+        const { data: playerResponse, error: playerError } = await supabase.rpc('get_public_player_profile', { p_player_id: params.id })
+        if (playerError) {
+          setError(playerError.message)
+          setLoading(false)
+          return
+        }
+        payload = playerResponse as PublicProfilePayload
+      }
       setData(payload)
       setSelectedDiscipline(payload.disciplines?.[0]?.code ?? '')
       setLoading(false)

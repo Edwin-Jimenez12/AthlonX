@@ -1,4 +1,3 @@
 {
-  "/dashboard/torneos/ver/[id]/page": "app/dashboard/torneos/ver/[id]/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js"
+  "/dashboard/organizaciones/perfil/page": "app/dashboard/organizaciones/perfil/page.js"
 }

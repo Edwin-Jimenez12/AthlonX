@@ -23,6 +23,7 @@ const titles: Record<string, string> = {
   partidos: 'Partidos',
   estadisticas: 'Estadísticas',
   actualizaciones: 'Actualizaciones',
+  notificaciones: 'Notificaciones',
 }
 
 export function DashboardHeader() {

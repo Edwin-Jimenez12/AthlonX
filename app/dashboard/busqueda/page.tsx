@@ -82,7 +82,23 @@ export default function SearchPage() {
       setSearched(true)
       return
     }
-    const directoryResults = (data ?? []) as SearchResult[]
+    const { data: rosterData, error: rosterError } = resultType === 'todos' || resultType === 'persona'
+      ? await supabase.rpc('search_public_players', {
+        p_query: normalizedQuery,
+        p_discipline_code: discipline === 'all' ? null : discipline,
+        p_location: location.trim() || null,
+        p_limit: 40,
+      })
+      : { data: [], error: null }
+    if (rosterError && !rosterError.message.includes('search_public_players')) {
+      setError(rosterError.message)
+      setResults([])
+      setSearched(true)
+      setLoading(false)
+      return
+    }
+    const directoryResults = ([...(data ?? []), ...(rosterData ?? [])] as SearchResult[])
+      .sort((left, right) => left.relevance - right.relevance || left.display_name.localeCompare(right.display_name))
     const tournamentIds = directoryResults.filter((result) => result.result_type === 'torneo').map((result) => result.entity_id)
     const { data: userData } = await supabase.auth.getUser()
     const { data: ownedTournaments } = tournamentIds.length && userData.user

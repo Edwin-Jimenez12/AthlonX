@@ -22,7 +22,11 @@ begin
     return;
   end if;
 
-  v_name := trim(coalesce(v_user.raw_user_meta_data ->> 'organization_name', ''));
+  v_name := trim(coalesce(
+    nullif(v_user.raw_user_meta_data ->> 'organization_name', ''),
+    nullif(v_user.raw_user_meta_data ->> 'full_name', ''),
+    nullif(split_part(v_user.email, '@', 1), '')
+  ));
   if v_name = '' then
     return;
   end if;
@@ -91,7 +95,11 @@ begin
     return null;
   end if;
 
-  v_name := trim(coalesce(v_user.raw_user_meta_data ->> 'organization_name', ''));
+  v_name := trim(coalesce(
+    nullif(v_user.raw_user_meta_data ->> 'organization_name', ''),
+    nullif(v_user.raw_user_meta_data ->> 'full_name', ''),
+    nullif(split_part(v_user.email, '@', 1), '')
+  ));
   if v_name = '' then
     return null;
   end if;

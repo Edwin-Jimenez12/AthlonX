@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, LockKeyhole, MapPin, Menu as MenuIcon, ShieldCheck, UserCircle, Users, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, LockKeyhole, MapPin, Menu as MenuIcon, Settings, ShieldCheck, UserCircle, Users, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AccountMenu } from '../../../Components/account-menu'
@@ -13,18 +13,17 @@ type Profile = { full_name: string; phone: string | null; email_verified: boolea
 type OrganizationTeam = { id: string; name: string; logo_url: string | null; country: string | null; city: string | null; discipline_id: string | null; athlonx_code: string | null; handle: string | null }
 type Discipline = { id: string; name: string; code: string }
 type Section = 'personal' | 'equipos' | 'seguridad' | 'cuenta'
-type MenuItem = { id: Section; label: string; icon: typeof UserCircle }
+type MenuItem = { id: Section; label: string; icon: typeof UserCircle; disabled: boolean }
 
 const menu: MenuItem[] = [
-  { id: 'personal', label: 'Información personal', icon: UserCircle },
-  { id: 'equipos', label: 'Equipos y roles', icon: Users },
-  { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck },
-  { id: 'cuenta', label: 'Cuenta', icon: LockKeyhole },
+  { id: 'personal', label: 'Información personal', icon: UserCircle, disabled: true },
+  { id: 'equipos', label: 'Equipos y roles', icon: Users, disabled: true },
+  { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, disabled: true },
+  { id: 'cuenta', label: 'Cuenta', icon: LockKeyhole, disabled: true },
 ]
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [section, setSection] = useState<Section>('personal')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [email, setEmail] = useState('')
   const [accountType, setAccountType] = useState('')
@@ -112,21 +111,6 @@ export default function SettingsPage() {
     setProfileOpen(false)
   }
 
-  function selectSection(nextSection: Section) {
-    setMenuOpen(false)
-    if (nextSection === 'equipos' && isOrganization) {
-      setNotice('')
-      setSection(nextSection)
-      return
-    }
-    if (nextSection !== 'personal') {
-      setNotice('Esta sección será habilitada en próximas actualizaciones.')
-      return
-    }
-    setNotice('')
-    setSection(nextSection)
-  }
-
   async function changeAthleteInvitationPreference(nextValue: boolean) {
     if (!supabase) return
     const { data: userData } = await supabase.auth.getUser()
@@ -148,17 +132,21 @@ export default function SettingsPage() {
           <Link href="/dashboard/busqueda" onClick={() => setMenuOpen(false)} className="border-b border-[#16415b] pb-8"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-48" /></Link>
           <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú lateral" className="ml-3 cursor-pointer rounded-full p-2 text-slate-400 hover:bg-white/10 lg:hidden"><X size={19} /></button>
         </div>
-        <nav className="mt-8 space-y-2">{menu.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => selectSection(id)} className={`flex w-full cursor-pointer items-center rounded-2xl px-4 py-3 text-left font-semibold transition ${section === id ? 'bg-[#b4ff45] text-[#07131e]' : 'text-slate-200 hover:bg-white/5'}`}><span className="flex items-center gap-3"><Icon size={19} />{label}</span></button>)}</nav>
+        <nav className="mt-8 space-y-2">{menu.map(({ id, label, icon: Icon, disabled }) => <button key={id} type="button" disabled={disabled} title="Disponible en próximas actualizaciones" className="flex w-full cursor-not-allowed items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left font-semibold text-slate-500 opacity-70"><span className="flex items-center gap-3"><Icon size={19} />{label}</span><span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span></button>)}</nav>
         <LogoutAction className="mt-auto w-full rounded-2xl border border-red-400/30 px-4 py-3 text-left font-semibold text-red-300 hover:bg-red-400/10" />
       </aside>
       <div className="min-w-0 px-5 pt-5 sm:px-8 lg:px-10 lg:pt-5">
         <button type="button" onClick={() => setMenuOpen(true)} aria-label="Abrir menú de configuración" className="mb-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45] lg:hidden"><MenuIcon size={21} /></button>
         <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[#1e4057] pb-5"><div className="flex min-w-0 items-center gap-3 sm:gap-4"><button type="button" onClick={() => router.back()} aria-label="Volver" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]"><ArrowLeft size={20} /></button><h1 className="truncate font-display text-3xl uppercase sm:text-5xl">Configuración</h1></div><div className="relative flex shrink-0 items-center gap-2 sm:gap-3"><NotificationsMenu /><span className="hidden h-7 w-px bg-[#294052] sm:block" /><button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-full p-1 pr-2 hover:bg-white/5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b4ff45] font-heading font-bold text-[#07131e]">{initials}</span><span className="hidden max-w-32 truncate font-semibold sm:block">{name}</span></button>{profileOpen && <AccountMenu name={name} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}</div></header>
         {notice && <div role="status" className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-4 py-3 text-sm text-[#d8ffac]"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso" className="cursor-pointer rounded-full p-1 hover:bg-white/10"><X size={17} /></button></div>}
-        <section className="max-w-6xl pt-10 pb-10">{section === 'equipos' && isOrganization ? <OrganizationTeams teams={organizationTeams} disciplines={disciplines} disciplineFilter={disciplineFilter} onDisciplineFilterChange={setDisciplineFilter} /> : <Personal name={name} email={email} profile={profile} loading={loading} isOrganization={isOrganization} allowAthleteInvitations={allowAthleteInvitations} onAthleteInvitationChange={changeAthleteInvitationPreference} />}</section>
+        <section className="max-w-6xl pt-10 pb-10"><SettingsUnavailable /></section>
       </div>
     </div>
   </main>
+}
+
+function SettingsUnavailable() {
+  return <div className="flex min-h-[60vh] items-center justify-center"><section className="w-full max-w-3xl rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-8 text-center shadow-xl sm:p-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[10px] bg-[#b4ff45] text-[#07131e]"><Settings size={30} /></div><p className="mt-6 font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Módulo en preparación</p><h2 className="mt-3 font-display text-4xl uppercase">Configuración</h2><p className="mx-auto mt-4 max-w-xl text-slate-400">Las opciones de cuenta de organización, equipos y roles, seguridad y cuenta estarán disponibles en próximas actualizaciones.</p></section></div>
 }
 
 function Personal({ name, email, profile, loading, isOrganization, allowAthleteInvitations, onAthleteInvitationChange }: { name: string; email: string; profile: Profile | null; loading: boolean; isOrganization: boolean; allowAthleteInvitations: boolean; onAthleteInvitationChange: (value: boolean) => Promise<void> }) {

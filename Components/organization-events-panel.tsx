@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarDays, Check, Dumbbell, Megaphone, Trophy, Users } from 'lucide-react'
+import { CalendarDays, Dumbbell, Megaphone, Trophy } from 'lucide-react'
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
@@ -11,7 +11,6 @@ import { supabase } from '../lib/supabase'
 
 type Discipline = { id: string; name: string; code: string }
 type Modality = { id: string; name: string; code: string; discipline_id: string }
-type Team = { id: string; name: string; city: string | null }
 type EventOption = { id: string; title: string; description: string; icon: LucideIcon; enabled: boolean }
 
 const eventOptions: EventOption[] = [
@@ -25,10 +24,8 @@ function slugify(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-export function OrganizationEventsPanel({ organizationId, sourceTeamId, disciplines }: { organizationId?: string; sourceTeamId?: string; disciplines: Discipline[] }) {
+export function OrganizationEventsPanel({ organizationId, sourceTeamId, disciplines, onCreated }: { organizationId?: string; sourceTeamId?: string; disciplines: Discipline[]; onCreated?: () => void }) {
   const [selectedEvent, setSelectedEvent] = useState('torneo')
-  const [teams, setTeams] = useState<Team[]>([])
-  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [name, setName] = useState('')
   const [disciplineId, setDisciplineId] = useState('')
   const [modalities, setModalities] = useState<Modality[]>([])
@@ -58,25 +55,6 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   useEffect(() => {
     setModalityId((current) => availableModalities.some((modality) => modality.id === current) ? current : availableModalities[0]?.id || '')
   }, [disciplineId, modalities])
-
-  useEffect(() => {
-    async function loadTeams() {
-      if (!supabase || (!organizationId && !sourceTeamId)) {
-        setTeams([])
-        return
-      }
-      let query = supabase.from('teams').select('id, name, city').order('name')
-      if (organizationId) query = query.eq('organization_id', organizationId)
-      if (sourceTeamId) query = query.neq('id', sourceTeamId)
-      const { data } = await query
-      setTeams(data ?? [])
-    }
-    void loadTeams()
-  }, [organizationId, sourceTeamId])
-
-  function toggleTeam(teamId: string) {
-    setSelectedTeamIds((current) => current.includes(teamId) ? current.filter((id) => id !== teamId) : [...current, teamId])
-  }
 
   async function createTournament(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -122,23 +100,15 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       return setMessage(divisionError?.message || 'El torneo se creó, pero no se pudo preparar su división.')
     }
 
-    if (selectedTeamIds.length) {
-      const { error: invitationError } = await supabase.from('tournament_team_invitations').insert(selectedTeamIds.map((teamId) => ({ tournament_id: tournament.id, team_id: teamId, invited_by: userData.user.id, status: 'pending', division_id: division.id })))
-      if (invitationError) {
-        setLoading(false)
-        return setMessage(`Torneo creado, pero no se pudieron enviar las invitaciones: ${invitationError.message}`)
-      }
-    }
-
     setLoading(false)
     setCreatedTournament(tournament)
-    setMessage(selectedTeamIds.length ? `Torneo creado con ${selectedTeamIds.length} invitaciones pendientes.` : 'Torneo creado. Puedes invitar equipos desde su gestión.')
+    setMessage('Torneo creado. Puedes completar sus equipos y fixtures desde la gestión del torneo.')
+    onCreated?.()
     setName('')
     setModalityId('')
     setLocation('')
     setStartDate('')
     setEndDate('')
-    setSelectedTeamIds([])
   }
 
   return (
@@ -178,7 +148,6 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
             <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
           </div>
 
-          <div className="mt-6 border-t border-white/10 pt-5"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold">Invitar equipos</p><p className="mt-1 text-xs text-slate-400">Selecciona los equipos que recibirán la invitación.</p></div><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-300">{selectedTeamIds.length} seleccionados</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{teams.length ? teams.map((team) => <button key={team.id} type="button" onClick={() => toggleTeam(team.id)} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition ${selectedTeamIds.includes(team.id) ? 'border-[#b4ff45] bg-[#b4ff45]/15 text-[#e2ffc0]' : 'border-white/10 bg-[#0d2232] text-slate-300 hover:border-white/30'}`}><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${selectedTeamIds.includes(team.id) ? 'bg-[#b4ff45] text-[#081522]' : 'bg-white/10'}`}>{selectedTeamIds.includes(team.id) ? <Check size={15} /> : <Users size={15} />}</span><span><strong className="block">{team.name}</strong><small className="text-xs text-slate-500">{team.city || 'Ciudad pendiente'}</small></span></button>) : <div className="sm:col-span-2 rounded-xl border border-dashed border-white/15 px-4 py-4 text-sm text-slate-400">No hay equipos vinculados a esta organización todavía.</div>}</div></div>
           {message && <p role="status" className="mt-5 rounded-xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">El torneo se guardará como borrador para completar su configuración.</p><button type="submit" disabled={loading} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#081522] transition hover:bg-[#c8ff7a] disabled:cursor-wait disabled:opacity-60">{loading ? 'Creando...' : 'Crear torneo'}</button></div>
           {createdTournament && <Link href={`/dashboard/torneos/ver/${createdTournament.id}`} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver torneo <span aria-hidden="true">→</span></Link>}

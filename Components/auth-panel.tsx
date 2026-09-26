@@ -27,6 +27,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
   const [organizationCountry, setOrganizationCountry] = useState('Panamá')
   const [organizationCity, setOrganizationCity] = useState('')
   const [teamDiscipline, setTeamDiscipline] = useState('')
+  const [teamModality, setTeamModality] = useState('')
   const [teamCountry, setTeamCountry] = useState('Panamá')
   const [teamCity, setTeamCity] = useState('')
   const [inviteMode, setInviteMode] = useState(false)
@@ -97,6 +98,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       setMessage('Selecciona la disciplina del equipo.')
       return
     }
+    if (isRegister && accountType === 'equipo' && modalities.some((modality) => modality.discipline_id === teamDiscipline) && !teamModality) {
+      setMessage('Selecciona la modalidad del equipo.')
+      return
+    }
     if (isRegister && accountType === 'equipo' && !teamCity) {
       setMessage('Selecciona la ciudad del equipo.')
       return
@@ -109,7 +114,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
     setLoading(true)
     try {
       const result = isRegister
-        ? await supabase.auth.signUp({ email, password, options: { data: { full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : fullName, public_username: normalizedUsername, roles: accountType === 'organizacion' || accountType === 'equipo' ? ['directivo'] : roles, account_type: accountType, organization_name: organizationName, organization_type: organizationType, organization_country: organizationCountry, organization_city: organizationCity, organization_disciplines: organizationDisciplines, organization_modalities: organizationModalities, team_name: teamName, team_country: teamCountry, team_city: teamCity, team_discipline: teamDiscipline } } })
+        ? await supabase.auth.signUp({ email, password, options: { data: { full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : fullName, public_username: normalizedUsername, roles: accountType === 'organizacion' || accountType === 'equipo' ? ['directivo'] : roles, account_type: accountType, organization_name: organizationName, organization_type: organizationType, organization_country: organizationCountry, organization_city: organizationCity, organization_disciplines: organizationDisciplines, organization_modalities: organizationModalities, team_name: teamName, team_country: teamCountry, team_city: teamCity, team_discipline: teamDiscipline, team_modality: teamModality } } })
         : await supabase.auth.signInWithPassword({ email, password })
 
       if (result.error) {
@@ -128,8 +133,15 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       }
 
       setMessage(isRegister ? 'Cuenta creada correctamente.' : 'Sesión iniciada correctamente.')
-      if (result.data.user) await supabase.rpc('ensure_my_public_identity')
       const sessionAccountType = isRegister ? accountType : result.data.user?.user_metadata?.account_type
+      if (result.data.user) {
+        await supabase.rpc('ensure_my_public_identity')
+        const { error: organizationError } = await supabase.rpc('ensure_my_organization')
+        if (organizationError && sessionAccountType === 'organizacion') {
+          setMessage(`No se pudo preparar la cuenta de organización: ${organizationError.message}`)
+          return
+        }
+      }
       let assignedRoles = isRegister ? roles : []
       if (!isRegister && result.data.user) {
         const { data: storedRoles } = await supabase.from('user_roles').select('role').eq('user_id', result.data.user.id)
@@ -226,6 +238,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
               <select required name="teamDiscipline" value={teamDiscipline} onChange={(event) => setTeamDiscipline(event.target.value)} className={selectClass}>
                 <option value="">{disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'}</option>
                 {disciplines.map((discipline) => <option key={discipline.id} value={discipline.id}>{discipline.name}</option>)}
+              </select>
+              <select name="teamModality" value={teamModality} onChange={(event) => setTeamModality(event.target.value)} className={selectClass} disabled={!teamDiscipline || !modalities.some((modality) => modality.discipline_id === teamDiscipline)}>
+                <option value="">{teamDiscipline && modalities.some((modality) => modality.discipline_id === teamDiscipline) ? 'Seleccionar modalidad' : 'Modalidad opcional'}</option>
+                {modalities.filter((modality) => modality.discipline_id === teamDiscipline).map((modality) => <option key={modality.id} value={modality.id}>{modality.name}</option>)}
               </select>
               {disciplineError && <p className="text-xs leading-5 text-amber-200">{disciplineError}</p>}
               <LocationFields country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
