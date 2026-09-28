@@ -6,7 +6,7 @@ set name = 'Basketball'
 where code = 'baloncesto';
 
 update public.disciplines
-set is_active = code in ('rugby', 'baloncesto');
+set is_active = code in ('rugby', 'baloncesto', 'futbol');
 
 alter table public.disciplines enable row level security;
 
@@ -16,6 +16,6 @@ drop policy if exists "Public can view registration disciplines" on public.disci
 create policy "Public can view registration disciplines"
   on public.disciplines for select
   to anon, authenticated
-  using (is_active = true and code in ('rugby', 'baloncesto'));
+  using (is_active = true);
 
 grant select on public.disciplines to anon, authenticated;

@@ -89,7 +89,11 @@ cross join (values
   ('rugby', 'seven', 'Rugby Sevens'),
   ('rugby', 'xv', 'Rugby 15s'),
   ('baloncesto', '5x5', 'Basketball 5x5'),
-  ('baloncesto', '3x3', 'Basketball 3x3')
+  ('baloncesto', '3x3', 'Basketball 3x3'),
+  ('futbol', 'futbol-11', 'Fútbol 11'),
+  ('futbol', 'futbol-sala', 'Fútbol sala (5 jugadores)'),
+  ('futbol', 'futbol-7', 'Fútbol 7'),
+  ('futbol', 'futbol-8', 'Fútbol 8')
 ) as seed(discipline_code, code, name)
 where d.code = seed.discipline_code
 on conflict (discipline_id, code) do update set name = excluded.name;
@@ -347,6 +351,7 @@ join public.teams t on t.id = m.team_id
 where m.status = 'active';
 
 grant select on public.sport_modalities, public.organization_modalities, public.organization_relationships, public.affiliation_requests, public.user_notifications, public.profile_directory, public.profile_affiliation_labels to authenticated;
+grant update (read_at) on table public.user_notifications to authenticated;
 grant execute on function public.create_affiliation_request(uuid, uuid, uuid, uuid, text, text, text, uuid, uuid) to authenticated;
 grant execute on function public.respond_affiliation_request(uuid, text) to authenticated;
 

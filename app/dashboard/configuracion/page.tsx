@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight, LockKeyhole, MapPin, Menu as MenuIcon, Settings, ShieldCheck, UserCircle, Users, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AccountMenu } from '../../../Components/account-menu'
 import { LogoutAction } from '../../../Components/logout-confirmation'
 import { supabase } from '../../../lib/supabase'
 import { NotificationsMenu } from '../../../Components/notifications-menu'
+import { TeamProfileSettings } from '../../../Components/team-profile-settings'
+import { TeamDivisionSettings } from '../../../Components/team-division-settings'
+import { loadManagedTeams } from '../../../lib/team-access'
 
 type Profile = { full_name: string; phone: string | null; email_verified: boolean; allow_athlete_invitations: boolean }
 type OrganizationTeam = { id: string; name: string; logo_url: string | null; country: string | null; city: string | null; discipline_id: string | null; athlonx_code: string | null; handle: string | null }
@@ -16,7 +19,7 @@ type Section = 'personal' | 'equipos' | 'seguridad' | 'cuenta'
 type MenuItem = { id: Section; label: string; icon: typeof UserCircle; disabled: boolean }
 
 const menu: MenuItem[] = [
-  { id: 'personal', label: 'Información personal', icon: UserCircle, disabled: true },
+  { id: 'personal', label: 'Información personal', icon: UserCircle, disabled: false },
   { id: 'equipos', label: 'Equipos y roles', icon: Users, disabled: true },
   { id: 'seguridad', label: 'Seguridad', icon: ShieldCheck, disabled: true },
   { id: 'cuenta', label: 'Cuenta', icon: LockKeyhole, disabled: true },
@@ -29,6 +32,7 @@ export default function SettingsPage() {
   const [accountType, setAccountType] = useState('')
   const [organizationId, setOrganizationId] = useState('')
   const [organizationName, setOrganizationName] = useState('')
+  const [teamId, setTeamId] = useState('')
   const [organizationTeams, setOrganizationTeams] = useState<OrganizationTeam[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [disciplineFilter, setDisciplineFilter] = useState('')
@@ -56,6 +60,12 @@ export default function SettingsPage() {
       setEmail(userData.user.email ?? '')
       setProfile(profileData)
       setAllowAthleteInvitations(profileData?.allow_athlete_invitations ?? true)
+      if (currentAccountType === 'equipo') {
+        const managedTeams = await loadManagedTeams(userData.user.id)
+        const storedTeamId = window.localStorage.getItem('athlonx-active-team-id')
+        const selectedTeam = managedTeams.find((team) => team.id === storedTeamId) || managedTeams[0]
+        setTeamId(selectedTeam?.id || '')
+      }
       if (currentAccountType === 'organizacion') {
         await supabase.rpc('ensure_my_organization')
         const [{ data: ownedOrganizations }, { data: memberships }] = await Promise.all([
@@ -77,8 +87,8 @@ export default function SettingsPage() {
     let active = true
     async function loadOrganizationTeams() {
       const [{ data: teamData }, { data: disciplineData }] = await Promise.all([
-        supabase.from('teams').select('id, name, logo_url, country, city, discipline_id, athlonx_code, handle').eq('organization_id', organizationId).order('name'),
-        supabase.from('disciplines').select('id, name, code').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
+        supabase.from('teams').select('id, name, logo_url, country, city, discipline_id, athlonx_code, handle').eq('organization_id', organizationId).eq('is_official', true).order('name'),
+        supabase.from('disciplines').select('id, name, code').eq('is_active', true).order('name'),
       ])
       if (!active) return
       setOrganizationTeams((teamData ?? []) as OrganizationTeam[])
@@ -132,14 +142,30 @@ export default function SettingsPage() {
           <Link href="/dashboard/busqueda" onClick={() => setMenuOpen(false)} className="border-b border-[#16415b] pb-8"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-48" /></Link>
           <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú lateral" className="ml-3 cursor-pointer rounded-full p-2 text-slate-400 hover:bg-white/10 lg:hidden"><X size={19} /></button>
         </div>
-        <nav className="mt-8 space-y-2">{menu.map(({ id, label, icon: Icon, disabled }) => <button key={id} type="button" disabled={disabled} title="Disponible en próximas actualizaciones" className="flex w-full cursor-not-allowed items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left font-semibold text-slate-500 opacity-70"><span className="flex items-center gap-3"><Icon size={19} />{label}</span><span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span></button>)}</nav>
+        <nav className="mt-8 space-y-2">{menu.map(({ id, label, icon: Icon, disabled }) => { const isDisabled = disabled || accountType === 'organizacion' || id !== 'personal'; return <button key={id} type="button" disabled={isDisabled} title={isDisabled ? 'Disponible en próximas actualizaciones' : undefined} className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left font-semibold ${isDisabled ? 'cursor-not-allowed text-slate-500 opacity-70' : 'bg-[#b4ff45] text-[#07131e]'}`}><span className="flex items-center gap-3"><Icon size={19} />{label}</span>{isDisabled && <span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span>}</button>})}</nav>
         <LogoutAction className="mt-auto w-full rounded-2xl border border-red-400/30 px-4 py-3 text-left font-semibold text-red-300 hover:bg-red-400/10" />
       </aside>
       <div className="min-w-0 px-5 pt-5 sm:px-8 lg:px-10 lg:pt-5">
         <button type="button" onClick={() => setMenuOpen(true)} aria-label="Abrir menú de configuración" className="mb-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45] lg:hidden"><MenuIcon size={21} /></button>
         <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[#1e4057] pb-5"><div className="flex min-w-0 items-center gap-3 sm:gap-4"><button type="button" onClick={() => router.back()} aria-label="Volver" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]"><ArrowLeft size={20} /></button><h1 className="truncate font-display text-3xl uppercase sm:text-5xl">Configuración</h1></div><div className="relative flex shrink-0 items-center gap-2 sm:gap-3"><NotificationsMenu /><span className="hidden h-7 w-px bg-[#294052] sm:block" /><button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-full p-1 pr-2 hover:bg-white/5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b4ff45] font-heading font-bold text-[#07131e]">{initials}</span><span className="hidden max-w-32 truncate font-semibold sm:block">{name}</span></button>{profileOpen && <AccountMenu name={name} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}</div></header>
         {notice && <div role="status" className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-4 py-3 text-sm text-[#d8ffac]"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso" className="cursor-pointer rounded-full p-1 hover:bg-white/10"><X size={17} /></button></div>}
-        <section className="max-w-6xl pt-10 pb-10"><SettingsUnavailable /></section>
+        <section className="max-w-6xl space-y-8 pt-10 pb-10">
+          {loading ? (
+            <div className="flex min-h-[60vh] items-center justify-center">
+              <p className="text-slate-400">Cargando configuración...</p>
+            </div>
+          ) : accountType === 'equipo' ? (
+            <>
+              <PersonalInformationEditor name={name} email={email} profile={profile} loading={loading} isOrganization={false} allowAthleteInvitations={allowAthleteInvitations} onAthleteInvitationChange={changeAthleteInvitationPreference} onSaved={(nextName, nextPhone) => setProfile((current) => current ? { ...current, full_name: nextName, phone: nextPhone } : current)} />
+              <TeamProfileSettings teamId={teamId} />
+              <TeamDivisionSettings teamId={teamId} />
+            </>
+          ) : accountType === 'persona' ? (
+            <PersonalInformationEditor name={name} email={email} profile={profile} loading={loading} isOrganization={false} allowAthleteInvitations={allowAthleteInvitations} onAthleteInvitationChange={changeAthleteInvitationPreference} onSaved={(nextName, nextPhone) => setProfile((current) => current ? { ...current, full_name: nextName, phone: nextPhone } : current)} />
+          ) : (
+            <SettingsUnavailable />
+          )}
+        </section>
       </div>
     </div>
   </main>
@@ -149,8 +175,96 @@ function SettingsUnavailable() {
   return <div className="flex min-h-[60vh] items-center justify-center"><section className="w-full max-w-3xl rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-8 text-center shadow-xl sm:p-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[10px] bg-[#b4ff45] text-[#07131e]"><Settings size={30} /></div><p className="mt-6 font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Módulo en preparación</p><h2 className="mt-3 font-display text-4xl uppercase">Configuración</h2><p className="mx-auto mt-4 max-w-xl text-slate-400">Las opciones de cuenta de organización, equipos y roles, seguridad y cuenta estarán disponibles en próximas actualizaciones.</p></section></div>
 }
 
-function Personal({ name, email, profile, loading, isOrganization, allowAthleteInvitations, onAthleteInvitationChange }: { name: string; email: string; profile: Profile | null; loading: boolean; isOrganization: boolean; allowAthleteInvitations: boolean; onAthleteInvitationChange: (value: boolean) => Promise<void> }) {
-  return <div><p className="text-sm font-bold uppercase tracking-[.2em] text-[#b4ff45]">Información personal</p><div className="mt-5 flex items-center gap-4 border-b border-[#263b4d] pb-7"><div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#b4ff45] font-display text-3xl text-[#07131e]">{name.slice(0, 1).toUpperCase()}</div><div><h2 className="font-display text-4xl uppercase">{loading ? 'Cargando' : name}</h2><p className="text-slate-400">{isOrganization ? 'Perfil institucional AthlonX' : 'Perfil de usuario AthlonX'}</p></div></div><div className="mt-8 grid gap-x-6 gap-y-5 md:grid-cols-2"><Field label={isOrganization ? 'Nombre de la organización' : 'Nombre completo'} value={name} /><Field label={isOrganization ? 'Correo institucional' : 'Correo electrónico'} value={email || 'Sin registrar'} /><Field label="Teléfono" value={profile?.phone || 'Sin registrar'} /><Field label="Estado del correo" value={profile?.email_verified ? 'Verificado' : 'Pendiente de verificación'} /></div>{!isOrganization && <section className="mt-8 rounded-2xl border border-[#29485d] bg-[#0b1d2c] p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-heading text-lg font-bold uppercase">Invitaciones como atleta</p><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Permite que los equipos te encuentren y te envíen invitaciones para formar parte de sus plantillas.</p></div><label className="inline-flex cursor-pointer items-center gap-3 text-sm font-bold text-white"><input type="checkbox" checked={allowAthleteInvitations} onChange={(event) => void onAthleteInvitationChange(event.target.checked)} className="h-5 w-5 cursor-pointer accent-[#b4ff45]" />{allowAthleteInvitations ? 'Activadas' : 'Desactivadas'}</label></div></section>}<button type="button" className="mt-8 cursor-pointer rounded-xl bg-[#b4ff45] px-6 py-3 font-bold text-[#07131e]">Editar información</button></div>
+function PersonalInformationEditor({ name, email, profile, loading, isOrganization, allowAthleteInvitations, onAthleteInvitationChange, onSaved }: { name: string; email: string; profile: Profile | null; loading: boolean; isOrganization: boolean; allowAthleteInvitations: boolean; onAthleteInvitationChange: (value: boolean) => Promise<void>; onSaved: (name: string, phone: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [fullName, setFullName] = useState(name)
+  const [phone, setPhone] = useState(profile?.phone || '')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [messageKind, setMessageKind] = useState<'success' | 'error'>('success')
+
+  useEffect(() => {
+    setFullName(name)
+    setPhone(profile?.phone || '')
+  }, [name, profile?.phone])
+
+  async function savePersonalInformation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supabase || !fullName.trim()) return
+
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) {
+      setMessageKind('error')
+      setMessage('Debes iniciar sesión para guardar tus datos.')
+      return
+    }
+
+    setSaving(true)
+    setMessage('')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName.trim(), phone: phone.trim() || null })
+      .eq('id', userData.user.id)
+
+    if (error) {
+      setMessageKind('error')
+      setMessage(error.message)
+      setSaving(false)
+      return
+    }
+
+    onSaved(fullName.trim(), phone.trim())
+    window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { full_name: fullName.trim() } }))
+    setEditing(false)
+    setMessageKind('success')
+    setMessage('Información personal actualizada.')
+    setSaving(false)
+  }
+
+  return <div className="rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8">
+    <div className="flex flex-col justify-between gap-5 border-b border-[#263b4d] pb-7 sm:flex-row sm:items-center">
+      <div className="flex items-center gap-4">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#b4ff45] font-display text-3xl text-[#07131e]">{name.slice(0, 1).toUpperCase()}</div>
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[.2em] text-[#b4ff45]">Información personal</p>
+          <h2 className="mt-2 font-display text-4xl uppercase">{loading ? 'Cargando' : name}</h2>
+          <p className="text-slate-400">{isOrganization ? 'Perfil institucional AthlonX' : 'Perfil de usuario AthlonX'}</p>
+        </div>
+      </div>
+      {!editing && <button type="button" onClick={() => { setMessage(''); setEditing(true) }} className="cursor-pointer rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]">Editar información</button>}
+    </div>
+
+    {editing ? (
+      <form onSubmit={savePersonalInformation} className="mt-8 grid gap-5 md:grid-cols-2">
+        <label className="block text-sm font-semibold md:col-span-2">
+          Nombre completo
+          <input value={fullName} onChange={(event) => setFullName(event.target.value)} required maxLength={120} className="mt-2 h-12 w-full rounded-xl border border-[#31556b] bg-[#071d2c] px-4 text-white outline-none focus:border-[#b4ff45]" />
+        </label>
+        <label className="block text-sm font-semibold">
+          Correo electrónico
+          <input value={email || 'Sin registrar'} readOnly className="mt-2 h-12 w-full cursor-not-allowed rounded-xl border border-[#31556b] bg-[#071d2c]/60 px-4 text-slate-400 outline-none" />
+        </label>
+        <label className="block text-sm font-semibold">
+          Teléfono
+          <input value={phone} onChange={(event) => setPhone(event.target.value)} maxLength={40} placeholder="Sin registrar" className="mt-2 h-12 w-full rounded-xl border border-[#31556b] bg-[#071d2c] px-4 text-white outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" />
+        </label>
+        <div className="flex flex-col-reverse gap-3 md:col-span-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => { setEditing(false); setFullName(name); setPhone(profile?.phone || '') }} className="cursor-pointer rounded-xl border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white/50 hover:text-white">Cancelar</button>
+          <button type="submit" disabled={saving} className="cursor-pointer rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-wait disabled:opacity-60">{saving ? 'Guardando...' : 'Guardar cambios'}</button>
+        </div>
+      </form>
+    ) : (
+      <div className="mt-8 grid gap-x-6 gap-y-5 md:grid-cols-2">
+        <Field label={isOrganization ? 'Nombre de la organización' : 'Nombre completo'} value={name} />
+        <Field label={isOrganization ? 'Correo institucional' : 'Correo electrónico'} value={email || 'Sin registrar'} />
+        <Field label="Teléfono" value={profile?.phone || 'Sin registrar'} />
+        <Field label="Estado del correo" value={profile?.email_verified ? 'Verificado' : 'Pendiente de verificación'} />
+      </div>
+    )}
+
+    {!isOrganization && <section className="mt-8 rounded-2xl border border-[#29485d] bg-[#071d2c] p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-heading text-lg font-bold uppercase">Invitaciones como atleta</p><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Permite que los equipos te encuentren y te envíen invitaciones para formar parte de sus plantillas.</p></div><label className="inline-flex cursor-pointer items-center gap-3 text-sm font-bold text-white"><input type="checkbox" checked={allowAthleteInvitations} onChange={(event) => void onAthleteInvitationChange(event.target.checked)} className="h-5 w-5 cursor-pointer accent-[#b4ff45]" />{allowAthleteInvitations ? 'Activadas' : 'Desactivadas'}</label></div></section>}
+    {message && <p role="status" className={`mt-5 rounded-xl border px-4 py-3 text-sm ${messageKind === 'error' ? 'border-red-400/40 bg-red-400/10 text-red-200' : 'border-[#b4ff45]/30 bg-[#b4ff45]/10 text-[#dfffba]'}`}>{message}</p>}
+  </div>
 }
 
 function OrganizationTeams({ teams, disciplines, disciplineFilter, onDisciplineFilterChange }: { teams: OrganizationTeam[]; disciplines: Discipline[]; disciplineFilter: string; onDisciplineFilterChange: (value: string) => void }) {

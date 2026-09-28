@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Bell, Building2, CalendarDays, ClipboardCheck, ClipboardList, Globe2, Menu, Megaphone, MessageSquare, Search, Shield, UserCircle, Users } from 'lucide-react'
+import { BarChart3, Bell, Building2, CalendarDays, ClipboardCheck, ClipboardList, Globe2, Menu, Megaphone, MessageSquare, Search, Shield, Users } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
@@ -20,37 +20,33 @@ const teamNavigation: NavigationItem[] = [
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/dashboard/equipo' },
   { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
-  { label: 'Plantilla', icon: Users, href: '/dashboard/equipo#plantilla' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/equipo#calendario' },
-  { label: 'Estadísticas', icon: BarChart3, href: '/dashboard/equipo#estadisticas' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
 ]
 
 const trainerNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/dashboard/entrenador' },
-  { label: 'Entrenamientos', icon: CalendarDays, href: '/dashboard/entrenador#entrenamientos' },
-  { label: 'Asistencia', icon: ClipboardCheck, href: '/dashboard/entrenador#asistencia' },
-  { label: 'Estadísticas', icon: BarChart3, href: '/dashboard/entrenador#estadisticas' },
-  { label: 'Formaciones', icon: ClipboardList, href: '/dashboard/entrenador#formaciones' },
-  { label: 'Comunicados', icon: MessageSquare, href: '/dashboard/entrenador#comunicados' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
 ]
 
 const staffNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
   { label: 'Mi panel', icon: Shield, href: '/dashboard/staff' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
   { label: 'Asistencia', icon: ClipboardCheck, href: '/dashboard/staff#asistencia' },
   { label: 'Comunicados', icon: MessageSquare, href: '/dashboard/staff#comunicados' },
   { label: 'Reportes', icon: BarChart3, href: '/dashboard/staff#reportes' },
 ]
 
-const athleteNavigation: NavigationItem[] = [
+const personNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
-  { label: 'Mi vista', icon: UserCircle, href: '/dashboard/atleta' },
-  { label: 'Mi cuenta', icon: Users, href: '/dashboard/perfil' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
 ]
+
+const athleteNavigation = personNavigation
 
 const organizationNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
@@ -58,6 +54,7 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Organización', icon: Building2, href: '/dashboard/organizaciones' },
   { label: 'Perfil público', icon: Globe2, href: '/dashboard/organizaciones/perfil' },
   { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
   { label: 'Equipos', icon: Users, href: '/dashboard/equipos' },
   { label: 'Participantes', icon: Shield, disabled: true },
 ]
@@ -105,23 +102,26 @@ export function DashboardSidebar() {
   }, [])
 
   const activeContext = contexts.find((context) => context.id === activeContextId)
-  const baseNavigation = activeContext?.contextType === 'organization'
-    ? organizationNavigation
-    : activeContext?.contextType === 'team' && activeContext.role === 'entrenador'
-      ? trainerNavigation
-      : activeContext?.contextType === 'team' && activeContext.role === 'staff'
-        ? staffNavigation
-        : activeContext?.contextType === 'team' && activeContext.role === 'atleta'
-          ? athleteNavigation
-          : activeContext?.contextType === 'team'
-            ? teamNavigation
-            : activeContext?.role === 'entrenador'
-              ? trainerNavigation
-              : activeContext?.role === 'staff'
-                ? staffNavigation
-                : activeContext?.role === 'atleta'
-                  ? athleteNavigation
-                  : accountType === 'organizacion' ? organizationNavigation : accountType === 'equipo' ? teamNavigation : isTrainer ? trainerNavigation : isStaff ? staffNavigation : searchNavigation
+  let baseNavigation = personNavigation
+  if (activeContext?.contextType === 'organization') {
+    baseNavigation = organizationNavigation
+  } else if (activeContext?.contextType === 'team' && activeContext.role === 'entrenador') {
+    baseNavigation = trainerNavigation
+  } else if (activeContext?.contextType === 'team' && activeContext.role === 'staff') {
+    baseNavigation = staffNavigation
+  } else if (activeContext?.contextType === 'team' && activeContext.role === 'atleta') {
+    baseNavigation = athleteNavigation
+  } else if (activeContext?.contextType === 'team') {
+    baseNavigation = teamNavigation
+  } else if (!activeContext && accountType === 'organizacion') {
+    baseNavigation = organizationNavigation
+  } else if (!activeContext && accountType === 'equipo') {
+    baseNavigation = teamNavigation
+  } else if (!activeContext && isTrainer) {
+    baseNavigation = trainerNavigation
+  } else if (!activeContext && isStaff) {
+    baseNavigation = staffNavigation
+  }
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/dashboard/actualizaciones' }] : baseNavigation
 
   return <>

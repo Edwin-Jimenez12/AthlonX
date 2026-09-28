@@ -15,6 +15,7 @@ type EventOption = { id: string; title: string; description: string; icon: Lucid
 
 const eventOptions: EventOption[] = [
   { id: 'torneo', title: 'Crear torneo', description: 'Organiza una competencia e invita a los equipos participantes.', icon: Trophy, enabled: true },
+  { id: 'torneo-rapido', title: 'Crear torneo rápido', description: 'Crea una competencia no oficial con equipos registrados o temporales.', icon: Trophy, enabled: true },
   { id: 'jornada', title: 'Crear jornada', description: 'Planifica una jornada deportiva con varias actividades.', icon: CalendarDays, enabled: false },
   { id: 'entrenamiento', title: 'Crear entrenamiento', description: 'Coordina una sesión para tus equipos vinculados.', icon: Dumbbell, enabled: false },
   { id: 'convocatoria', title: 'Crear convocatoria', description: 'Publica una convocatoria institucional.', icon: Megaphone, enabled: false },
@@ -73,6 +74,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
 
     const baseSlug = slugify(name) || 'torneo'
     const slug = `${baseSlug}-${Date.now().toString(36)}`
+    const isQuick = selectedEvent === 'torneo-rapido'
     const { data: tournament, error } = await supabase.from('tournaments').insert({
       name: name.trim(),
       slug,
@@ -82,6 +84,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       country: PANAMA_COUNTRY,
       location: location.trim() || null,
       status: 'draft',
+      is_quick: isQuick,
       created_by: userData.user.id,
       organization_id: organizationId || null,
       organizer_team_id: sourceTeamId || null,
@@ -94,7 +97,15 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       return setMessage(error?.message || 'No se pudo crear el torneo.')
     }
 
-    const { data: division, error: divisionError } = await supabase.from('tournament_divisions').insert({ tournament_id: tournament.id, name: 'General', sort_order: 0 }).select('id').single()
+    const { data: division, error: divisionError } = await supabase
+      .from('tournament_divisions')
+      .insert({
+        tournament_id: tournament.id,
+        name: 'Primera división',
+        sort_order: 0,
+      })
+      .select('id')
+      .single()
     if (divisionError || !division) {
       setLoading(false)
       return setMessage(divisionError?.message || 'El torneo se creó, pero no se pudo preparar su división.')
@@ -137,8 +148,8 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           </div>
         </div>
 
-        {selectedEvent === 'torneo' && <form onSubmit={createTournament} className="rounded-2xl border border-white/10 bg-white/[.04] p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Nuevo torneo</p><h3 className="mt-2 font-heading text-2xl font-black uppercase">Configuración inicial</h3></div><Trophy className="text-[#b4ff45]" size={24} /></div>
+        {(selectedEvent === 'torneo' || selectedEvent === 'torneo-rapido') && <form onSubmit={createTournament} className="rounded-2xl border border-white/10 bg-white/[.04] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">{selectedEvent === 'torneo-rapido' ? 'Torneo no oficial' : 'Nuevo torneo'}</p><h3 className="mt-2 font-heading text-2xl font-black uppercase">Configuración inicial</h3><p className="mt-2 text-sm leading-6 text-slate-400">{selectedEvent === 'torneo-rapido' ? 'Podrás agregar equipos oficiales y equipos temporales para esta competencia.' : 'Solo podrás agregar equipos registrados en AthlonX.'}</p></div><Trophy className="text-[#b4ff45]" size={24} /></div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" placeholder="Copa AthlonX" /></label>
             <StyledSelect label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" required />

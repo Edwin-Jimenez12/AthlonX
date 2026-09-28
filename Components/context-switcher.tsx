@@ -29,7 +29,7 @@ export function ContextSwitcher({ contexts, activeContextId, onChange }: Context
       <ChevronDown size={15} className="shrink-0 text-slate-400" />
     </button>
     {open && <div className="absolute right-0 top-14 z-50 w-72 rounded-[5px] border border-[#31485c] bg-[#0d1d2b] p-2 text-white shadow-2xl">
-      <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Cambiar vista</p>
+      <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Cambiar contexto</p>
       {contexts.map((context) => <button key={context.id} type="button" onClick={() => { setOpen(false); onChange(context) }} className={`flex w-full cursor-pointer items-center gap-3 rounded-[5px] px-3 py-3 text-left transition ${context.id === activeContext.id ? 'bg-[#b4ff45] text-[#07131e]' : 'text-slate-200 hover:bg-white/5'}`}><Layers3 size={17} /><span className="min-w-0"><span className="block truncate text-sm font-semibold">{context.name}</span><span className="block truncate text-xs opacity-70">{roleLabels[context.role]}{context.roleLabel ? ` · ${context.roleLabel}` : ''}</span></span></button>)}
     </div>}
   </div>

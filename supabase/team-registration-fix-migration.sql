@@ -50,8 +50,7 @@ begin
   into v_discipline_id
   from public.disciplines d
   where d.id::text = nullif(new.raw_user_meta_data ->> 'team_discipline', '')
-    and d.is_active = true
-    and d.code in ('rugby', 'baloncesto');
+    and d.is_active = true;
 
   if v_discipline_id is null then
     raise exception 'La disciplina del equipo no es valida';

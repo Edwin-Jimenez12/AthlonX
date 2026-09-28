@@ -16,6 +16,7 @@ as $$
         'slug', t.slug,
         'season', t.season,
         'status', t.status,
+        'is_quick', t.is_quick,
         'start_date', t.start_date,
         'end_date', t.end_date,
         'location', t.location,
@@ -57,7 +58,9 @@ as $$
         'division_id', d.id,
         'division_name', d.name,
         'athlonx_code', t.athlonx_code,
-        'handle', t.handle
+        'handle', t.handle,
+        'is_official', t.is_official,
+        'contact_phone', t.contact_phone
       ) order by d.sort_order, t.name)
       from public.tournament_teams tt
       join public.teams t on t.id = tt.team_id

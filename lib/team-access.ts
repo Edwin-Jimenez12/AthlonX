@@ -23,14 +23,16 @@ export async function loadManagedTeams(userId: string): Promise<ManagedTeam[]> {
 
   const teamIds = memberships.map((membership) => membership.team_id)
   const [{ data: teams }, { data: disciplines }] = await Promise.all([
-    supabase.from('teams').select('id, name, city, discipline_id').in('id', teamIds),
+    supabase.from('teams').select('id, name, city, discipline_id').in('id', teamIds).eq('is_official', true),
     supabase.from('disciplines').select('id, name, code').eq('is_active', true),
   ])
 
   const disciplineById = new Map((disciplines ?? []).map((discipline) => [discipline.id, discipline]))
   return (teams ?? []).map((team) => {
     const discipline = disciplineById.get(team.discipline_id)
-    const membership = memberships.find((item) => item.team_id === team.id)
+    const teamMemberships = memberships.filter((item) => item.team_id === team.id)
+    const membership = teamMemberships.find((item) => ['owner', 'directivo', 'entrenador', 'staff'].includes(item.role))
+      || teamMemberships[0]
     return {
       id: team.id,
       name: team.name,

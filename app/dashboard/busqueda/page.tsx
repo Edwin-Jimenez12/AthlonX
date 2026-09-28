@@ -7,6 +7,8 @@ import { PANAMA_CITIES } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
 
 type ResultType = 'todos' | 'persona' | 'organizacion' | 'equipo' | 'torneo'
+type Officiality = 'todos' | 'oficiales' | 'no_oficiales'
+
 type SearchResult = {
   result_type: Exclude<ResultType, 'todos'>
   entity_id: string
@@ -17,6 +19,7 @@ type SearchResult = {
   location: string | null
   discipline_names: string[]
   affiliations: Affiliation[]
+  is_official: boolean
   relevance: number
   can_edit?: boolean
 }
@@ -25,6 +28,7 @@ type Affiliation = { role: string; role_label: string | null; organization_name:
 const disciplines = [
   { value: 'all', label: 'Todas las disciplinas' },
   { value: 'baloncesto', label: 'Basketball' },
+  { value: 'futbol', label: 'Fútbol' },
   { value: 'rugby', label: 'Rugby' },
 ]
 
@@ -34,6 +38,12 @@ const resultTypes: { value: ResultType; label: string }[] = [
   { value: 'organizacion', label: 'Organizaciones' },
   { value: 'equipo', label: 'Equipos' },
   { value: 'torneo', label: 'Torneos' },
+]
+
+const officialityOptions: { value: Officiality; label: string }[] = [
+  { value: 'todos', label: 'Oficiales y no oficiales' },
+  { value: 'oficiales', label: 'Solo oficiales' },
+  { value: 'no_oficiales', label: 'Solo no oficiales' },
 ]
 
 const resultTypeLabels: Record<SearchResult['result_type'], string> = {
@@ -48,6 +58,7 @@ export default function SearchPage() {
   const [discipline, setDiscipline] = useState('all')
   const [location, setLocation] = useState('')
   const [resultType, setResultType] = useState<ResultType>('todos')
+  const [officiality, setOfficiality] = useState<Officiality>('todos')
   const [results, setResults] = useState<SearchResult[]>([])
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -68,9 +79,10 @@ export default function SearchPage() {
 
     setLoading(true)
     setError('')
-    const { data, error: searchError } = await supabase.rpc('search_directory', {
+    const { data, error: searchError } = await supabase.rpc('search_directory_filtered', {
       p_query: normalizedQuery,
       p_result_type: resultType,
+      p_officiality: officiality,
       p_discipline_code: discipline === 'all' ? null : discipline,
       p_location: location.trim() || null,
       p_limit: 40,
@@ -83,8 +95,9 @@ export default function SearchPage() {
       return
     }
     const { data: rosterData, error: rosterError } = resultType === 'todos' || resultType === 'persona'
-      ? await supabase.rpc('search_public_players', {
+      ? await supabase.rpc('search_public_players_filtered', {
         p_query: normalizedQuery,
+        p_officiality: officiality,
         p_discipline_code: discipline === 'all' ? null : discipline,
         p_location: location.trim() || null,
         p_limit: 40,
@@ -114,6 +127,7 @@ export default function SearchPage() {
     setDiscipline('all')
     setLocation('')
     setResultType('todos')
+    setOfficiality('todos')
     setResults([])
     setError('')
     setSearched(false)
@@ -130,7 +144,102 @@ export default function SearchPage() {
       </form>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[270px_1fr] lg:items-start">
-        <aside className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-5"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><SlidersHorizontal size={18} className="text-[#b4ff45]" /><h3 className="font-heading text-lg uppercase tracking-wide">Filtros</h3></div><button type="button" onClick={clearSearch} className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-[#b4ff45]">Limpiar</button></div><div className="mt-7"><label htmlFor="discipline" className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">Disciplina</label><select id="discipline" value={discipline} onChange={(event) => setDiscipline(event.target.value)} className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"><option value="all">Todas las disciplinas</option><option value="baloncesto">Basketball</option><option value="rugby">Rugby</option></select></div><div className="mt-5"><label htmlFor="location" className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">Ciudad</label><select id="location" value={location} onChange={(event) => setLocation(event.target.value)} className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"><option value="">Todas las ciudades</option>{PANAMA_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></div><div className="mt-7"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">Buscar en</p><div className="mt-3 space-y-1">{resultTypes.map(({ value, label }) => <button key={value} type="button" onClick={() => setResultType(value)} className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${resultType === value ? 'bg-[#b4ff45] text-[#07131e]' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}><ResultIcon type={value} />{label}</button>)}</div></div></aside>
+        <aside className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-[#b4ff45]" />
+              <h3 className="font-heading text-lg uppercase tracking-wide">Filtros</h3>
+            </div>
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="cursor-pointer text-xs font-semibold text-slate-400 hover:text-[#b4ff45]"
+            >
+              Limpiar
+            </button>
+          </div>
+
+          <div className="mt-7">
+            <label
+              htmlFor="discipline"
+              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
+            >
+              Disciplina
+            </label>
+            <select
+              id="discipline"
+              value={discipline}
+              onChange={(event) => setDiscipline(event.target.value)}
+              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
+            >
+              <option value="all">Todas las disciplinas</option>
+              <option value="baloncesto">Basketball</option>
+              <option value="rugby">Rugby</option>
+            </select>
+          </div>
+
+          <div className="mt-5">
+            <label
+              htmlFor="location"
+              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
+            >
+              Ciudad
+            </label>
+            <select
+              id="location"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
+            >
+              <option value="">Todas las ciudades</option>
+              {PANAMA_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-5">
+            <label
+              htmlFor="officiality"
+              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
+            >
+              Estado del registro
+            </label>
+            <select
+              id="officiality"
+              value={officiality}
+              onChange={(event) => setOfficiality(event.target.value as Officiality)}
+              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
+            >
+              {officialityOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-7">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">
+              Buscar en
+            </p>
+            <div className="mt-3 space-y-1">
+              {resultTypes.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setResultType(value)}
+                  className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${resultType === value ? 'bg-[#b4ff45] text-[#07131e]' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                >
+                  <ResultIcon type={value} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
 
         <section className="min-h-[390px] rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1f4057] pb-5"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Directorio deportivo</p><h3 className="mt-2 font-display text-3xl uppercase">Resultados</h3></div>{searched && <span className="rounded-full border border-[#29485d] px-3 py-1 text-xs font-semibold text-slate-400">{results.length} encontrados</span>}</div>{error && <p role="alert" className="mt-5 rounded-xl border border-[#ff7d88]/30 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{error}</p>}{searched && !error ? <div className="mt-6 space-y-4">{results.length ? results.map((result) => <SearchResultCard key={`${result.result_type}-${result.entity_id}`} result={result} />) : <EmptyResults query={query} onClear={clearSearch} />}</div> : !error && <EmptySearchState />}</section>
       </div>
@@ -151,10 +260,102 @@ function SearchResultCard({ result }: { result: SearchResult }) {
         ? `/dashboard/torneos/ver/${result.entity_id}`
         : null
 
-  const card = <div className="flex flex-col gap-5 sm:flex-row sm:items-start"><div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">{result.avatar_url ? <img src={result.avatar_url} alt="" className="h-full w-full object-cover" /> : <span>{initials}</span>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full bg-[#b4ff45]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#cfff91]"><ResultIcon type={result.result_type} />{resultTypeLabels[result.result_type]}</span>{result.location && <span className="text-xs text-slate-500">{result.location}</span>}</div><h4 className="mt-3 truncate font-heading text-3xl font-bold text-white">{result.display_name}</h4><div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span>{result.result_type === 'torneo' ? 'Información pública' : result.username ? `@${result.username}` : 'Sin nombre de usuario'}</span><span className="font-mono text-[#b4ff45]">{result.athlonx_code}</span></div>{result.discipline_names?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{result.discipline_names.map((discipline) => <span key={discipline} className="rounded-full border border-[#31556b] px-2.5 py-1 text-xs font-semibold text-slate-300">{discipline}</span>)}</div>}{isPerson && result.affiliations?.length > 0 && <div className="mt-4 border-t border-white/10 pt-3"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Afiliaciones</p><div className="mt-2 flex flex-wrap gap-2">{result.affiliations.map((affiliation, index) => <span key={`${affiliation.role}-${affiliation.team_name || affiliation.organization_name}-${index}`} className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-slate-300"><strong className="text-white">{affiliation.role_label || affiliation.role}</strong>{' · '}{affiliation.team_name || affiliation.organization_name || 'AthlonX'}</span>)}</div></div>}</div></div>
-  return entityHref
-    ? <div className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60"><Link href={entityHref} className="block focus:outline-none focus:ring-2 focus:ring-[#b4ff45]">{card}</Link>{result.result_type === 'torneo' && result.can_edit && <Link href={`/dashboard/torneos/ver/${result.entity_id}?editar=1`} className="mt-5 inline-flex cursor-pointer items-center rounded-lg bg-[#b4ff45] px-4 py-2.5 text-sm font-bold text-[#07131e]">Editar torneo</Link>}</div>
-    : <article className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60">{card}</article>
+  const card = (
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">
+        {result.avatar_url ? (
+          <img src={result.avatar_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span>{initials}</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#b4ff45]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#cfff91]">
+            <ResultIcon type={result.result_type} />
+            {resultTypeLabels[result.result_type]}
+          </span>
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${result.is_official ? 'bg-[#b4ff45]/10 text-[#cfff91]' : 'bg-amber-300/10 text-amber-200'}`}
+          >
+            {result.is_official ? 'Oficial' : 'No oficial'}
+          </span>
+          {result.location && (
+            <span className="text-xs text-slate-500">{result.location}</span>
+          )}
+        </div>
+        <h4 className="mt-3 truncate font-heading text-3xl font-bold text-white">
+          {result.display_name}
+        </h4>
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span>
+            {result.result_type === 'torneo'
+              ? 'Información pública'
+              : result.username
+                ? `@${result.username}`
+                : 'Sin nombre de usuario'}
+          </span>
+          <span className="font-mono text-[#b4ff45]">{result.athlonx_code}</span>
+        </div>
+        {result.discipline_names?.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {result.discipline_names.map((discipline) => (
+              <span
+                key={discipline}
+                className="rounded-full border border-[#31556b] px-2.5 py-1 text-xs font-semibold text-slate-300"
+              >
+                {discipline}
+              </span>
+            ))}
+          </div>
+        )}
+        {isPerson && result.affiliations?.length > 0 && (
+          <div className="mt-4 border-t border-white/10 pt-3">
+            <p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">
+              Afiliaciones
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {result.affiliations.map((affiliation, index) => (
+                <span
+                  key={`${affiliation.role}-${affiliation.team_name || affiliation.organization_name}-${index}`}
+                  className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-slate-300"
+                >
+                  <strong className="text-white">
+                    {affiliation.role_label || affiliation.role}
+                  </strong>
+                  {' · '}
+                  {affiliation.team_name || affiliation.organization_name || 'AthlonX'}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return entityHref ? (
+    <div className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60">
+      <Link
+        href={entityHref}
+        className="block focus:outline-none focus:ring-2 focus:ring-[#b4ff45]"
+      >
+        {card}
+      </Link>
+      {result.result_type === 'torneo' && result.can_edit && (
+        <Link
+          href={`/dashboard/torneos/ver/${result.entity_id}?editar=1`}
+          className="mt-5 inline-flex cursor-pointer items-center rounded-lg bg-[#b4ff45] px-4 py-2.5 text-sm font-bold text-[#07131e]"
+        >
+          Editar torneo
+        </Link>
+      )}
+    </div>
+  ) : (
+    <article className="rounded-2xl border border-[#29485d] bg-[#07131e]/70 p-5 transition hover:border-[#b4ff45]/60">
+      {card}
+    </article>
+  )
 }
 
 function EmptyResults({ query, onClear }: { query: string; onClear: () => void }) {

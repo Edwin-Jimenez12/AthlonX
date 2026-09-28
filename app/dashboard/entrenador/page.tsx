@@ -1,12 +1,8 @@
 'use client'
 
 import {
-  Activity,
   ArrowUpRight,
   CalendarDays,
-  ClipboardCheck,
-  ClipboardList,
-  MessageSquare,
   Search,
   Shield,
   Users,
@@ -106,73 +102,103 @@ function TrainerWorkspace({ team }: { team: ManagedTeam }) {
         </div>
       </section>
 
-      <section id="estadisticas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <TrainerMetric icon={CalendarDays} label="Próxima sesión" value="—" detail="Sin entrenamiento programado" />
-        <TrainerMetric icon={ClipboardCheck} label="Asistencia" value="—" detail="Registro pendiente" />
-        <TrainerMetric icon={Users} label="Plantilla" value="—" detail="Atletas por cargar" />
-        <TrainerMetric icon={Activity} label="Evaluaciones" value="—" detail="Sin evaluaciones pendientes" />
+      <section className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Actividad del equipo</p>
+            <h3 className="mt-2 font-display text-3xl uppercase">Calendario</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Consulta los compromisos y actividades del equipo desde el calendario.</p>
+          </div>
+          <Link href={`/dashboard/calendario?teamId=${team.id}`} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><CalendarDays size={18} />Abrir calendario<ArrowUpRight size={16} /></Link>
+        </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_310px]">
-        <div className="space-y-6">
-          <Module id="entrenamientos" icon={CalendarDays} title="Entrenamientos" description="Crea sesiones, define objetivos y organiza el trabajo semanal del equipo." actions={['Crear entrenamiento', 'Ver agenda']} />
-          <Module id="asistencia" icon={ClipboardCheck} title="Asistencia" description="Registra la presencia y el compromiso deportivo de cada integrante." actions={['Registrar asistencia', 'Consultar historial']} />
-          <Module id="formaciones" icon={ClipboardList} title="Formaciones" description="Prepara la organización táctica y asigna posiciones para cada partido." actions={['Crear formación', 'Ver formaciones']} />
-          <Module id="comunicados" icon={MessageSquare} title="Comunicados" description="Envía convocatorias y mensajes importantes al equipo." actions={['Crear comunicado']} />
-        </div>
-        <aside className="h-fit rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Acciones rápidas</p>
-          <div className="mt-5 space-y-3">
-            <QuickAction label="Crear entrenamiento" href="#entrenamientos" />
-            <QuickAction label="Registrar asistencia" href="#asistencia" />
-            <QuickAction label="Evaluar rendimiento" href="#estadisticas" />
-            <QuickAction label="Crear formación" href="#formaciones" />
-          </div>
-        </aside>
-      </section>
+      <TrainerCallupsAccess teamId={team.id} />
     </div>
   )
 }
 
-function Module({ id, icon: Icon, title, description, actions }: { id: string; icon: typeof CalendarDays; title: string; description: string; actions: string[] }) {
+type TrainerTournament = {
+  id: string
+  name: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+}
+
+function TrainerCallupsAccess({ teamId }: { teamId: string }) {
+  const [tournaments, setTournaments] = useState<TrainerTournament[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadTournaments() {
+      if (!supabase) {
+        setLoading(false)
+        return
+      }
+
+      const { data: links } = await supabase
+        .from('tournament_teams')
+        .select('tournament_id')
+        .eq('team_id', teamId)
+
+      const tournamentIds = Array.from(new Set((links ?? []).map((link) => link.tournament_id)))
+      if (!tournamentIds.length) {
+        setLoading(false)
+        return
+      }
+
+      const { data } = await supabase
+        .from('tournaments')
+        .select('id, name, status, start_date, end_date')
+        .in('id', tournamentIds)
+        .neq('status', 'finished')
+        .order('start_date', { ascending: true })
+
+      setTournaments((data ?? []) as TrainerTournament[])
+      setLoading(false)
+    }
+
+    void loadTournaments()
+  }, [teamId])
+
   return (
-    <section id={id} className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Módulo del entrenador</p>
-          <h3 className="mt-2 font-display text-3xl uppercase">{title}</h3>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">{description}</p>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencias del equipo</p>
+          <h3 className="mt-2 font-display text-3xl uppercase">Convocatorias</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            Selecciona un torneo para preparar la lista de jugadores de cada jornada.
+          </p>
         </div>
-        <Icon className="text-[#b4ff45]" size={24} />
+        <Users className="text-[#b4ff45]" size={25} />
       </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        {actions.map((action) => (
-          <button key={action} type="button" className="cursor-pointer rounded-xl border border-[#31556b] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-[#b4ff45] hover:text-[#b4ff45]">
-            {action}
-          </button>
-        ))}
-      </div>
+
+      {loading ? (
+        <p className="mt-5 text-sm text-slate-400">Cargando competencias...</p>
+      ) : tournaments.length ? (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {tournaments.map((tournament) => (
+            <Link
+              key={tournament.id}
+              href={`/dashboard/torneos/ver/${tournament.id}?tab=convocatorias`}
+              className="flex items-center justify-between gap-4 rounded-2xl border border-[#31556b] bg-[#07131e] p-4 transition hover:border-[#b4ff45]"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-bold text-white">{tournament.name}</span>
+                <span className="mt-1 block text-xs uppercase tracking-wider text-slate-500">{tournament.status}</span>
+              </span>
+              <ArrowUpRight className="shrink-0 text-[#b4ff45]" size={18} />
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-5 rounded-2xl border border-dashed border-[#31556b] p-4 text-sm text-slate-400">
+          No hay torneos activos asociados a este equipo.
+        </p>
+      )}
     </section>
-  )
-}
-
-function TrainerMetric({ icon: Icon, label, value, detail }: { icon: typeof CalendarDays; label: string; value: string; detail: string }) {
-  return (
-    <article className="rounded-2xl border border-[#1f4057] bg-[#0b1d2c] p-5">
-      <Icon className="text-[#b4ff45]" size={20} />
-      <p className="mt-5 text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-1 font-display text-4xl">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </article>
-  )
-}
-
-function QuickAction({ label, href }: { label: string; href: string }) {
-  return (
-    <a href={href} className="flex cursor-pointer items-center justify-between rounded-xl border border-[#29485d] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-[#b4ff45] hover:text-[#b4ff45]">
-      <span>{label}</span>
-      <ArrowUpRight size={16} />
-    </a>
   )
 }
 

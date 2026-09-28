@@ -2,7 +2,7 @@
 -- Ejecutar despues de organization-management-migration.sql.
 
 update public.disciplines
-set is_active = code in ('rugby', 'baloncesto');
+set is_active = code in ('rugby', 'baloncesto', 'futbol');
 
 insert into public.organization_members (organization_id, user_id, role, status)
 select o.id, o.created_by, 'owner', 'active'

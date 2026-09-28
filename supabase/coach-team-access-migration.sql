@@ -57,8 +57,7 @@ begin
   select d.id into v_discipline_id
   from public.disciplines d
   where d.id::text = new.raw_user_meta_data ->> 'team_discipline'
-    and d.is_active = true
-    and d.code in ('rugby', 'baloncesto');
+    and d.is_active = true;
 
   insert into public.teams (name, city, created_by, discipline_id)
   values (v_team_name, v_team_city, new.id, v_discipline_id)

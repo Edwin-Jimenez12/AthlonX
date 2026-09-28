@@ -1,3 +1,11 @@
 {
-  "/dashboard/organizaciones/perfil/page": "app/dashboard/organizaciones/perfil/page.js"
+  "/dashboard/calendario/page": "app/dashboard/calendario/page.js",
+  "/dashboard/entrenador/page": "app/dashboard/entrenador/page.js",
+  "/dashboard/equipos/page": "app/dashboard/equipos/page.js",
+  "/dashboard/eventos/page": "app/dashboard/eventos/page.js",
+  "/dashboard/organizaciones/page": "app/dashboard/organizaciones/page.js",
+  "/dashboard/organizaciones/perfil/page": "app/dashboard/organizaciones/perfil/page.js",
+  "/dashboard/perfil/page": "app/dashboard/perfil/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/page": "app/page.js"
 }

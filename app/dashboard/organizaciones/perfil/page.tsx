@@ -102,7 +102,7 @@ export default function OrganizationPublicProfilePage() {
     }
 
     const [{ data: disciplineRows }, { data: modalityRows }] = await Promise.all([
-      supabase.from('disciplines').select('id, name, code').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
+      supabase.from('disciplines').select('id, name, code').eq('is_active', true).order('name'),
       supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name'),
     ])
     setDisciplines(disciplineRows ?? [])

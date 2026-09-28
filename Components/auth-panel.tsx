@@ -37,7 +37,11 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
   useEffect(() => {
     async function loadDisciplines() {
       if (!supabase) return
-      const { data, error } = await supabase.from('disciplines').select('id, name, code').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name')
+      const { data, error } = await supabase
+        .from('disciplines')
+        .select('id, name, code')
+        .eq('is_active', true)
+        .order('name')
       setDisciplines(data ?? [])
       if (error) setDisciplineError('No se pudieron cargar las disciplinas disponibles.')
       const { data: modalityData } = await supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name')

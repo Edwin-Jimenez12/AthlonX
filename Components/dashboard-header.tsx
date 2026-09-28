@@ -24,6 +24,7 @@ const titles: Record<string, string> = {
   estadisticas: 'Estadísticas',
   actualizaciones: 'Actualizaciones',
   notificaciones: 'Notificaciones',
+  calendario: 'Calendario',
 }
 
 export function DashboardHeader() {
@@ -61,10 +62,10 @@ export function DashboardHeader() {
       }))
       const availableContexts = accountContexts.length ? accountContexts : fallbackContexts
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
-      const selectedContext = availableContexts.find((context) => context.id === storedContextId)
-        ?? availableContexts.find((context) => context.contextType === 'organization')
-        ?? availableContexts.find((context) => context.contextType === 'team')
-        ?? availableContexts[0]
+      const selectableContexts = availableContexts.filter((context) => context.contextType !== 'personal')
+      const selectedContext = selectableContexts.find((context) => context.id === storedContextId)
+        ?? selectableContexts[0]
+        ?? availableContexts.find((context) => context.contextType === 'personal')
       setContexts(availableContexts)
       setActiveContextId(selectedContext?.id ?? '')
       if (selectedContext) {
@@ -73,6 +74,15 @@ export function DashboardHeader() {
       }
     }
     void loadProfileName()
+  }, [])
+
+  useEffect(() => {
+    const syncProfileName = (event: Event) => {
+      const detail = (event as CustomEvent<{ full_name?: string }>).detail
+      if (detail?.full_name) setProfileName(detail.full_name)
+    }
+    window.addEventListener('athlonx-profile-updated', syncProfileName)
+    return () => window.removeEventListener('athlonx-profile-updated', syncProfileName)
   }, [])
 
   function changeTheme() {
@@ -90,7 +100,9 @@ export function DashboardHeader() {
     window.dispatchEvent(new CustomEvent('athlonx-context-change', { detail: context }))
     if (context.teamId) window.dispatchEvent(new CustomEvent('athlonx-team-change', { detail: context.teamId }))
 
-    const destination = context.contextType === 'organization'
+    const destination = context.contextType === 'personal'
+      ? '/dashboard/atleta'
+      : context.contextType === 'organization'
       ? '/dashboard/organizaciones'
       : context.role === 'entrenador'
         ? '/dashboard/entrenador'
@@ -108,13 +120,13 @@ export function DashboardHeader() {
   const initials = profileName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
   const key = pathname?.startsWith('/dashboard/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
   const activeContext = contexts.find((context) => context.id === activeContextId)
-  const organizationContexts = contexts.filter((context) => context.contextType === 'organization')
-  const canSwitchContexts = activeContext?.contextType === 'organization' && organizationContexts.length > 0
+  const selectableContexts = contexts.filter((context) => context.contextType !== 'personal')
+  const canSwitchContexts = selectableContexts.length > 1
   return <header className="border-b border-[#1b3548] bg-[#07131e]/95 px-6 py-4 text-white backdrop-blur-xl print:hidden lg:ml-64 md:px-10">
     <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
       <h1 className="truncate font-display text-3xl uppercase tracking-wide sm:text-4xl">{titles[key] || 'AthlonX'}</h1>
       <div className="relative flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-        {canSwitchContexts && <ContextSwitcher contexts={organizationContexts} activeContextId={activeContextId} onChange={selectContext} />}
+        {canSwitchContexts && <ContextSwitcher contexts={selectableContexts} activeContextId={activeContextId} onChange={selectContext} />}
         <NotificationsMenu />
         <span className="hidden h-7 w-px bg-[#294052] sm:block" />
         <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-[5px] border border-transparent p-1 pr-2 hover:border-[#29485d] hover:bg-white/5">

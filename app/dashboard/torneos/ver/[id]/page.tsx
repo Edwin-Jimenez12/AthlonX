@@ -2,31 +2,40 @@
 
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, Clock3, Cog, LockKeyhole, MapPin, Search, ShieldCheck, Table2, Trophy, Users, Wand2, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, Clock3, Cog, LockKeyhole, MapPin, Search, ShieldCheck, Table2, Trophy, UserPlus, Users, Wand2, X } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { LocationFields } from '../../../../../Components/location-fields'
+import { QuickTournamentTeamsSection } from '../../../../../Components/quick-tournament-teams-section'
 import { StyledSelect } from '../../../../../Components/styled-select'
+import { TournamentCallupsPanel } from '../../../../../Components/tournament-callups-panel'
 import { supabase } from '../../../../../lib/supabase'
 
 type Discipline = { id: string; code: string; name: string }
 type Modality = { id: string; code: string; name: string; discipline_id?: string }
 type OrganizationSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null }
-type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null }
-type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null }
+type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null; organization_id?: string | null; discipline_id?: string | null; created_by?: string | null; divisionNames?: string[] }
+type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
+type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; is_quick: boolean; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null }
 type Division = { id: string; name: string; sort_order: number }
-type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null }
+type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type ManualPairing = { divisionId: string; localTeamId: string; visitorTeamId: string }
 type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_name: string | null; scheduled_time: string | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number }
 type MatchEvent = { match_id: string; event_type: string; points: number }
-type RosterEntry = { team_id: string; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; is_substitute: boolean }
+type RosterEntry = { team_id: string; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
 type EditHistory = { id: string; edited_by: string; changes: Record<string, { before: string | null; after: string | null }>; created_at: string }
 type TournamentPayload = { tournament: Tournament | null; divisions: Division[]; teams: TournamentTeam[]; matches: Match[] }
 type EditValues = { name: string; season: string; status: string; start_date: string; end_date: string; country: string; location: string; discipline_id: string; modality_id: string }
 type PendingChange = { label: string; before: string; after: string; beforeValue: string | null; afterValue: string | null }
-type PendingOperation = { title: string; changes: PendingChange[]; kind: 'add-team' | 'remove-team' | 'generate-fixture'; payload: Record<string, string> }
+type PendingOperation = { title: string; changes: PendingChange[]; kind: 'add-team' | 'remove-team' | 'add-quick-team' | 'add-quick-player' | 'add-existing-player' | 'claim-guest-player' | 'generate-fixture'; payload: Record<string, string> }
 
 const statusNames: Record<string, string> = { draft: 'Borrador', published: 'Publicado', in_progress: 'En curso', finished: 'Finalizado' }
 const statusOptions = Object.entries(statusNames).map(([value, label]) => ({ value, label }))
+const defaultDivisionOptions = [
+  'Primera división',
+  'Segunda división',
+  'Tercera división',
+  'Femenina',
+]
 
 export default function PublicTournamentPage() {
   const params = useParams<{ id: string }>()
@@ -38,13 +47,16 @@ export default function PublicTournamentPage() {
   const [ownerId, setOwnerId] = useState('')
   const [availableDisciplines, setAvailableDisciplines] = useState<Discipline[]>([])
   const [availableModalities, setAvailableModalities] = useState<Modality[]>([])
-  const [section, setSection] = useState<'resumen' | 'tablas' | 'equipos' | 'fixtures' | 'partidos' | 'general' | 'historial'>('resumen')
+  const [availablePlayers, setAvailablePlayers] = useState<PlayerSummary[]>([])
+  const [officialPlayerId, setOfficialPlayerId] = useState('')
+  const [section, setSection] = useState<'resumen' | 'tablas' | 'equipos' | 'convocatorias' | 'fixtures' | 'partidos' | 'general' | 'historial'>('resumen')
   const [editMode, setEditMode] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange> | null>(null)
+  const [pendingDivisionNames, setPendingDivisionNames] = useState<string[] | null>(null)
   const [pendingOperation, setPendingOperation] = useState<PendingOperation | null>(null)
   const [dirtySection, setDirtySection] = useState<string | null>(null)
   const [pendingSection, setPendingSection] = useState<typeof section | null>(null)
@@ -59,14 +71,16 @@ export default function PublicTournamentPage() {
       return
     }
     setLoading(true)
-    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }] = await Promise.all([
+    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }] = await Promise.all([
       supabase.rpc('get_public_tournament_profile', { p_tournament_id: params.id }),
       supabase.from('tournament_edit_history').select('id, edited_by, changes, created_at').eq('tournament_id', params.id).order('created_at', { ascending: false }),
-      supabase.from('tournaments').select('created_by').eq('id', params.id).maybeSingle(),
+      supabase.from('tournaments').select('created_by, is_quick').eq('id', params.id).maybeSingle(),
       supabase.auth.getUser(),
-      supabase.from('disciplines').select('id, code, name').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
+      supabase.from('disciplines').select('id, code, name').eq('is_active', true).order('name'),
       supabase.from('sport_modalities').select('id, code, name, discipline_id').eq('is_active', true).order('name'),
-      supabase.from('teams').select('id, name, athlonx_code, handle').eq('is_public', true).order('name'),
+      supabase.from('teams').select('id, name, athlonx_code, handle, organization_id, discipline_id, created_by').eq('is_public', true).eq('is_official', true).order('name'),
+      supabase.from('team_division_catalog').select('id, team_id, name').order('name'),
+      supabase.from('players').select('id, full_name, shirt_number, position, user_id').eq('is_official', true).order('full_name'),
     ])
     if (tournamentError) {
       setError(tournamentError.message)
@@ -74,15 +88,65 @@ export default function PublicTournamentPage() {
       return
     }
     const payload = response as TournamentPayload
-    setData(payload)
+    const tournamentTeamIds = (payload.teams ?? []).map((team) => team.id)
+    const { data: tournamentTeamMetadata } = tournamentTeamIds.length
+      ? await supabase
+          .from('teams')
+          .select('id, is_official, contact_phone')
+          .in('id', tournamentTeamIds)
+      : { data: [] }
+    const teamMetadataById = new Map(
+      (tournamentTeamMetadata ?? []).map((team) => [
+        team.id,
+        {
+          is_official: team.is_official,
+          contact_phone: team.contact_phone,
+        },
+      ]),
+    )
+    const normalizedTeams = (payload.teams ?? []).map((team) => ({
+      ...team,
+      is_official: teamMetadataById.get(team.id)?.is_official ?? team.is_official ?? true,
+      contact_phone: teamMetadataById.get(team.id)?.contact_phone ?? team.contact_phone ?? null,
+    }))
+    const tournamentWithQuickFlag = payload.tournament
+      ? {
+          ...payload.tournament,
+          is_quick: Boolean(ownerRow?.is_quick ?? payload.tournament.is_quick),
+        }
+      : null
+    const normalizedPayload: TournamentPayload = {
+      ...payload,
+      tournament: tournamentWithQuickFlag,
+      teams: normalizedTeams,
+    }
+    setData(normalizedPayload)
     setHistory((historyRows ?? []) as EditHistory[])
     setCurrentUserId(userData.user?.id || '')
     setOwnerId(ownerRow?.created_by || '')
     setAvailableDisciplines((disciplineRows ?? []) as Discipline[])
     setAvailableModalities((modalityRows ?? []) as Modality[])
-    setAvailableTeams((teamRows ?? []) as TeamSummary[])
+    const officialPlayers = (playerRows ?? []) as PlayerSummary[]
+    setAvailablePlayers(officialPlayers)
+    setOfficialPlayerId(officialPlayers.find((player) => player.user_id === userData.user?.id)?.id || '')
+    const teamIds = (teamRows ?? []).map((team) => team.id)
+    const { data: legacyDivisionRows } = teamIds.length
+      ? await supabase.from('team_players').select('team_id, players(division)').in('team_id', teamIds)
+      : { data: [] }
+    const divisionNamesByTeam = new Map<string, Set<string>>()
+    for (const row of (teamDivisionRows ?? []) as Array<{ team_id: string; name: string }>) {
+      if (!divisionNamesByTeam.has(row.team_id)) divisionNamesByTeam.set(row.team_id, new Set())
+      divisionNamesByTeam.get(row.team_id)?.add(row.name)
+    }
+    for (const row of (legacyDivisionRows ?? []) as Array<{ team_id: string; players: { division: string | null } | null }>) {
+      const name = row.players?.division?.trim()
+      if (!name) continue
+      if (!divisionNamesByTeam.has(row.team_id)) divisionNamesByTeam.set(row.team_id, new Set())
+      divisionNamesByTeam.get(row.team_id)?.add(name)
+    }
+    setAvailableTeams(mergeTeamSummaries((teamRows ?? []).map((team) => ({ ...team, divisionNames: Array.from(divisionNamesByTeam.get(team.id) ?? []) })) as TeamSummary[]))
     if (ownerRow?.created_by === userData.user?.id) setEditMode(new URLSearchParams(window.location.search).get('editar') === '1')
-    if (payload.tournament) {
+    if (normalizedPayload.tournament) {
       const matchIds = (payload.matches ?? []).map((match) => match.id)
       if (matchIds.length) {
         const { data: eventRows } = await supabase.from('match_events').select('match_id, event_type, points').in('match_id', matchIds)
@@ -92,16 +156,24 @@ export default function PublicTournamentPage() {
       if (teamIds.length) {
         const { data: links } = await supabase.from('team_players').select('team_id, player_id, is_substitute').in('team_id', teamIds)
         const playerIds = (links ?? []).map((link) => link.player_id)
-        const { data: players } = playerIds.length ? await supabase.from('players').select('id, user_id, full_name, shirt_number').in('id', playerIds) : { data: [] }
-        const playerMap = new Map((players ?? []).map((player) => [player.id, player]))
-        setRosters((links ?? []).flatMap((link) => { const player = playerMap.get(link.player_id); return player ? [{ team_id: link.team_id, player_id: link.player_id, user_id: player.user_id || null, full_name: player.full_name, shirt_number: player.shirt_number, is_substitute: link.is_substitute }] : [] }))
+        const { data: players } = playerIds.length ? await supabase.from('players').select('id, user_id, full_name, shirt_number, position, is_official, claimed_player_id').in('id', playerIds) : { data: [] }
+        const claimedIds = (players ?? []).map((player) => player.claimed_player_id).filter(Boolean) as string[]
+        const { data: claimedPlayers } = claimedIds.length ? await supabase.from('players').select('id, user_id, full_name, shirt_number, position, is_official, claimed_player_id').in('id', claimedIds) : { data: [] }
+        const playerMap = new Map([...(players ?? []), ...(claimedPlayers ?? [])].map((player) => [player.id, player]))
+        setRosters((links ?? []).flatMap((link) => { const player = playerMap.get(link.player_id); const displayPlayer = player?.claimed_player_id ? playerMap.get(player.claimed_player_id) || player : player; return displayPlayer ? [{ team_id: link.team_id, player_id: player.id, user_id: displayPlayer.user_id || null, full_name: displayPlayer.full_name, shirt_number: displayPlayer.shirt_number, position: displayPlayer.position || null, is_substitute: link.is_substitute, is_official: player.is_official, claimed_player_id: player.claimed_player_id || null }] : [] }))
       } else setRosters([])
     }
-    if (!payload.tournament) setError('Este torneo no está disponible.')
+    if (!normalizedPayload.tournament) setError('Este torneo no está disponible.')
     setLoading(false)
   }
 
   useEffect(() => { void loadTournament() }, [params.id])
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'convocatorias') {
+      setSection('convocatorias')
+    }
+  }, [])
 
   if (loading) return <TournamentShell><p className="text-slate-400">Cargando torneo...</p></TournamentShell>
   if (error || !data?.tournament) return <TournamentShell><div className="rounded-[5px] border border-red-400/30 bg-red-500/10 p-5 text-red-200">{error || 'Este torneo no está disponible.'}</div></TournamentShell>
@@ -115,14 +187,21 @@ export default function PublicTournamentPage() {
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
 
-  function requestSave(values: EditValues) {
+  function requestSave(values: EditValues, divisionNames: string[]) {
     const before: EditValues = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }
     const labels: Record<keyof EditValues, string> = { name: 'Nombre', season: 'Temporada', status: 'Estado', start_date: 'Fecha inicial', end_date: 'Fecha final', country: 'País', location: 'Ciudad', discipline_id: 'Disciplina', modality_id: 'Modalidad' }
     const changes = Object.keys(values).reduce<Record<string, PendingChange>>((current, key) => { const field = key as keyof EditValues; if (before[field] !== values[field]) current[field] = { label: labels[field], before: formatEditValue(field, before[field], disciplines, modalities), after: formatEditValue(field, values[field], disciplines, modalities), beforeValue: before[field] || null, afterValue: values[field] || null }; return current }, {})
-    if (!Object.keys(changes).length) return setMessage('No hay cambios nuevos para guardar.')
     if (!values.name.trim() || !values.start_date || !values.end_date) return setMessage('Completa el nombre y las fechas del torneo.')
     if (new Date(values.end_date) < new Date(values.start_date)) return setMessage('La fecha final no puede ser anterior a la fecha inicial.')
+    const currentDivisionNames = data.divisions.map((division) => division.name)
+    const divisionChanged = currentDivisionNames.length !== divisionNames.length || currentDivisionNames.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(divisionNames[index] || ''))
+    const selectedNames = new Set(divisionNames.map(normalizeDivisionName))
+    const removedDivisions = data.divisions.filter((division) => !selectedNames.has(normalizeDivisionName(division.name)))
+    if (removedDivisions.some((division) => teams.some((team) => team.division_id === division.id) || matches.some((match) => normalizeDivisionName(match.division_name || '') === normalizeDivisionName(division.name)))) return setMessage('No se puede eliminar una división que ya tiene equipos o partidos vinculados.')
+    if (!Object.keys(changes).length && !divisionChanged) return setMessage('No hay cambios nuevos para guardar.')
+    if (divisionChanged) changes.divisions = { label: 'Divisiones', before: currentDivisionNames.join(' · ') || 'Sin divisiones', after: divisionNames.join(' · ') || 'Sin divisiones', beforeValue: null, afterValue: null }
     setMessage('')
+    setPendingDivisionNames(divisionNames)
     setPendingChanges(changes)
   }
 
@@ -158,10 +237,28 @@ export default function PublicTournamentPage() {
     if (!userData.user?.email) return setMessage('No se pudo identificar el correo de la cuenta.')
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
     if (reauthError) return setMessage('La contraseña no es correcta. No se guardaron cambios.')
-    const changes: Partial<EditValues> = Object.fromEntries(Object.entries(pendingChanges).map(([field, change]) => [field, change.afterValue]))
-    const { error: updateError } = await supabase.from('tournaments').update(changes).eq('id', tournament.id).eq('created_by', userData.user.id)
-    if (updateError) return setMessage(updateError.message)
+    const changes: Partial<EditValues> = Object.fromEntries(Object.entries(pendingChanges).filter(([field]) => field !== 'divisions').map(([field, change]) => [field, change.afterValue]))
+    if (Object.keys(changes).length) {
+      const { error: updateError } = await supabase.from('tournaments').update(changes).eq('id', tournament.id).eq('created_by', userData.user.id)
+      if (updateError) return setMessage(updateError.message)
+    }
+    if (pendingDivisionNames) {
+      const currentDivisions = data?.divisions ?? []
+      const selectedNames = new Set(pendingDivisionNames.map(normalizeDivisionName))
+      const removedDivisionIds = currentDivisions.filter((division) => !selectedNames.has(normalizeDivisionName(division.name))).map((division) => division.id)
+      const currentNames = new Set(currentDivisions.map((division) => normalizeDivisionName(division.name)))
+      const addedDivisionNames = pendingDivisionNames.filter((name) => !currentNames.has(normalizeDivisionName(name)))
+      if (removedDivisionIds.length) {
+        const { error: deleteError } = await supabase.from('tournament_divisions').delete().eq('tournament_id', tournament.id).in('id', removedDivisionIds)
+        if (deleteError) return setMessage(deleteError.message)
+      }
+      if (addedDivisionNames.length) {
+        const { error: insertError } = await supabase.from('tournament_divisions').insert(addedDivisionNames.map((name, index) => ({ tournament_id: tournament.id, name, sort_order: currentDivisions.length + index })))
+        if (insertError) return setMessage(insertError.message)
+      }
+    }
     setPendingChanges(null)
+    setPendingDivisionNames(null)
     setDirtySection(null)
     const destination = saveDestination || pendingSection
     setPendingSection(null)
@@ -204,11 +301,41 @@ export default function PublicTournamentPage() {
     const team = availableTeams.find((item) => item.id === teamId)
     const division = data.divisions.find((item) => item.id === divisionId)
     if (!team || !division) return
+    if (team.divisionNames?.length && !team.divisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) {
+      return setMessage(`La división ${division.name} no corresponde al equipo ${team.name}.`)
+    }
     setPendingOperation({ title: 'Agregar equipo al torneo', kind: 'add-team', payload: { teamId, divisionId }, changes: [{ label: 'Equipo', before: 'No inscrito', after: `${team.name} · ${division.name}`, beforeValue: null, afterValue: teamId }] })
   }
 
   function requestRemoveTeam(team: TournamentTeam) {
     setPendingOperation({ title: 'Retirar equipo del torneo', kind: 'remove-team', payload: { teamId: team.id }, changes: [{ label: 'Equipo', before: `${team.name} · ${team.division_name}`, after: 'Retirado del torneo', beforeValue: team.id, afterValue: null }] })
+  }
+
+  function requestAddQuickTeam(values: { name: string; logoUrl: string; phone: string; divisionId: string }) {
+    const division = data.divisions.find((item) => item.id === values.divisionId)
+    if (!tournament.is_quick) return setMessage('Los equipos temporales solo están disponibles en torneos rápidos.')
+    if (!division || !values.name.trim()) return setMessage('Completa el nombre y la división del equipo.')
+    setPendingOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+  }
+
+  function requestAddQuickPlayer(teamId: string, values: { name: string; shirtNumber: string; position: string }) {
+    if (!tournament.is_quick) return setMessage('Los jugadores temporales solo están disponibles en torneos rápidos.')
+    if (!values.name.trim()) return setMessage('Escribe el nombre del jugador.')
+    const team = teams.find((item) => item.id === teamId)
+    if (!team) return setMessage('No se pudo identificar el equipo.')
+    setPendingOperation({ title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+  }
+
+  function requestAddExistingPlayer(teamId: string, playerId: string) {
+    const player = availablePlayers.find((item) => item.id === playerId)
+    const team = teams.find((item) => item.id === teamId)
+    if (!player || !team) return setMessage('Selecciona un jugador y un equipo válidos.')
+    setPendingOperation({ title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] })
+  }
+
+  function requestClaimGuestPlayer(guestPlayerId: string, guestPlayerName: string) {
+    if (!officialPlayerId) return setMessage('Tu cuenta todavía no tiene un perfil oficial de jugador para reclamar este registro.')
+    setPendingOperation({ title: 'Reclamar perfil temporal', kind: 'claim-guest-player', payload: { guestPlayerId, officialPlayerId }, changes: [{ label: 'Perfil', before: guestPlayerName, after: 'Vinculado a tu perfil oficial', beforeValue: guestPlayerId, afterValue: officialPlayerId }] })
   }
 
   async function confirmOperation(password: string) {
@@ -224,6 +351,43 @@ export default function PublicTournamentPage() {
     } else if (pendingOperation.kind === 'remove-team') {
       const { error } = await supabase.from('tournament_teams').delete().eq('tournament_id', tournament.id).eq('team_id', pendingOperation.payload.teamId)
       operationError = error?.message || null
+    } else if (pendingOperation.kind === 'add-quick-team') {
+      const { data: temporaryTeam, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+          name: pendingOperation.payload.name,
+          logo_url: pendingOperation.payload.logoUrl || null,
+          contact_phone: pendingOperation.payload.phone || null,
+          country: tournament.country || 'Panama',
+          city: tournament.location || null,
+          discipline_id: tournament.discipline?.id || null,
+          created_by: userData.user.id,
+          is_public: true,
+          is_official: false,
+          temporary_tournament_id: tournament.id,
+        })
+        .select('id')
+        .single()
+      if (teamError || !temporaryTeam) operationError = teamError?.message || 'No se pudo crear el equipo temporal.'
+      else {
+        const { error: linkError } = await supabase.from('tournament_teams').insert({ tournament_id: tournament.id, team_id: temporaryTeam.id, division_id: pendingOperation.payload.divisionId })
+        operationError = linkError?.message || null
+        if (linkError) await supabase.from('teams').delete().eq('id', temporaryTeam.id)
+      }
+    } else if (pendingOperation.kind === 'add-quick-player') {
+      const { data: temporaryPlayer, error: playerError } = await supabase.from('players').insert({ full_name: pendingOperation.payload.name, shirt_number: pendingOperation.payload.shirtNumber ? Number(pendingOperation.payload.shirtNumber) : null, position: pendingOperation.payload.position || null, created_by: userData.user.id, is_official: false, temporary_tournament_id: tournament.id }).select('id').single()
+      if (playerError || !temporaryPlayer) operationError = playerError?.message || 'No se pudo crear el jugador temporal.'
+      else {
+        const { error: linkError } = await supabase.from('team_players').insert({ team_id: pendingOperation.payload.teamId, player_id: temporaryPlayer.id })
+        operationError = linkError?.message || null
+        if (linkError) await supabase.from('players').delete().eq('id', temporaryPlayer.id)
+      }
+    } else if (pendingOperation.kind === 'add-existing-player') {
+      const { error } = await supabase.from('team_players').insert({ team_id: pendingOperation.payload.teamId, player_id: pendingOperation.payload.playerId })
+      operationError = error?.message || null
+    } else if (pendingOperation.kind === 'claim-guest-player') {
+      const { error } = await supabase.rpc('claim_tournament_guest_player', { p_guest_player_id: pendingOperation.payload.guestPlayerId, p_official_player_id: pendingOperation.payload.officialPlayerId })
+      operationError = error?.message || null
     } else {
       await performGenerateFixture()
     }
@@ -232,7 +396,8 @@ export default function PublicTournamentPage() {
     setPendingOperation(null)
     setDirtySection(null)
     if (pendingOperation.kind !== 'generate-fixture') {
-      setMessage(pendingOperation.kind === 'add-team' ? 'Equipo agregado al torneo.' : 'Equipo retirado del torneo.')
+      const operationMessage = pendingOperation.kind === 'add-team' ? 'Equipo agregado al torneo.' : pendingOperation.kind === 'remove-team' ? 'Equipo retirado del torneo.' : pendingOperation.kind === 'add-quick-team' ? 'Equipo temporal agregado al torneo.' : pendingOperation.kind === 'add-quick-player' ? 'Jugador temporal agregado a la plantilla.' : pendingOperation.kind === 'add-existing-player' ? 'Jugador registrado agregado a la plantilla.' : 'Perfil temporal reclamado correctamente.'
+      setMessage(operationMessage)
       await loadTournament()
     }
   }
@@ -253,15 +418,15 @@ export default function PublicTournamentPage() {
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['equipos', 'Equipos y plantillas'], ['fixtures', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'equipos' && <TeamsSection teams={teams} rosters={rosters} dates={dates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => current.id === team.id))} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />}{section === 'fixtures' && <FixturesSection tournament={tournament} teams={teams} dates={dates} canManage={canManage && editMode} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} disciplines={disciplines} modalities={modalities} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => setEditMode(true)} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} />}{section === 'fixtures' && <FixturesSection tournament={tournament} teams={teams} dates={dates} canManage={canManage && editMode} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => setEditMode(true)} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
-  </div>{pendingChanges && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => setPendingChanges(null)} onConfirm={confirmSave} message={message} />}{pendingOperation && <EditConfirmationOverlay title={pendingOperation.title} changes={Object.fromEntries(pendingOperation.changes.map((change, index) => [`${change.label}-${index}`, change]))} onCancel={() => setPendingOperation(null)} onConfirm={confirmOperation} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
+  </div>{pendingChanges && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{pendingOperation && <EditConfirmationOverlay title={pendingOperation.title} changes={Object.fromEntries(pendingOperation.changes.map((change, index) => [`${change.label}-${index}`, change]))} onCancel={() => setPendingOperation(null)} onConfirm={confirmOperation} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
 }
 
 function SummarySection({ tournament, divisions, teams, matches, events, onOpenFixtures, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; onOpenFixtures: () => void; canManage: boolean }) {
   const featuredMatch = getFeaturedMatch(matches)
   const uniqueTeamCount = new Set(teams.map((team) => team.id)).size
-  return <div className="space-y-8 pt-6"><div className="grid gap-6 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Resumen del torneo</p><h2 className="mt-2 font-display text-3xl uppercase">Actividad competitiva</h2><p className="mt-3 text-sm leading-6 text-slate-400">Consulta la estructura, el partido prioritario y la actividad registrada de esta competencia.</p><div className="mt-6 space-y-3"><InfoRow label="Organización responsable" value={tournament.organization?.name || 'Torneo independiente'} /><InfoRow label="Equipo organizador" value={tournament.organizer_team?.name || 'No especificado'} /></div></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración deportiva</p><div className="mt-3 space-y-3"><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Divisiones" value={divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'} /><InfoRow label="Equipos inscritos" value={`${uniqueTeamCount} equipos · ${matches.length} partidos`} /></div></div></div><div><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Estado competitivo</p><h2 className="mt-2 font-display text-3xl uppercase">Partido destacado</h2></div>{featuredMatch && <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{featuredMatch.status === 'live' ? 'En vivo' : featuredMatch.status === 'finished' ? 'Último partido' : 'Próximo partido'}</span>}</div>{featuredMatch ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} /> : <div className="mt-5 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm leading-6 text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}</div></div>
+  return <div className="space-y-8 pt-6"><div className="grid gap-6 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Resumen del torneo</p><h2 className="mt-2 font-display text-3xl uppercase">Actividad competitiva</h2><p className="mt-3 text-sm leading-6 text-slate-400">Consulta la estructura, el partido prioritario y la actividad registrada de esta competencia.</p><div className="mt-6 space-y-3"><InfoRow label="Tipo de torneo" value={tournament.is_quick ? 'Torneo rápido · No oficial' : 'Torneo normal · Oficial'} /><InfoRow label="Organización responsable" value={tournament.organization?.name || 'Torneo independiente'} /><InfoRow label="Equipo organizador" value={tournament.organizer_team?.name || 'No especificado'} /></div></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración deportiva</p><div className="mt-3 space-y-3"><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Divisiones" value={divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'} /><InfoRow label="Equipos inscritos" value={`${uniqueTeamCount} equipos · ${matches.length} partidos`} /></div></div></div><div><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Estado competitivo</p><h2 className="mt-2 font-display text-3xl uppercase">Partido destacado</h2></div>{featuredMatch && <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{featuredMatch.status === 'live' ? 'En vivo' : featuredMatch.status === 'finished' ? 'Último partido' : 'Próximo partido'}</span>}</div>{featuredMatch ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} /> : <div className="mt-5 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm leading-6 text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}</div></div>
 }
 
 function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches: Match[] }) {
@@ -269,14 +434,17 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
   return <div className="pt-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Los puntos se calculan con los partidos finalizados: victoria 4, empate 2.</p></div><Table2 className="text-[#b4ff45]" /></div><div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={row.team.id} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 font-bold text-[#b4ff45]">{row.points}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos para construir la tabla.</p>}</div></div>
 }
 
-function TeamsSection({ teams, rosters, dates, divisions, availableTeams, canManage, editMode, currentUserId, onAddTeam, onRemoveTeam, onNumberRequest }: { teams: TournamentTeam[]; rosters: RosterEntry[]; dates: number[]; divisions: Division[]; availableTeams: TeamSummary[]; canManage: boolean; editMode: boolean; currentUserId: string; onAddTeam: (teamId: string, divisionId: string) => void; onRemoveTeam: (team: TournamentTeam) => void; onNumberRequest: (request: { teamId: string; playerId: string; playerName: string; currentNumber: number | null }) => void }) {
+function TeamsSection({ teams, rosters, dates, divisions: allDivisions, availableTeams, canManage, editMode, currentUserId, onAddTeam, onRemoveTeam, onNumberRequest }: { teams: TournamentTeam[]; rosters: RosterEntry[]; dates: number[]; divisions: Division[]; availableTeams: TeamSummary[]; canManage: boolean; editMode: boolean; currentUserId: string; onAddTeam: (teamId: string, divisionId: string) => void; onRemoveTeam: (team: TournamentTeam) => void; onNumberRequest: (request: { teamId: string; playerId: string; playerName: string; currentNumber: number | null }) => void }) {
   const [expandedTeams, setExpandedTeams] = useState<string[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [showRemove, setShowRemove] = useState(false)
   const [newTeamId, setNewTeamId] = useState('')
   const [teamQuery, setTeamQuery] = useState('')
-  const [newDivisionId, setNewDivisionId] = useState(divisions[0]?.id || '')
+  const [newDivisionId, setNewDivisionId] = useState(allDivisions[0]?.id || '')
   const filteredTeams = availableTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
+  const selectedTeam = availableTeams.find((team) => team.id === newTeamId)
+  const divisions = selectedTeam?.divisionNames?.length ? allDivisions.filter((division) => selectedTeam.divisionNames?.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) : allDivisions
+  useEffect(() => { setNewDivisionId(divisions[0]?.id || '') }, [newTeamId])
   const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => { const existing = groups.find((item) => item.id === team.id); if (existing) { if (!existing.divisions.includes(team.division_name)) existing.divisions.push(team.division_name) } else groups.push({ ...team, divisions: [team.division_name] }); return groups }, [])
   return <div className="pt-6"><div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Participantes</p><h2 className="mt-2 font-display text-3xl uppercase">Equipos y plantillas</h2><p className="mt-2 text-sm text-slate-400">Selecciona un equipo para desplegar su plantilla y todas sus divisiones.</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{groupedTeams.length} equipos</span>{canManage && editMode && <><button type="button" onClick={() => { setShowAdd(!showAdd); setShowRemove(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Users size={15} />Agregar equipo</button><button type="button" onClick={() => { setShowRemove(!showRemove); setShowAdd(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]"><X size={15} />Expulsar</button></>}</div></div>{canManage && editMode && showAdd && <form onSubmit={(event) => { event.preventDefault(); onAddTeam(newTeamId, newDivisionId); setNewTeamId(''); setTeamQuery(''); setShowAdd(false) }} className="mt-5 grid gap-3 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-semibold sm:col-span-2">Buscar equipo<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input required value={teamQuery} onChange={(event) => { setTeamQuery(event.target.value); setNewTeamId('') }} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div>{teamQuery && <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">{filteredTeams.map((team) => <button key={team.id} type="button" onClick={() => { setNewTeamId(team.id); setTeamQuery(team.name) }} className={`block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-[#b4ff45]/10 ${newTeamId === team.id ? 'bg-[#b4ff45]/10 text-[#dfffba]' : 'text-slate-200'}`}>{team.name}<span className="ml-2 text-xs text-slate-500">{team.athlonx_code || team.handle || ''}</span></button>)}{!filteredTeams.length && <p className="px-3 py-3 text-sm text-slate-500">No se encontraron equipos.</p>}</div>}</label><label className="text-sm font-semibold">División<select required value={newDivisionId} onChange={(event) => setNewDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Seleccionar división</option>{divisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select></label><button type="submit" disabled={!newTeamId} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Continuar</button></form>}{canManage && editMode && showRemove && <p className="mt-5 rounded-[5px] border border-[#ff7d88]/30 bg-[#ff7d88]/5 p-4 text-sm text-[#ffb0b7]">Selecciona “Expulsar del torneo” en el equipo que deseas retirar.</p>}<div className="mt-6 space-y-3">{groupedTeams.length ? groupedTeams.map((team) => { const expanded = expandedTeams.includes(team.id); const teamRoster = rosters.filter((player) => player.team_id === team.id); return <article key={team.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e]"><button type="button" onClick={() => setExpandedTeams((current) => current.includes(team.id) ? current.filter((id) => id !== team.id) : [...current, team.id])} className="flex w-full cursor-pointer items-center gap-3 p-4 text-left sm:p-5"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[#b4ff45]/15 font-bold text-[#b4ff45]">{team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : team.name.slice(0, 1).toUpperCase()}</div><div className="min-w-0 flex-1"><p className="truncate font-bold">{team.name}</p><p className="mt-1 text-xs text-slate-400">{team.divisions.join(' · ')} · {team.athlonx_code || 'Código pendiente'} · {teamRoster.length} atletas</p></div><ChevronDown size={18} className={`shrink-0 text-[#b4ff45] transition ${expanded ? 'rotate-180' : ''}`} /></button>{showRemove && canManage && editMode && <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-5"><button type="button" onClick={() => onRemoveTeam(team)} className="rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]">Expulsar del torneo</button></div>}{expanded && <div className="border-t border-white/10 p-4 sm:p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Plantilla registrada</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{teamRoster.map((player) => <div key={player.player_id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span className="min-w-0 truncate">{player.full_name}{player.is_substitute && <span className="ml-2 text-xs text-slate-500">Suplente</span>}</span><span className="flex items-center gap-2 text-xs text-slate-400">#{player.shirt_number ?? '--'}{player.user_id === currentUserId && <button type="button" onClick={() => onNumberRequest({ teamId: team.id, playerId: player.player_id, playerName: player.full_name, currentNumber: player.shirt_number })} className="cursor-pointer rounded-[5px] border border-[#31556b] px-2 py-1 font-bold text-[#dfffba] hover:border-[#b4ff45]">Cambiar</button>}</span></div>)}{!teamRoster.length && <p className="text-sm text-slate-500">Plantilla pendiente.</p>}</div></div>}</article> }) : <p className="text-sm text-slate-500">Todavía no hay equipos inscritos.</p>}</div></div>
 }
@@ -325,15 +493,23 @@ function EditHistorySection({ history }: { history: EditHistory[] }) {
   return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><Clock3 className="text-[#b4ff45]" size={20} /><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Transparencia</p><h2 className="mt-1 font-display text-2xl uppercase">Historial de ediciones</h2></div></div>{history.length ? <div className="mt-6 space-y-4">{history.map((entry) => <article key={entry.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-white">Torneo actualizado</p><time className="text-xs text-slate-500">{new Date(entry.created_at).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' })}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(entry.changes).map(([field, change]) => <div key={field} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{labels[field] || field}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change.before || 'Sin valor'}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change.after || 'Sin valor'}</span></p></div>)}</div></article>)}</div> : <p className="mt-6 text-sm text-slate-400">Todavía no se han registrado ediciones.</p>}</section>
 }
 
-function GeneralInfoSection({ tournament, disciplines, modalities, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; disciplines: Discipline[]; modalities: Modality[]; editMode: boolean; onRequestSave: (values: EditValues) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
-  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración</p><h2 className="mt-1 font-display text-3xl uppercase">Información general</h2><p className="mt-2 text-sm text-slate-400">Datos oficiales del torneo y su organización responsable.</p></div>{editMode ? <button type="submit" form="edit-tournament-form" className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><Check size={17} />Confirmar cambio</button> : <button type="button" onClick={onEdit} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><Cog size={17} />Editar torneo</button>}</div>{editMode ? <EditTournamentForm tournament={tournament} disciplines={disciplines} modalities={modalities} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <div className="mt-6 grid gap-3 sm:grid-cols-2"><InfoRow label="Nombre del torneo" value={tournament.name} /><InfoRow label="Código AthlonX" value={tournament.athlonx_code || 'Pendiente'} /><InfoRow label="Estado" value={statusNames[tournament.status] || tournament.status} /><InfoRow label="Temporada" value={tournament.season || 'Pendiente'} /><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Ubicación" value={[tournament.country, tournament.location].filter(Boolean).join(' · ') || 'Pendiente'} /><InfoRow label="Fechas" value={formatDateRange(tournament.start_date, tournament.end_date)} /></div>}</section>
+function GeneralInfoSection({ tournament, divisions, disciplines, modalities, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
+  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración</p><h2 className="mt-1 font-display text-3xl uppercase">Información general</h2><p className="mt-2 text-sm text-slate-400">Datos oficiales del torneo, sus divisiones y su organización responsable.</p></div>{!editMode && <button type="button" onClick={onEdit} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><Cog size={17} />Editar torneo</button>}</div>{editMode ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <><div className="mt-6 grid gap-3 sm:grid-cols-2"><InfoRow label="Nombre del torneo" value={tournament.name} /><InfoRow label="Código AthlonX" value={tournament.athlonx_code || 'Pendiente'} /><InfoRow label="Estado" value={statusNames[tournament.status] || tournament.status} /><InfoRow label="Temporada" value={tournament.season || 'Pendiente'} /><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Ubicación" value={[tournament.country, tournament.location].filter(Boolean).join(' · ') || 'Pendiente'} /><InfoRow label="Fechas" value={formatDateRange(tournament.start_date, tournament.end_date)} /></div><TournamentDivisionsSummary divisions={divisions} /></>}</section>
 }
 
-function EditTournamentForm({ tournament, disciplines, modalities, onRequestSave, onDirtyChange, onCancel }: { tournament: Tournament; disciplines: Discipline[]; modalities: Modality[]; onRequestSave: (values: EditValues) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void }) {
+function TournamentDivisionsSummary({ divisions }: { divisions: Division[] }) {
+  return <div className="mt-8 border-t border-white/10 pt-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Los equipos solo podrán inscribirse en una división compatible con su catálogo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{divisions.length} divisiones</span></div><div className="mt-5 flex flex-wrap gap-2">{divisions.map((division) => <span key={division.id} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{division.name}</span>)}{!divisions.length && <p className="text-sm text-slate-500">Todavía no hay divisiones configuradas.</p>}</div></div>
+}
+
+function EditTournamentForm({ tournament, divisions, disciplines, modalities, onRequestSave, onDirtyChange, onCancel }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void }) {
   const [values, setValues] = useState<EditValues>({ name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' })
+  const [divisionToAdd, setDivisionToAdd] = useState('')
+  const [selectedDivisionNames, setSelectedDivisionNames] = useState(() => divisions.map((division) => division.name))
   const availableModalities = modalities.filter((modality) => !values.discipline_id || modality.discipline_id === values.discipline_id)
-  useEffect(() => { const original = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }; onDirtyChange(Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues])) }, [values, tournament, onDirtyChange])
-  return <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values) }} className="mt-6"><div className="flex items-center gap-2 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]"><ShieldCheck size={17} />Los cambios se mostrarán antes de solicitar la contraseña.</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required /><StyledSelect label="Disciplina" value={values.discipline_id} onChange={(discipline_id) => setValues({ ...values, discipline_id, modality_id: '' })} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} required /><StyledSelect label="Modalidad" value={values.modality_id} onChange={(modality_id) => setValues({ ...values, modality_id })} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} disabled={!availableModalities.length} required /><LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" /><label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={values.start_date} onChange={(event) => setValues({ ...values, start_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Fecha final<input required type="date" value={values.end_date} onChange={(event) => setValues({ ...values, end_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label></div><div className="mt-6 flex justify-end border-t border-white/10 pt-5"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar edición</button></div></form>
+  const divisionOptions = Array.from(new Set([...defaultDivisionOptions, ...divisions.map((division) => division.name)]))
+  useEffect(() => { const original = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }; const fieldsChanged = Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues]); const originalDivisions = divisions.map((division) => division.name); const divisionsChanged = originalDivisions.length !== selectedDivisionNames.length || originalDivisions.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(selectedDivisionNames[index] || '')); onDirtyChange(fieldsChanged || divisionsChanged) }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
+  function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
+  return <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="mt-6"><div className="flex items-center gap-2 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]"><ShieldCheck size={17} />Los cambios se mostrarán antes de solicitar la contraseña.</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required /><StyledSelect label="Disciplina" value={values.discipline_id} onChange={(discipline_id) => setValues({ ...values, discipline_id, modality_id: '' })} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} required /><StyledSelect label="Modalidad" value={values.modality_id} onChange={(modality_id) => setValues({ ...values, modality_id })} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} disabled={!availableModalities.length} required /><LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" /><label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={values.start_date} onChange={(event) => setValues({ ...values, start_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Fecha final<input required type="date" value={values.end_date} onChange={(event) => setValues({ ...values, end_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><div className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-4 sm:col-span-2"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Selecciona las divisiones que podrán inscribirse en este torneo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedDivisionNames.length} divisiones</span></div><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={divisionToAdd} onChange={(event) => setDivisionToAdd(event.target.value)} className="min-w-0 flex-1 cursor-pointer rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="">Seleccionar división</option>{divisionOptions.filter((name) => !selectedDivisionNames.some((selected) => normalizeDivisionName(selected) === normalizeDivisionName(name))).map((name) => <option key={name} value={name}>{name}</option>)}</select><button type="button" onClick={addDivision} disabled={!divisionToAdd} className="cursor-pointer rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Agregar división</button></div><div className="mt-4 flex flex-wrap gap-2">{selectedDivisionNames.map((name) => <span key={name} className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{name}<button type="button" onClick={() => setSelectedDivisionNames(selectedDivisionNames.filter((current) => current !== name))} className="cursor-pointer text-[#ff9ca5]" aria-label={`Quitar división ${name}`}><X size={15} /></button></span>)}{!selectedDivisionNames.length && <p className="text-sm text-slate-500">No hay divisiones seleccionadas.</p>}</div></div></div><div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar edición</button><button type="submit" className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><Check size={17} />Guardar cambios</button></div></form>
 }
 
 function EditConfirmationOverlay({ title = 'Guardar cambios', changes, onCancel, onConfirm, message }: { title?: string; changes: Record<string, PendingChange>; onCancel: () => void; onConfirm: (password: string) => void; message: string }) {
@@ -353,5 +529,20 @@ function PlayerNumberRequestModal({ request, onCancel, onSubmit }: { request: { 
 function StatCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) { return <div className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5"><div className="flex items-center justify-between gap-3 text-[#b4ff45]"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">{title}</p>{icon}</div><p className="mt-3 font-display text-4xl">{value}</p></div> }
 function InfoRow({ label, value }: { label: string; value: string }) { return <div className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">{label}</p><p className="mt-2 font-semibold text-white">{value}</p></div> }
 function TournamentShell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl">{children}</div></main> }
+function normalizeDivisionName(value: string) { return value.trim().toLocaleLowerCase('es-PA') }
+function teamIdentityKey(team: { name: string; handle: string | null; organization_id?: string | null; discipline_id?: string | null; created_by?: string | null }) { return `${normalizeDivisionName(team.name)}|${team.handle || ''}|${team.organization_id || team.created_by || ''}|${team.discipline_id || ''}` }
+function mergeTeamSummaries(teams: TeamSummary[]) {
+  const grouped = new Map<string, TeamSummary>()
+  for (const team of teams) {
+    const key = teamIdentityKey(team)
+    const current = grouped.get(key)
+    if (!current) {
+      grouped.set(key, { ...team, divisionNames: Array.from(new Set(team.divisionNames ?? [])) })
+      continue
+    }
+    current.divisionNames = Array.from(new Set([...(current.divisionNames ?? []), ...(team.divisionNames ?? [])]))
+  }
+  return Array.from(grouped.values())
+}
 function formatDateRange(start: string | null, end: string | null) { if (!start && !end) return 'Fechas por definir'; const format = (value: string | null) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Por definir'; return start && end ? `${format(start)} - ${format(end)}` : format(start || end) }
 function formatEditValue(field: keyof EditValues, value: string, disciplines: Discipline[], modalities: Modality[]) { if (!value) return 'Sin valor'; if (field === 'status') return statusNames[value] || value; if (field === 'discipline_id') return disciplines.find((discipline) => discipline.id === value)?.name || value; if (field === 'modality_id') return modalities.find((modality) => modality.id === value)?.name || value; return value }

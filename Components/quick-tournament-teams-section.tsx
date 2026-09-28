@@ -1,0 +1,339 @@
+'use client'
+
+import { ChevronDown, Search, UserPlus, Users } from 'lucide-react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
+
+type Division = { id: string; name: string; sort_order: number }
+type Modality = { code: string; name: string }
+type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null; divisionNames?: string[] }
+type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
+type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
+type RosterEntry = { team_id: string; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
+
+type Props = {
+  teams: TournamentTeam[]
+  rosters: RosterEntry[]
+  divisions: Division[]
+  availableTeams: TeamSummary[]
+  availablePlayers: PlayerSummary[]
+  modality: Modality | null
+  officialPlayerId: string
+  canManage: boolean
+  editMode: boolean
+  currentUserId: string
+  onAddTeam: (teamId: string, divisionId: string) => void
+  onAddQuickTeam: (values: { name: string; logoUrl: string; phone: string; divisionId: string }) => void
+  onRemoveTeam: (team: TournamentTeam) => void
+  onAddQuickPlayer: (teamId: string, values: { name: string; shirtNumber: string; position: string }) => void
+  onAddExistingPlayer: (teamId: string, playerId: string) => void
+  onClaimGuestPlayer: (guestPlayerId: string, guestPlayerName: string) => void
+  onNumberRequest: (request: { teamId: string; playerId: string; playerName: string; currentNumber: number | null }) => void
+}
+
+const normalize = (value: string) => value.trim().toLocaleLowerCase('es-PA')
+
+const rugbySevensPositions = [
+  'Pilar izquierdo',
+  'Hooker',
+  'Pilar derecho',
+  'Medio scrum',
+  'Apertura',
+  'Centro',
+  'Zaguero',
+]
+
+const rugbyFifteenPositions = [
+  'Pilar izquierdo',
+  'Hooker',
+  'Pilar derecho',
+  'Segunda línea izquierdo',
+  'Segunda línea derecho',
+  'Ala cerrado',
+  'Ala abierto',
+  'Octavo',
+  'Medio scrum',
+  'Apertura',
+  'Ala izquierdo',
+  'Centro interior',
+  'Centro exterior',
+  'Ala derecho',
+  'Zaguero',
+]
+
+function getPositionOptions(modality: Modality | null) {
+  const modalityKey = `${modality?.code || ''} ${modality?.name || ''}`.toLocaleLowerCase('es-PA')
+
+  if (modalityKey.includes('seven') || modalityKey.includes('sevens')) {
+    return rugbySevensPositions
+  }
+
+  if (modalityKey.includes('xv') || modalityKey.includes('15') || modalityKey.includes('quince')) {
+    return rugbyFifteenPositions
+  }
+
+  return ['Posición general']
+}
+
+export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
+  const [expanded, setExpanded] = useState<string[]>([])
+  const [teamMode, setTeamMode] = useState<'existing' | 'new' | null>(null)
+  const [teamQuery, setTeamQuery] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [divisionId, setDivisionId] = useState(divisions[0]?.id || '')
+  const [teamName, setTeamName] = useState('')
+  const [teamLogo, setTeamLogo] = useState('')
+  const [teamPhone, setTeamPhone] = useState('')
+  const [playerTeamId, setPlayerTeamId] = useState('')
+  const [playerMode, setPlayerMode] = useState<'new' | 'existing'>('new')
+  const [playerQuery, setPlayerQuery] = useState('')
+  const [playerId, setPlayerId] = useState('')
+  const [playerName, setPlayerName] = useState('')
+  const [playerNumber, setPlayerNumber] = useState('')
+  const [playerPosition, setPlayerPosition] = useState('')
+  const previousTeamIds = useRef<string[] | null>(null)
+
+  const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => {
+    const current = groups.find((item) => item.id === team.id)
+
+    if (current) {
+      current.divisions = Array.from(new Set([...current.divisions, team.division_name]))
+    } else {
+      groups.push({ ...team, divisions: [team.division_name] })
+    }
+
+    return groups
+  }, [])
+  const selectedTeam = availableTeams.find((team) => team.id === teamId)
+  const compatibleDivisions = selectedTeam?.divisionNames?.length
+    ? divisions.filter((division) => selectedTeam.divisionNames?.some((name) => normalize(name) === normalize(division.name)))
+    : divisions
+  const filteredTeams = availableTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
+  const filteredPlayers = availablePlayers.filter((player) => player.full_name.toLowerCase().includes(playerQuery.toLowerCase()))
+  const positionOptions = getPositionOptions(modality)
+
+  useEffect(() => {
+    const currentTeamIds = groupedTeams.map((team) => team.id)
+    const previousIds = previousTeamIds.current
+
+    if (previousIds) {
+      const newlyAddedTeamIds = currentTeamIds.filter((id) => !previousIds.includes(id))
+
+      if (newlyAddedTeamIds.length) {
+        setExpanded((current) => Array.from(new Set([...current, ...newlyAddedTeamIds])))
+      }
+    }
+
+    previousTeamIds.current = currentTeamIds
+  }, [groupedTeams])
+
+  useEffect(() => {
+    setDivisionId(compatibleDivisions[0]?.id || '')
+  }, [teamId, divisions.length])
+
+  function resetTeamForm() {
+    setTeamMode(null)
+    setTeamQuery('')
+    setTeamId('')
+  }
+
+  function resetPlayerForm() {
+    setPlayerTeamId('')
+    setPlayerQuery('')
+    setPlayerId('')
+    setPlayerName('')
+    setPlayerNumber('')
+    setPlayerPosition('')
+  }
+
+  function submitExistingTeam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onAddTeam(teamId, divisionId)
+    resetTeamForm()
+  }
+
+  function submitNewTeam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onAddQuickTeam({
+      name: teamName,
+      logoUrl: teamLogo,
+      phone: teamPhone,
+      divisionId,
+    })
+    resetTeamForm()
+    setTeamName('')
+    setTeamLogo('')
+    setTeamPhone('')
+  }
+
+  function submitNewPlayer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onAddQuickPlayer(playerTeamId, {
+      name: playerName,
+      shirtNumber: playerNumber,
+      position: playerPosition,
+    })
+    resetPlayerForm()
+  }
+
+  function submitExistingPlayer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onAddExistingPlayer(playerTeamId, playerId)
+    resetPlayerForm()
+  }
+
+  return (
+    <div className="pt-6">
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Torneo rápido · no oficial</p>
+          <h2 className="mt-2 font-display text-3xl uppercase">Equipos y plantillas</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Combina equipos registrados con equipos temporales. Los perfiles temporales solo pertenecen a este torneo y pueden ser reclamados después.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{groupedTeams.length} equipos</span>
+          {canManage && editMode && (
+            <>
+              <button type="button" onClick={() => setTeamMode(teamMode === 'existing' ? null : 'existing')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200">
+                <Users size={15} />
+                Añadir equipo existente
+              </button>
+              <button type="button" onClick={() => setTeamMode(teamMode === 'new' ? null : 'new')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">
+                <Users size={15} />
+                Añadir equipo nuevo
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {canManage && editMode && teamMode === 'existing' && (
+        <form onSubmit={submitExistingTeam} className="mt-5 grid gap-3 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:grid-cols-[1fr_1fr_auto]">
+          <label className="text-sm font-semibold sm:col-span-2">
+            Buscar equipo registrado
+            <div className="relative mt-2">
+              <Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" />
+              <input required value={teamQuery} onChange={(event) => { setTeamQuery(event.target.value); setTeamId('') }} placeholder="Nombre, usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3" />
+            </div>
+            {teamQuery && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">
+                {filteredTeams.map((team) => (
+                  <button key={team.id} type="button" onClick={() => { setTeamId(team.id); setTeamQuery(team.name) }} className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-slate-200 hover:bg-[#b4ff45]/10">
+                    {team.name}
+                    <span className="ml-2 text-xs text-slate-500">{team.athlonx_code || team.handle || ''}</span>
+                  </button>
+                ))}
+                {!filteredTeams.length && <p className="p-3 text-sm text-slate-500">No se encontraron equipos oficiales.</p>}
+              </div>
+            )}
+          </label>
+          <label className="text-sm font-semibold">
+            División
+            <select required value={divisionId} onChange={(event) => setDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3">
+              <option value="">Seleccionar división</option>
+              {compatibleDivisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}
+            </select>
+          </label>
+          <button type="submit" disabled={!teamId} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Agregar</button>
+        </form>
+      )}
+
+      {canManage && editMode && teamMode === 'new' && (
+        <form onSubmit={submitNewTeam} className="mt-5 grid gap-3 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4 sm:grid-cols-2">
+          <label className="text-sm font-semibold">Nombre del equipo<input required value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="Equipo invitado" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
+          <label className="text-sm font-semibold">Teléfono<input value={teamPhone} onChange={(event) => setTeamPhone(event.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
+          <label className="text-sm font-semibold">Imagen del equipo<input type="url" value={teamLogo} onChange={(event) => setTeamLogo(event.target.value)} placeholder="URL de imagen opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
+          <label className="text-sm font-semibold">División<select required value={divisionId} onChange={(event) => setDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Seleccionar división</option>{divisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select></label>
+          <div className="flex items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-slate-400">Este equipo será temporal y no aparecerá como equipo oficial.</p><button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e]">Crear equipo temporal</button></div>
+        </form>
+      )}
+
+      <div className="mt-6 space-y-3">
+        {groupedTeams.length ? groupedTeams.map((team) => {
+          const isExpanded = expanded.includes(team.id)
+          const teamRoster = rosters.filter((player) => player.team_id === team.id)
+          const playerFormOpen = playerTeamId === team.id
+
+          return (
+            <article key={team.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e]">
+              <button type="button" onClick={() => setExpanded((current) => current.includes(team.id) ? current.filter((id) => id !== team.id) : [...current, team.id])} className="flex w-full cursor-pointer items-center gap-3 p-4 text-left sm:p-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[#b4ff45]/15 font-bold text-[#b4ff45]">{team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : team.name.slice(0, 1).toUpperCase()}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-bold">{team.name}</p>
+                    <span className={`rounded-[5px] px-2 py-1 text-[10px] font-bold uppercase ${team.is_official === false ? 'bg-amber-300/10 text-amber-200' : 'bg-[#b4ff45]/10 text-[#dfffba]'}`}>{team.is_official === false ? 'No oficial' : 'Registrado'}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">{team.divisions.join(' · ')} · {team.athlonx_code || 'Temporal'} · {teamRoster.length} atletas</p>
+                </div>
+                <ChevronDown size={18} className={`shrink-0 text-[#b4ff45] transition ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-white/10 p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Plantilla del equipo</p>
+                    {canManage && editMode && <button type="button" onClick={() => { setPlayerTeamId(playerFormOpen ? '' : team.id); setPlayerMode('new') }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><UserPlus size={15} />Añadir jugador</button>}
+                  </div>
+
+                  {playerFormOpen && (
+                    <div className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4">
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setPlayerMode('new')} className={`rounded-[5px] px-3 py-2 text-xs font-bold ${playerMode === 'new' ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#31556b] text-slate-300'}`}>Jugador nuevo</button>
+                        <button type="button" onClick={() => setPlayerMode('existing')} className={`rounded-[5px] px-3 py-2 text-xs font-bold ${playerMode === 'existing' ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#31556b] text-slate-300'}`}>Jugador existente</button>
+                      </div>
+
+                      {playerMode === 'new' ? (
+                        <form onSubmit={submitNewPlayer} className="mt-4 grid gap-3 sm:grid-cols-3">
+                          <label className="text-sm font-semibold sm:col-span-3">Nombre completo<input required value={playerName} onChange={(event) => setPlayerName(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
+                          <label className="text-sm font-semibold">Número<input type="number" min="0" max="99" value={playerNumber} onChange={(event) => setPlayerNumber(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
+                          <label className="text-sm font-semibold sm:col-span-2">
+                            Posición
+                            <select required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3">
+                              <option value="">Seleccionar posición</option>
+                              {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
+                            </select>
+                          </label>
+                          <button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] sm:col-span-3">Crear jugador temporal</button>
+                        </form>
+                      ) : (
+                        <form onSubmit={submitExistingPlayer} className="mt-4">
+                          <label className="text-sm font-semibold">
+                            Buscar jugador registrado
+                            <div className="relative mt-2">
+                              <Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" />
+                              <input required value={playerQuery} onChange={(event) => { setPlayerQuery(event.target.value); setPlayerId('') }} placeholder="Nombre del jugador" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3" />
+                            </div>
+                          </label>
+                          {playerQuery && <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">{filteredPlayers.map((player) => <button key={player.id} type="button" onClick={() => { setPlayerId(player.id); setPlayerQuery(player.full_name) }} className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-slate-200 hover:bg-[#b4ff45]/10">{player.full_name}<span className="ml-2 text-xs text-slate-500">{player.position || 'Jugador'}</span></button>)}</div>}
+                          <button type="submit" disabled={!playerId} className="mt-3 rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Agregar jugador registrado</button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {teamRoster.map((player) => (
+                      <div key={player.player_id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{player.full_name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{player.position || 'Posición pendiente'} · {player.is_official ? 'Perfil registrado' : player.claimed_player_id ? 'Perfil reclamado' : 'Perfil temporal'}</p>
+                        </div>
+                        <span className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
+                          #{player.shirt_number ?? '--'}
+                          {!player.is_official && !player.claimed_player_id && officialPlayerId && <button type="button" onClick={() => onClaimGuestPlayer(player.player_id, player.full_name)} className="cursor-pointer rounded-[5px] border border-[#b4ff45]/50 px-2 py-1 font-bold text-[#dfffba]">Reclamar perfil</button>}
+                          {player.user_id === currentUserId && <button type="button" onClick={() => onNumberRequest({ teamId: team.id, playerId: player.player_id, playerName: player.full_name, currentNumber: player.shirt_number })} className="cursor-pointer rounded-[5px] border border-[#31556b] px-2 py-1 font-bold text-[#dfffba]">Cambiar</button>}
+                        </span>
+                      </div>
+                    ))}
+                    {!teamRoster.length && <p className="text-sm text-slate-500">Plantilla pendiente.</p>}
+                  </div>
+                </div>
+              )}
+
+              {canManage && editMode && <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-5"><button type="button" onClick={() => onRemoveTeam(team)} className="rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]">Expulsar del torneo</button></div>}
+            </article>
+          )
+        }) : <p className="text-sm text-slate-500">Todavía no hay equipos inscritos.</p>}
+      </div>
+    </div>
+  )
+}

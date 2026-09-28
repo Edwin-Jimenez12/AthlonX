@@ -33,7 +33,7 @@ export default function TeamsPage() {
       const [{ data: contexts }, { data: memberships }, { data: sports }, { data: modalityRows }] = await Promise.all([
         supabase.from('user_contexts').select('organization_id').eq('user_id', userData.user.id).eq('context_type', 'organization').eq('status', 'active'),
         supabase.from('organization_members').select('organization_id').eq('user_id', userData.user.id).in('role', ['owner', 'directivo']).eq('status', 'active'),
-        supabase.from('disciplines').select('id, name, code').eq('is_active', true).in('code', ['rugby', 'baloncesto']).order('name'),
+        supabase.from('disciplines').select('id, name, code').eq('is_active', true).order('name'),
         supabase.from('sport_modalities').select('id, name, code, discipline_id').eq('is_active', true).order('name'),
       ])
       const organizationIds = Array.from(new Set([...(contexts ?? []).map((context) => context.organization_id).filter((id): id is string => Boolean(id)), ...(memberships ?? []).map((membership) => membership.organization_id)]))
@@ -58,7 +58,7 @@ export default function TeamsPage() {
       if (!supabase || !organizationId) { setTeams([]); setSelectedTeamId(''); return }
       const scope = await loadOrganizationScope(organizationId)
       if (scope.error) return setMessage(scope.error.message)
-      const { data, error } = await supabase.from('teams').select('id, name, country, city, logo_url, organization_id, discipline_id, modality_id, athlonx_code, handle').in('organization_id', scope.ids).order('name')
+      const { data, error } = await supabase.from('teams').select('id, name, country, city, logo_url, organization_id, discipline_id, modality_id, athlonx_code, handle').in('organization_id', scope.ids).eq('is_official', true).order('name')
       if (error) return setMessage(error.message)
       setTeams((data ?? []) as Team[])
       setSelectedTeamId((current) => data?.some((team) => team.id === current) ? current : data?.[0]?.id ?? '')

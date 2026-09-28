@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 
+export type AccountRole = 'atleta' | 'entrenador' | 'staff' | 'directivo'
+
 export type AccountContext = {
   id: string
   contextType: 'personal' | 'team' | 'organization'
@@ -7,7 +9,7 @@ export type AccountContext = {
   organizationId: string | null
   name: string
   discipline: string | null
-  role: 'atleta' | 'entrenador' | 'staff' | 'directivo'
+  role: AccountRole
   roleLabel: string | null
 }
 
@@ -24,24 +26,31 @@ export async function loadAccountContexts(userId: string): Promise<AccountContex
 
   const teamIds = rows.flatMap((row) => row.team_id ? [row.team_id] : [])
   const organizationIds = rows.flatMap((row) => row.organization_id ? [row.organization_id] : [])
-  const [{ data: teams }, { data: organizations }] = await Promise.all([
-    teamIds.length ? supabase.from('teams').select('id, name, discipline_id').in('id', teamIds) : Promise.resolve({ data: [] }),
+  const [{ data: teams }, { data: organizations }, { data: disciplines }] = await Promise.all([
+    teamIds.length ? supabase.from('teams').select('id, name, discipline_id').in('id', teamIds).eq('is_official', true) : Promise.resolve({ data: [] }),
     organizationIds.length ? supabase.from('organizations').select('id, name').in('id', organizationIds) : Promise.resolve({ data: [] }),
+    supabase.from('disciplines').select('id, name').eq('is_active', true),
   ])
 
   const teamNames = new Map((teams ?? []).map((team) => [team.id, team.name]))
+  const teamDisciplines = new Map((teams ?? []).map((team) => [team.id, team.discipline_id]))
+  const disciplineNames = new Map((disciplines ?? []).map((discipline) => [discipline.id, discipline.name]))
   const organizationNames = new Map((organizations ?? []).map((organization) => [organization.id, organization.name]))
 
-  return rows.map((row) => ({
+  const personalContext = rows.find((row) => row.context_type === 'personal')
+  const contextRows = rows.filter((row) => row.context_type !== 'personal')
+  if (personalContext) contextRows.unshift(personalContext)
+
+  return contextRows.map((row) => ({
     id: row.id,
     contextType: row.context_type,
     teamId: row.team_id,
     organizationId: row.organization_id,
     name: row.context_type === 'personal'
-      ? 'Mi cuenta'
+      ? 'Mi vista'
       : row.team_id ? (teamNames.get(row.team_id) ?? 'Equipo') : (organizationNames.get(row.organization_id ?? '') ?? 'Organización'),
-    discipline: null,
-    role: row.role,
+    discipline: row.team_id ? disciplineNames.get(teamDisciplines.get(row.team_id) ?? '') ?? null : null,
+    role: row.role === 'owner' ? 'directivo' : row.role === 'coach' ? 'entrenador' : row.role === 'arbitro' || row.role === 'analista' ? 'staff' : row.role as AccountRole,
     roleLabel: row.role_label,
   }))
 }

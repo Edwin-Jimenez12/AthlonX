@@ -13,9 +13,7 @@ insert into public.disciplines (code, name)
 values
   ('rugby', 'Rugby'),
   ('baloncesto', 'Baloncesto'),
-  ('futbol', 'Futbol'),
-  ('voleibol', 'Voleibol'),
-  ('atletismo', 'Atletismo')
+  ('futbol', 'Fútbol')
 on conflict (code) do update set name = excluded.name;
 
 create table if not exists public.organization_disciplines (
