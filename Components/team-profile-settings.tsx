@@ -3,6 +3,7 @@
 import { Save, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { StyledSelect } from './styled-select'
 
 type Discipline = {
   id: string
@@ -197,21 +198,7 @@ export function TeamProfileSettings({ teamId }: { teamId?: string }) {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
-            <label className="block text-sm font-semibold text-slate-200">
-              Disciplina
-              <select
-                value={form.discipline_id}
-                onChange={(event) => updateField('discipline_id', event.target.value)}
-                className="mt-2 w-full cursor-pointer rounded-xl border border-[#31556b] bg-[#07131e] px-4 py-3 text-white outline-none focus:border-[#b4ff45]"
-              >
-                <option value="">Seleccionar disciplina</option>
-                {disciplines.map((discipline) => (
-                  <option key={discipline.id} value={discipline.id}>
-                    {discipline.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <StyledSelect label="Disciplina" value={form.discipline_id} onChange={(value) => updateField('discipline_id', value)} options={[{ value: '', label: 'Seleccionar disciplina' }, ...disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))]} />
             <div>
               <p className="text-sm font-semibold text-slate-200">Código AthlonX</p>
               <p className="mt-2 rounded-xl border border-[#29485d] bg-[#07131e] px-4 py-3 font-mono text-sm text-[#b4ff45]">

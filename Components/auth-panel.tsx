@@ -4,7 +4,8 @@ import { FormEvent, ReactNode, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { LocationFields } from './location-fields'
-import { loadAccountContexts, AccountContext } from '../lib/account-contexts'
+import { StyledSelect } from './styled-select'
+import { loadAccountContexts } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 
 type Discipline = { id: string; name: string; code: string }
@@ -26,6 +27,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
   const [organizationModalities, setOrganizationModalities] = useState<string[]>([])
   const [organizationCountry, setOrganizationCountry] = useState('Panamá')
   const [organizationCity, setOrganizationCity] = useState('')
+  const [organizationType, setOrganizationType] = useState('organizacion_deportiva')
   const [teamDiscipline, setTeamDiscipline] = useState('')
   const [teamModality, setTeamModality] = useState('')
   const [teamCountry, setTeamCountry] = useState('Panamá')
@@ -80,7 +82,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
     const confirmation = (form.elements.namedItem('confirmation') as HTMLInputElement | null)?.value
     const publicUsername = (form.elements.namedItem('publicUsername') as HTMLInputElement | null)?.value ?? ''
     const organizationName = (form.elements.namedItem('organizationName') as HTMLInputElement | null)?.value ?? ''
-    const organizationType = (form.elements.namedItem('organizationType') as HTMLSelectElement | null)?.value ?? 'organizacion_deportiva'
     const teamName = (form.elements.namedItem('teamName') as HTMLInputElement | null)?.value ?? ''
     if (isRegister && password !== confirmation) {
       setMessage('Las contraseñas no coinciden.')
@@ -146,13 +147,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
           return
         }
       }
-      let assignedRoles = isRegister ? roles : []
-      if (!isRegister && result.data.user) {
-        const { data: storedRoles } = await supabase.from('user_roles').select('role').eq('user_id', result.data.user.id)
-        assignedRoles = storedRoles?.map(({ role }) => role) ?? []
-      }
-      const isTrainer = assignedRoles.includes('entrenador') || result.data.user?.user_metadata?.roles?.includes?.('entrenador')
-      const isStaff = assignedRoles.includes('staff') || result.data.user?.user_metadata?.roles?.includes?.('staff')
       const contexts = !isRegister && result.data.user ? await loadAccountContexts(result.data.user.id) : []
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
       const selectedContext = contexts.find((context) => context.id === storedContextId) ?? contexts[0]
@@ -160,7 +154,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
         if (selectedContext.teamId) window.localStorage.setItem('athlonx-active-team-id', selectedContext.teamId)
       }
-      router.push(selectedContext ? routeForContext(selectedContext) : sessionAccountType === 'organizacion' ? '/dashboard/organizaciones' : sessionAccountType === 'equipo' ? '/dashboard/equipo' : isTrainer ? '/dashboard/entrenador' : isStaff ? '/dashboard/staff' : '/dashboard/perfil')
+      router.push('/dashboard/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
     } finally {
@@ -171,8 +165,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
   const activeTabClass = 'border-[#B4FF45] bg-[#B4FF45]/10 text-[#D9FFB1]'
   const inactiveTabClass = 'border-transparent text-slate-400 hover:border-white/30 hover:text-white'
   const fieldClass = 'h-11 w-full rounded-[5px] border border-white/15 bg-white/[.04] px-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#B4FF45] focus:bg-white/[.06]'
-  const selectClass = `${fieldClass} cursor-pointer bg-[#101a24]`
-
   return (
     <div className="flex max-h-[min(860px,calc(100dvh-2rem))] min-h-0 w-full flex-col overflow-hidden rounded-[5px] border border-white/15 bg-[#0b141e]/95 shadow-2xl backdrop-blur-xl">
       <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-7 sm:pt-5">
@@ -239,14 +231,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
                 <p className="mt-1 text-xs leading-5 text-slate-400">Este perfil representará a tu equipo. Podrás completar la plantilla y los datos deportivos desde su panel.</p>
               </div>
               <input required name="teamName" className={fieldClass} placeholder="Nombre del equipo" />
-              <select required name="teamDiscipline" value={teamDiscipline} onChange={(event) => setTeamDiscipline(event.target.value)} className={selectClass}>
-                <option value="">{disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'}</option>
-                {disciplines.map((discipline) => <option key={discipline.id} value={discipline.id}>{discipline.name}</option>)}
-              </select>
-              <select name="teamModality" value={teamModality} onChange={(event) => setTeamModality(event.target.value)} className={selectClass} disabled={!teamDiscipline || !modalities.some((modality) => modality.discipline_id === teamDiscipline)}>
-                <option value="">{teamDiscipline && modalities.some((modality) => modality.discipline_id === teamDiscipline) ? 'Seleccionar modalidad' : 'Modalidad opcional'}</option>
-                {modalities.filter((modality) => modality.discipline_id === teamDiscipline).map((modality) => <option key={modality.id} value={modality.id}>{modality.name}</option>)}
-              </select>
+              <StyledSelect label="Disciplina" name="teamDiscipline" value={teamDiscipline} onChange={setTeamDiscipline} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder={disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'} required />
+              <StyledSelect label="Modalidad" name="teamModality" value={teamModality} onChange={setTeamModality} options={modalities.filter((modality) => modality.discipline_id === teamDiscipline).map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={teamDiscipline && modalities.some((modality) => modality.discipline_id === teamDiscipline) ? 'Seleccionar modalidad' : 'Modalidad opcional'} disabled={!teamDiscipline || !modalities.some((modality) => modality.discipline_id === teamDiscipline)} />
               {disciplineError && <p className="text-xs leading-5 text-amber-200">{disciplineError}</p>}
               <LocationFields country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
             </section>
@@ -259,15 +245,15 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
                 <p className="mt-1 text-xs leading-5 text-slate-400">Define la identidad institucional y las disciplinas que administra.</p>
               </div>
               <input required name="organizationName" className={fieldClass} placeholder="Nombre de la organización" />
-              <select name="organizationType" className={selectClass}>
-                <option value="organizacion_deportiva">Organización deportiva</option>
-                <option value="comite_olimpico">Comité olímpico</option>
-                <option value="institucion_gubernamental">Institución gubernamental</option>
-                <option value="federacion">Federación</option>
-                <option value="union">Unión</option>
-                <option value="liga">Liga</option>
-                <option value="otro">Otro</option>
-              </select>
+              <StyledSelect label="Tipo de organización" name="organizationType" value={organizationType} onChange={setOrganizationType} options={[
+                { value: 'organizacion_deportiva', label: 'Organización deportiva' },
+                { value: 'comite_olimpico', label: 'Comité olímpico' },
+                { value: 'institucion_gubernamental', label: 'Institución gubernamental' },
+                { value: 'federacion', label: 'Federación' },
+                { value: 'union', label: 'Unión' },
+                { value: 'liga', label: 'Liga' },
+                { value: 'otro', label: 'Otro' },
+              ]} />
               <LocationFields country={organizationCountry} city={organizationCity} onCountryChange={setOrganizationCountry} onCityChange={setOrganizationCity} />
               <fieldset>
                 <legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">Disciplinas representadas</legend>
@@ -292,15 +278,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       </div>
     </div>
   )
-}
-
-function routeForContext(context: AccountContext) {
-  if (context.contextType === 'organization') return '/dashboard/organizaciones'
-  if (context.role === 'entrenador') return '/dashboard/entrenador'
-  if (context.role === 'staff') return '/dashboard/staff'
-  if (context.role === 'atleta') return '/dashboard/atleta'
-  if (context.contextType === 'team') return '/dashboard/equipo'
-  return '/dashboard/perfil'
 }
 
 function FieldWithIcon({ icon, children }: { icon: ReactNode; children: ReactNode }) {

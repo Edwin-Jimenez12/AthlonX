@@ -1,6 +1,7 @@
 'use client'
 
 import { Bell, Check, Clock3, MailOpen, X } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -10,6 +11,8 @@ type NotificationRecord = {
   body: string
   affiliation_request_id: string | null
   player_number_change_request_id: string | null
+  tournament_team_invitation_id: string | null
+  tournament_id: string | null
   read_at: string | null
   created_at: string
   status: 'pending' | 'accepted' | 'rejected' | 'info'
@@ -17,6 +20,7 @@ type NotificationRecord = {
 }
 
 type RequestState = { id: string; status: 'pending' | 'accepted' | 'rejected'; responded_at: string | null }
+type TournamentInvitationState = { id: string; tournament_id: string; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; responded_at: string | null }
 
 const statusLabels: Record<NotificationRecord['status'], string> = {
   pending: 'Pendiente',
@@ -38,7 +42,7 @@ export function NotificationsHistory() {
       return
     }
     setLoading(true)
-    const { data, error } = await supabase.from('user_notifications').select('id, title, body, affiliation_request_id, player_number_change_request_id, read_at, created_at').order('created_at', { ascending: false }).limit(100)
+    const { data, error } = await supabase.from('user_notifications').select('id, title, body, affiliation_request_id, player_number_change_request_id, tournament_team_invitation_id, read_at, created_at').order('created_at', { ascending: false }).limit(100)
     if (error) {
       setLoading(false)
       setMessage(error.message)
@@ -48,15 +52,20 @@ export function NotificationsHistory() {
     const rows = data ?? []
     const affiliationIds = rows.map((row) => row.affiliation_request_id).filter((id): id is string => Boolean(id))
     const numberIds = rows.map((row) => row.player_number_change_request_id).filter((id): id is string => Boolean(id))
-    const [{ data: affiliationRequests }, { data: numberRequests }] = await Promise.all([
+    const tournamentInvitationIds = rows.map((row) => row.tournament_team_invitation_id).filter((id): id is string => Boolean(id))
+    const [{ data: affiliationRequests }, { data: numberRequests }, { data: tournamentInvitations }] = await Promise.all([
       affiliationIds.length ? supabase.from('affiliation_requests').select('id, status, responded_at').in('id', affiliationIds) : Promise.resolve({ data: [] as RequestState[] }),
       numberIds.length ? supabase.from('player_number_change_requests').select('id, status, responded_at').in('id', numberIds) : Promise.resolve({ data: [] as RequestState[] }),
+      tournamentInvitationIds.length ? supabase.from('tournament_team_invitations').select('id, tournament_id, status, responded_at').in('id', tournamentInvitationIds) : Promise.resolve({ data: [] as TournamentInvitationState[] }),
     ])
     const states = new Map<string, RequestState>([...(affiliationRequests ?? []), ...(numberRequests ?? [])].map((request) => [request.id, request]))
+    const tournamentStates = new Map<string, TournamentInvitationState>((tournamentInvitations ?? []).map((invitation) => [invitation.id, invitation as TournamentInvitationState]))
     setNotifications(rows.map((row) => {
       const requestId = row.affiliation_request_id || row.player_number_change_request_id
       const request = requestId ? states.get(requestId) : undefined
-      return { ...row, status: request?.status ?? 'info', responded_at: request?.responded_at ?? null } as NotificationRecord
+      const tournamentInvitation = row.tournament_team_invitation_id ? tournamentStates.get(row.tournament_team_invitation_id) : undefined
+      const tournamentStatus = tournamentInvitation?.status === 'declined' ? 'rejected' : tournamentInvitation?.status
+      return { ...row, status: tournamentStatus || request?.status || 'info', responded_at: tournamentInvitation?.responded_at || request?.responded_at || null, tournament_id: tournamentInvitation?.tournament_id || null } as NotificationRecord
     }))
     setLoading(false)
   }
@@ -90,6 +99,16 @@ export function NotificationsHistory() {
 
   async function respond(notification: NotificationRecord, decision: 'accepted' | 'rejected') {
     if (!supabase) return
+    if (notification.tournament_team_invitation_id) {
+      const { error } = await supabase.rpc('respond_tournament_team_invitation', { p_invitation_id: notification.tournament_team_invitation_id, p_decision: decision === 'rejected' ? 'declined' : decision })
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, status: decision, responded_at: new Date().toISOString(), read_at: new Date().toISOString() } : item))
+      window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+      return
+    }
     const requestId = notification.player_number_change_request_id || notification.affiliation_request_id
     if (!requestId) return
     const rpcName = notification.player_number_change_request_id ? 'respond_player_number_change_request' : 'respond_affiliation_request'
@@ -100,6 +119,9 @@ export function NotificationsHistory() {
     }
     setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, status: decision, responded_at: new Date().toISOString(), read_at: new Date().toISOString() } : item))
     window.dispatchEvent(new CustomEvent(notification.player_number_change_request_id ? 'athlonx-roster-updated' : 'athlonx-affiliation-updated'))
+    if (!notification.player_number_change_request_id) {
+      window.dispatchEvent(new CustomEvent('athlonx-team-members-change'))
+    }
   }
 
   return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10">
@@ -127,7 +149,7 @@ function NotificationCard({
   onMarkAsRead: (notificationId: string) => void
   saving: boolean
 }) {
-  const canRespond = notification.status === 'pending' && Boolean(notification.affiliation_request_id || notification.player_number_change_request_id)
+  const canRespond = notification.status === 'pending' && Boolean(notification.affiliation_request_id || notification.player_number_change_request_id || notification.tournament_team_invitation_id)
   const statusClass = notification.status === 'accepted' ? 'border-[#b4ff45]/40 bg-[#b4ff45]/5 text-[#dfffba]' : notification.status === 'rejected' ? 'border-[#ff7d88]/40 bg-[#ff7d88]/5 text-[#ffb0b7]' : notification.status === 'pending' ? 'border-[#31556b] bg-[#07131e] text-[#ffd98a]' : 'border-[#31556b] bg-[#07131e] text-slate-400'
   return (
     <article className={`rounded-[5px] border p-4 sm:p-5 ${notification.read_at ? 'border-[#294052] bg-[#07131e]' : 'border-[#b4ff45]/40 bg-[#b4ff45]/5'}`}>
@@ -161,6 +183,7 @@ function NotificationCard({
                   </button>
                 </>
               )}
+              {notification.tournament_id && <Link href={`/dashboard/torneos/ver/${notification.tournament_id}`} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]">Inspeccionar torneo</Link>}
               {!notification.read_at && (
                 <button
                   type="button"

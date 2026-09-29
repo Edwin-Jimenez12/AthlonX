@@ -3,6 +3,7 @@
 import { Edit3, Search, Send, Trash2, Users, X } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { StyledSelect } from './styled-select'
 
 type MemberRole = 'owner' | 'atleta' | 'entrenador' | 'staff' | 'directivo'
 
@@ -107,6 +108,22 @@ export function TeamRosterPanel({ teamId }: { teamId?: string }) {
 
   useEffect(() => {
     void loadRoster()
+
+    const refreshMembers = () => void loadRoster()
+    const openMemberEditor = (event: Event) => {
+      const detail = (event as CustomEvent<{ teamId?: string; userId?: string }>).detail
+      if (detail?.teamId === teamId && detail.userId) {
+        setAdding(false)
+        setEditingUserId(detail.userId)
+      }
+    }
+
+    window.addEventListener('athlonx-team-members-change', refreshMembers)
+    window.addEventListener('athlonx-team-members-edit', openMemberEditor)
+    return () => {
+      window.removeEventListener('athlonx-team-members-change', refreshMembers)
+      window.removeEventListener('athlonx-team-members-edit', openMemberEditor)
+    }
   }, [teamId])
 
   function startAdding() {
@@ -137,6 +154,7 @@ export function TeamRosterPanel({ teamId }: { teamId?: string }) {
     setEditingUserId(null)
     setMessage('El rol de la persona fue actualizado.')
     await loadRoster()
+    window.dispatchEvent(new CustomEvent('athlonx-team-members-change'))
     setLoading(false)
   }
 
@@ -164,6 +182,7 @@ export function TeamRosterPanel({ teamId }: { teamId?: string }) {
     }
     setMessage('La persona fue eliminada de ese rol.')
     await loadRoster()
+    window.dispatchEvent(new CustomEvent('athlonx-team-members-change'))
     setLoading(false)
   }
 
@@ -411,12 +430,7 @@ function AddMemberForm({
   return (
     <form onSubmit={inviteMember} className="rounded-xl border border-[#b4ff45]/30 bg-[#0d2730] p-4">
       <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
-        <label className="block text-sm font-semibold">
-          Rol
-          <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as MemberRole)} className="mt-2 h-11 w-full cursor-pointer rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-white outline-none focus:border-[#b4ff45]">
-            {allowedRoles.map((role) => <option key={role} value={role} className="bg-[#0b1d2c]">{roleNames[role]}</option>)}
-          </select>
-        </label>
+        <StyledSelect label="Rol" value={selectedRole} onChange={(value) => setSelectedRole(value as MemberRole)} options={allowedRoles.map((role) => ({ value: role, label: roleNames[role] }))} />
         <label className="block text-sm font-semibold">
           Cargo o etiqueta visible
           <input value={roleLabelValue} onChange={(event) => setRoleLabelValue(event.target.value)} placeholder="Ej. Preparador físico" className="mt-2 h-11 w-full rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-white outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" />
@@ -511,12 +525,7 @@ function RoleEditorRow({
   return (
     <div className="rounded-xl border border-[#29485d] bg-[#07131e] p-3">
       <div className="grid gap-3 sm:grid-cols-[220px_1fr_auto] sm:items-end">
-        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-          Rol
-          <select value={newRole} onChange={(event) => setNewRole(event.target.value as MemberRole)} className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-sm normal-case text-white outline-none focus:border-[#b4ff45]">
-            {editableRoles.map((role) => <option key={role} value={role} className="bg-[#0b1d2c]">{roleNames[role]}</option>)}
-          </select>
-        </label>
+        <StyledSelect label="Rol" value={newRole} onChange={(value) => setNewRole(value as MemberRole)} options={editableRoles.map((role) => ({ value: role, label: roleNames[role] }))} />
         <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
           Cargo
           <input value={newRoleLabel} onChange={(event) => setNewRoleLabel(event.target.value)} className="mt-2 h-10 w-full rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-sm normal-case text-white outline-none focus:border-[#b4ff45]" />

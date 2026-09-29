@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, Clock3, Cog, LockKeyhole, MapPin, Search, ShieldCheck, Table2, Trophy, UserPlus, Users, Wand2, X } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, Clock3, Cog, FileDown, LockKeyhole, MapPin, Pencil, Search, ShieldCheck, Table2, Trash2, Trophy, UserPlus, Users, Wand2, X } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { LocationFields } from '../../../../../Components/location-fields'
 import { QuickTournamentTeamsSection } from '../../../../../Components/quick-tournament-teams-section'
@@ -15,18 +15,25 @@ type Modality = { id: string; code: string; name: string; discipline_id?: string
 type OrganizationSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null }
 type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null; organization_id?: string | null; discipline_id?: string | null; created_by?: string | null; divisionNames?: string[] }
 type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
-type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; is_quick: boolean; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null }
+type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; is_quick: boolean; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null; fixtureMatches?: Match[] }
 type Division = { id: string; name: string; sort_order: number }
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type ManualPairing = { divisionId: string; localTeamId: string; visitorTeamId: string }
+type AutomaticDivisionConfig = { divisionId: string; matchesPerDate: number }
 type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_name: string | null; scheduled_time: string | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number }
 type MatchEvent = { match_id: string; event_type: string; points: number }
 type RosterEntry = { team_id: string; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
+type TournamentInvitation = { id: string; team_id: string; division_id: string | null; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; created_at: string; responded_at: string | null }
 type EditHistory = { id: string; edited_by: string; changes: Record<string, { before: string | null; after: string | null }>; created_at: string }
 type TournamentPayload = { tournament: Tournament | null; divisions: Division[]; teams: TournamentTeam[]; matches: Match[] }
 type EditValues = { name: string; season: string; status: string; start_date: string; end_date: string; country: string; location: string; discipline_id: string; modality_id: string }
 type PendingChange = { label: string; before: string; after: string; beforeValue: string | null; afterValue: string | null }
-type PendingOperation = { title: string; changes: PendingChange[]; kind: 'add-team' | 'remove-team' | 'add-quick-team' | 'add-quick-player' | 'add-existing-player' | 'claim-guest-player' | 'generate-fixture'; payload: Record<string, string> }
+type FixtureDateChange = { fixtureId: string; calendarDate: string | null }
+type FixtureTimeChange = { matchId: string; scheduledTime: string | null }
+type FixtureMatchChange = { matchId: string; localTeamId: string; visitorTeamId: string }
+type FixtureNewMatch = { fixtureId: string; divisionId: string; localTeamId: string; visitorTeamId: string; scheduledTime: string | null }
+type DraftNewFixtureMatch = { divisionId: string; localTeamId: string; visitorTeamId: string; scheduledTime: string }
+type PendingOperation = { id: string; title: string; changes: PendingChange[]; kind: 'invite-team' | 'add-team' | 'remove-team' | 'add-quick-team' | 'add-quick-player' | 'add-existing-player' | 'claim-guest-player' | 'generate-fixture' | 'update-fixture'; payload: Record<string, string> }
 
 const statusNames: Record<string, string> = { draft: 'Borrador', published: 'Publicado', in_progress: 'En curso', finished: 'Finalizado' }
 const statusOptions = Object.entries(statusNames).map(([value, label]) => ({ value, label }))
@@ -49,7 +56,7 @@ export default function PublicTournamentPage() {
   const [availableModalities, setAvailableModalities] = useState<Modality[]>([])
   const [availablePlayers, setAvailablePlayers] = useState<PlayerSummary[]>([])
   const [officialPlayerId, setOfficialPlayerId] = useState('')
-  const [section, setSection] = useState<'resumen' | 'tablas' | 'equipos' | 'convocatorias' | 'fixtures' | 'partidos' | 'general' | 'historial'>('resumen')
+  const [section, setSection] = useState<'resumen' | 'tablas' | 'equipos' | 'convocatorias' | 'fixtures' | 'generador' | 'partidos' | 'general' | 'historial'>('resumen')
   const [editMode, setEditMode] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -57,11 +64,13 @@ export default function PublicTournamentPage() {
   const [message, setMessage] = useState('')
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange> | null>(null)
   const [pendingDivisionNames, setPendingDivisionNames] = useState<string[] | null>(null)
-  const [pendingOperation, setPendingOperation] = useState<PendingOperation | null>(null)
+  const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([])
+  const [showOperationSave, setShowOperationSave] = useState(false)
   const [dirtySection, setDirtySection] = useState<string | null>(null)
   const [pendingSection, setPendingSection] = useState<typeof section | null>(null)
   const [saveDestination, setSaveDestination] = useState<typeof section | null>(null)
   const [availableTeams, setAvailableTeams] = useState<TeamSummary[]>([])
+  const [tournamentInvitations, setTournamentInvitations] = useState<TournamentInvitation[]>([])
   const [numberRequest, setNumberRequest] = useState<{ teamId: string; playerId: string; playerName: string; currentNumber: number | null } | null>(null)
 
   async function loadTournament() {
@@ -145,6 +154,12 @@ export default function PublicTournamentPage() {
       divisionNamesByTeam.get(row.team_id)?.add(name)
     }
     setAvailableTeams(mergeTeamSummaries((teamRows ?? []).map((team) => ({ ...team, divisionNames: Array.from(divisionNamesByTeam.get(team.id) ?? []) })) as TeamSummary[]))
+    const { data: invitationRows } = await supabase
+      .from('tournament_team_invitations')
+      .select('id, team_id, division_id, status, created_at, responded_at')
+      .eq('tournament_id', params.id)
+      .order('created_at', { ascending: false })
+    setTournamentInvitations((invitationRows ?? []) as TournamentInvitation[])
     if (ownerRow?.created_by === userData.user?.id) setEditMode(new URLSearchParams(window.location.search).get('editar') === '1')
     if (normalizedPayload.tournament) {
       const matchIds = (payload.matches ?? []).map((match) => match.id)
@@ -170,6 +185,12 @@ export default function PublicTournamentPage() {
   useEffect(() => { void loadTournament() }, [params.id])
 
   useEffect(() => {
+    const refreshTournament = () => void loadTournament()
+    window.addEventListener('athlonx-tournament-updated', refreshTournament)
+    return () => window.removeEventListener('athlonx-tournament-updated', refreshTournament)
+  }, [params.id])
+
+  useEffect(() => {
     if (new URLSearchParams(window.location.search).get('tab') === 'convocatorias') {
       setSection('convocatorias')
     }
@@ -178,7 +199,7 @@ export default function PublicTournamentPage() {
   if (loading) return <TournamentShell><p className="text-slate-400">Cargando torneo...</p></TournamentShell>
   if (error || !data?.tournament) return <TournamentShell><div className="rounded-[5px] border border-red-400/30 bg-red-500/10 p-5 text-red-200">{error || 'Este torneo no está disponible.'}</div></TournamentShell>
 
-  const tournament = data.tournament
+  const tournament = { ...data.tournament, fixtureMatches: data.matches ?? [] }
   const teams = data.teams ?? []
   const uniqueTeams = Array.from(new Map(teams.map((team) => [team.id, team])).values())
   const matches = data.matches ?? []
@@ -268,54 +289,121 @@ export default function PublicTournamentPage() {
     if (destination) setSection(destination)
   }
 
-  function requestGenerateFixture(teamIds: string[] = uniqueTeams.map((team) => team.id), mode: 'automatic' | 'manual' = 'automatic', pairings: ManualPairing[] = []) {
-    setPendingOperation({ title: mode === 'automatic' ? 'Generar fecha automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings) }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Acción', before: 'Sin cambios', after: `Generar fecha ${(dates.at(-1) || 0) + 1} con ${mode === 'manual' ? pairings.length : teamIds.length} partidos/equipos`, beforeValue: null, afterValue: String((dates.at(-1) || 0) + 1) }] })
+  function queueOperation(operation: Omit<PendingOperation, 'id'>) {
+    setPendingOperations((current) => [
+      ...current,
+      { ...operation, id: `${operation.kind}-${Date.now()}-${current.length}` },
+    ])
+    setMessage('')
   }
 
-  async function performGenerateFixture() {
-    if (!supabase || !canManage) return
-    if (uniqueTeams.length < 2) return setMessage('Agrega al menos dos equipos antes de generar un fixture.')
+  function requestGenerateFixture(teamIds: string[] = uniqueTeams.map((team) => team.id), mode: 'automatic' | 'manual' = 'automatic', pairings: ManualPairing[] = [], divisionConfigs: AutomaticDivisionConfig[] = []) {
+    const configurationLabel = divisionConfigs.length
+      ? divisionConfigs.map((config) => `${config.matchesPerDate} en ${data.divisions.find((division) => division.id === config.divisionId)?.name || 'división'}`).join(' · ')
+      : `${teamIds.length} equipos seleccionados`
+    queueOperation({ title: mode === 'automatic' ? 'Generar fecha automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs) }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
+  }
+
+  function requestUpdateFixture(dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches: FixtureNewMatch[] = [], deletedMatchIds: string[] = []) {
+    if (!dateChanges.length && !timeChanges.length && !matchChanges.length && !newMatches.length && !deletedMatchIds.length) return setMessage('No hay cambios nuevos para guardar.')
+    const dateSummary = dateChanges.length ? `${dateChanges.length} fecha${dateChanges.length === 1 ? '' : 's'}` : ''
+    const timeSummary = timeChanges.length ? `${timeChanges.length} horario${timeChanges.length === 1 ? '' : 's'}` : ''
+    const matchSummary = matchChanges.length ? `${matchChanges.length} enfrentamiento${matchChanges.length === 1 ? '' : 's'}` : ''
+    const addedSummary = newMatches.length ? `${newMatches.length} enfrentamiento${newMatches.length === 1 ? '' : 's'} agregado${newMatches.length === 1 ? '' : 's'}` : ''
+    const deletedSummary = deletedMatchIds.length ? `${deletedMatchIds.length} enfrentamiento${deletedMatchIds.length === 1 ? '' : 's'} eliminado${deletedMatchIds.length === 1 ? '' : 's'}` : ''
+    const summary = [dateSummary, timeSummary, matchSummary, addedSummary, deletedSummary].filter(Boolean).join(', ')
+    queueOperation({
+      title: 'Actualizar fixture',
+      kind: 'update-fixture',
+      payload: { dateChanges: JSON.stringify(dateChanges), timeChanges: JSON.stringify(timeChanges), matchChanges: JSON.stringify(matchChanges), newMatches: JSON.stringify(newMatches), deletedMatchIds: JSON.stringify(deletedMatchIds) },
+      changes: [{ label: 'Fixture', before: 'Configuración actual', after: `${summary} modificados`, beforeValue: null, afterValue: summary }],
+    })
+    setShowOperationSave(true)
+  }
+
+  async function deleteFixture(dateNumber: number) {
+    if (!supabase || !canManage) {
+      setMessage('No tienes permisos para eliminar fixtures.')
+      return
+    }
+    const fixtureIds = Array.from(new Set(matches.filter((match) => match.date_number === dateNumber).map((match) => match.fixture_id)))
+    if (!fixtureIds.length) {
+      setMessage('No se encontró el fixture seleccionado.')
+      return
+    }
+    const { error: matchesError } = await supabase.from('matches').delete().in('fixture_id', fixtureIds)
+    if (matchesError) {
+      setMessage(matchesError.message)
+      return
+    }
+    const { error: fixtureError } = await supabase.from('fixtures').delete().in('id', fixtureIds)
+    if (fixtureError) {
+      setMessage(fixtureError.message)
+      return
+    }
+    setMessage(`Fecha ${dateNumber} eliminada correctamente.`)
+    await loadTournament()
+  }
+
+  async function performGenerateFixture(operation: PendingOperation): Promise<string | null> {
+    if (!supabase || !canManage) return 'No tienes permisos para generar fixtures.'
+    if (uniqueTeams.length < 2) return 'Agrega al menos dos equipos antes de generar un fixture.'
     const nextDate = (dates.at(-1) || 0) + 1
     const { data: fixture, error: fixtureError } = await supabase.from('fixtures').insert({ tournament_id: tournament.id, date_number: nextDate, calendar_date: tournament.start_date, generated_at: new Date().toISOString() }).select('id').single()
-    if (fixtureError || !fixture) return setMessage(fixtureError?.message || 'No se pudo crear la fecha.')
+    if (fixtureError || !fixture) return fixtureError?.message || 'No se pudo crear la fecha.'
     const pairs: { fixture_id: string; division_id: string; local_team_id: string; visitor_team_id: string }[] = []
-    const selectedTeamIds = pendingOperation?.payload.teamIds ? pendingOperation.payload.teamIds.split(',').filter(Boolean) : teams.map((team) => team.id)
-    const mode = pendingOperation?.payload.mode || 'automatic'
+    const selectedTeamIds = operation.payload.teamIds ? operation.payload.teamIds.split(',').filter(Boolean) : teams.map((team) => team.id)
+    const mode = operation.payload.mode || 'automatic'
     if (mode === 'manual') {
-      const manualPairings = JSON.parse(pendingOperation?.payload.pairings || '[]') as ManualPairing[]
+      const manualPairings = JSON.parse(operation.payload.pairings || '[]') as ManualPairing[]
       pairs.push(...manualPairings.map((pairing) => ({ fixture_id: fixture.id, division_id: pairing.divisionId, local_team_id: pairing.localTeamId, visitor_team_id: pairing.visitorTeamId })))
     } else for (const division of data.divisions) {
       const divisionTeams = teams.filter((team) => selectedTeamIds.includes(team.id) && team.division_id === division.id)
-      for (let index = 0; index < divisionTeams.length - 1; index += 2) {
+      const configuredDivision = JSON.parse(operation.payload.divisionConfigs || '[]') as AutomaticDivisionConfig[]
+      const requestedMatches = configuredDivision.find((config) => config.divisionId === division.id)?.matchesPerDate ?? Math.floor(divisionTeams.length / 2)
+      if (!Number.isInteger(requestedMatches) || requestedMatches < 0) return `La cantidad de partidos para ${division.name} no es válida.`
+      const maximumMatches = Math.floor(divisionTeams.length / 2)
+      if (requestedMatches > maximumMatches) return `${division.name} permite como máximo ${maximumMatches} partido${maximumMatches === 1 ? '' : 's'} con los equipos seleccionados.`
+      for (let matchIndex = 0; matchIndex < requestedMatches; matchIndex += 1) {
+        const index = matchIndex * 2
         const local = divisionTeams[index]
         const visitor = divisionTeams[index + 1]
         if (local && visitor) pairs.push({ fixture_id: fixture.id, division_id: division.id, local_team_id: local.id, visitor_team_id: visitor.id })
       }
     }
-    if (pairs.length) await supabase.from('matches').insert(pairs)
-    setMessage(`Fecha ${nextDate} generada correctamente.`)
-    await loadTournament()
+    if (pairs.length) {
+      const { error: matchesError } = await supabase.from('matches').insert(pairs)
+      if (matchesError) return matchesError.message
+    }
+    return null
   }
 
   function requestAddTeam(teamId: string, divisionId: string) {
+    requestInviteTeam(teamId, divisionId)
+  }
+
+  function requestInviteTeam(teamId: string, divisionId: string) {
     const team = availableTeams.find((item) => item.id === teamId)
     const division = data.divisions.find((item) => item.id === divisionId)
-    if (!team || !division) return
+    if (tournament.status !== 'published') return setMessage('El torneo debe estar publicado para enviar invitaciones.')
+    if (!team || !division) return setMessage('Selecciona un equipo y una división válidos.')
+    if (teams.some((item) => item.id === teamId)) return setMessage('Este equipo ya forma parte del torneo.')
+    if (tournamentInvitations.some((invitation) => invitation.team_id === teamId && invitation.status === 'pending')) return setMessage('Este equipo ya tiene una invitación pendiente.')
     if (team.divisionNames?.length && !team.divisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) {
       return setMessage(`La división ${division.name} no corresponde al equipo ${team.name}.`)
     }
-    setPendingOperation({ title: 'Agregar equipo al torneo', kind: 'add-team', payload: { teamId, divisionId }, changes: [{ label: 'Equipo', before: 'No inscrito', after: `${team.name} · ${division.name}`, beforeValue: null, afterValue: teamId }] })
+    queueOperation({ title: 'Enviar invitación a equipo', kind: 'invite-team', payload: { teamId, divisionId }, changes: [{ label: 'Equipo invitado', before: 'Sin invitación', after: `${team.name} · ${division.name}`, beforeValue: null, afterValue: teamId }] })
   }
 
   function requestRemoveTeam(team: TournamentTeam) {
-    setPendingOperation({ title: 'Retirar equipo del torneo', kind: 'remove-team', payload: { teamId: team.id }, changes: [{ label: 'Equipo', before: `${team.name} · ${team.division_name}`, after: 'Retirado del torneo', beforeValue: team.id, afterValue: null }] })
+    queueOperation({ title: 'Retirar equipo del torneo', kind: 'remove-team', payload: { teamId: team.id }, changes: [{ label: 'Equipo', before: `${team.name} · ${team.division_name}`, after: 'Retirado del torneo', beforeValue: team.id, afterValue: null }] })
   }
 
   function requestAddQuickTeam(values: { name: string; logoUrl: string; phone: string; divisionId: string }) {
     const division = data.divisions.find((item) => item.id === values.divisionId)
     if (!tournament.is_quick) return setMessage('Los equipos temporales solo están disponibles en torneos rápidos.')
     if (!division || !values.name.trim()) return setMessage('Completa el nombre y la división del equipo.')
-    setPendingOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+    queueOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
   }
 
   function requestAddQuickPlayer(teamId: string, values: { name: string; shirtNumber: string; position: string }) {
@@ -323,83 +411,131 @@ export default function PublicTournamentPage() {
     if (!values.name.trim()) return setMessage('Escribe el nombre del jugador.')
     const team = teams.find((item) => item.id === teamId)
     if (!team) return setMessage('No se pudo identificar el equipo.')
-    setPendingOperation({ title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+    queueOperation({ title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] })
   }
 
   function requestAddExistingPlayer(teamId: string, playerId: string) {
     const player = availablePlayers.find((item) => item.id === playerId)
     const team = teams.find((item) => item.id === teamId)
     if (!player || !team) return setMessage('Selecciona un jugador y un equipo válidos.')
-    setPendingOperation({ title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] })
+    queueOperation({ title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] })
   }
 
   function requestClaimGuestPlayer(guestPlayerId: string, guestPlayerName: string) {
     if (!officialPlayerId) return setMessage('Tu cuenta todavía no tiene un perfil oficial de jugador para reclamar este registro.')
-    setPendingOperation({ title: 'Reclamar perfil temporal', kind: 'claim-guest-player', payload: { guestPlayerId, officialPlayerId }, changes: [{ label: 'Perfil', before: guestPlayerName, after: 'Vinculado a tu perfil oficial', beforeValue: guestPlayerId, afterValue: officialPlayerId }] })
+    queueOperation({ title: 'Reclamar perfil temporal', kind: 'claim-guest-player', payload: { guestPlayerId, officialPlayerId }, changes: [{ label: 'Perfil', before: guestPlayerName, after: 'Vinculado a tu perfil oficial', beforeValue: guestPlayerId, afterValue: officialPlayerId }] })
   }
 
-  async function confirmOperation(password: string) {
-    if (!supabase || !pendingOperation || !tournament) return
+  async function applyOperation(operation: PendingOperation, userId: string): Promise<string | null> {
+    if (!supabase || !tournament) return 'No se pudo identificar el torneo.'
+
+    if (operation.kind === 'invite-team') {
+      const { error } = await supabase.from('tournament_team_invitations').insert({ tournament_id: tournament.id, team_id: operation.payload.teamId, division_id: operation.payload.divisionId, invited_by: userId })
+      return error?.message || null
+    }
+
+    if (operation.kind === 'add-team') {
+      const { error } = await supabase.from('tournament_teams').insert({ tournament_id: tournament.id, team_id: operation.payload.teamId, division_id: operation.payload.divisionId })
+      return error?.message || null
+    }
+
+    if (operation.kind === 'remove-team') {
+      const { error } = await supabase.from('tournament_teams').delete().eq('tournament_id', tournament.id).eq('team_id', operation.payload.teamId)
+      return error?.message || null
+    }
+
+    if (operation.kind === 'add-quick-team') {
+      const { data: temporaryTeam, error: teamError } = await supabase.from('teams').insert({ name: operation.payload.name, logo_url: operation.payload.logoUrl || null, contact_phone: operation.payload.phone || null, country: tournament.country || 'Panama', city: tournament.location || null, discipline_id: tournament.discipline?.id || null, created_by: userId, is_public: true, is_official: false, temporary_tournament_id: tournament.id }).select('id').single()
+      if (teamError || !temporaryTeam) return teamError?.message || 'No se pudo crear el equipo temporal.'
+      const { error: linkError } = await supabase.from('tournament_teams').insert({ tournament_id: tournament.id, team_id: temporaryTeam.id, division_id: operation.payload.divisionId })
+      if (linkError) await supabase.from('teams').delete().eq('id', temporaryTeam.id)
+      return linkError?.message || null
+    }
+
+    if (operation.kind === 'add-quick-player') {
+      const { data: temporaryPlayer, error: playerError } = await supabase.from('players').insert({ full_name: operation.payload.name, shirt_number: operation.payload.shirtNumber ? Number(operation.payload.shirtNumber) : null, position: operation.payload.position || null, created_by: userId, is_official: false, temporary_tournament_id: tournament.id }).select('id').single()
+      if (playerError || !temporaryPlayer) return playerError?.message || 'No se pudo crear el jugador temporal.'
+      const { error: linkError } = await supabase.from('team_players').insert({ team_id: operation.payload.teamId, player_id: temporaryPlayer.id })
+      if (linkError) await supabase.from('players').delete().eq('id', temporaryPlayer.id)
+      return linkError?.message || null
+    }
+
+    if (operation.kind === 'add-existing-player') {
+      const { error } = await supabase.from('team_players').insert({ team_id: operation.payload.teamId, player_id: operation.payload.playerId })
+      return error?.message || null
+    }
+
+    if (operation.kind === 'claim-guest-player') {
+      const { error } = await supabase.rpc('claim_tournament_guest_player', { p_guest_player_id: operation.payload.guestPlayerId, p_official_player_id: operation.payload.officialPlayerId })
+      return error?.message || null
+    }
+
+    if (operation.kind === 'update-fixture') {
+      const dateChanges = JSON.parse(operation.payload.dateChanges || '[]') as FixtureDateChange[]
+      const timeChanges = JSON.parse(operation.payload.timeChanges || '[]') as FixtureTimeChange[]
+      const matchChanges = JSON.parse(operation.payload.matchChanges || '[]') as FixtureMatchChange[]
+      const newMatches = JSON.parse(operation.payload.newMatches || '[]') as FixtureNewMatch[]
+      const deletedMatchIds = JSON.parse(operation.payload.deletedMatchIds || '[]') as string[]
+      for (const change of dateChanges) {
+        const { error } = await supabase.from('fixtures').update({ calendar_date: change.calendarDate }).eq('id', change.fixtureId)
+        if (error) return error.message
+      }
+      for (const change of timeChanges) {
+        const { error } = await supabase.from('matches').update({ scheduled_time: change.scheduledTime }).eq('id', change.matchId)
+        if (error) return error.message
+      }
+      for (const change of matchChanges) {
+        const { error } = await supabase.from('matches').update({ local_team_id: change.localTeamId, visitor_team_id: change.visitorTeamId }).eq('id', change.matchId)
+        if (error) return error.message
+      }
+      if (deletedMatchIds.length) {
+        const { error } = await supabase.from('matches').delete().in('id', deletedMatchIds)
+        if (error) return error.message
+      }
+      if (newMatches.length) {
+        const { error } = await supabase.from('matches').insert(newMatches.map((match) => ({ fixture_id: match.fixtureId, division_id: match.divisionId, local_team_id: match.localTeamId, visitor_team_id: match.visitorTeamId, scheduled_time: match.scheduledTime })))
+        if (error) return error.message
+      }
+      return null
+    }
+
+    return performGenerateFixture(operation)
+  }
+
+  async function confirmOperations(password: string) {
+    if (!supabase || !pendingOperations.length || !tournament) return
+
+    const operations = pendingOperations
+    let remainingOperations = [...operations]
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user?.email) return setMessage('No se pudo identificar el correo de la cuenta.')
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
     if (reauthError) return setMessage('La contraseña no es correcta. No se guardaron cambios.')
-    let operationError: string | null = null
-    if (pendingOperation.kind === 'add-team') {
-      const { error } = await supabase.from('tournament_teams').insert({ tournament_id: tournament.id, team_id: pendingOperation.payload.teamId, division_id: pendingOperation.payload.divisionId })
-      operationError = error?.message || null
-    } else if (pendingOperation.kind === 'remove-team') {
-      const { error } = await supabase.from('tournament_teams').delete().eq('tournament_id', tournament.id).eq('team_id', pendingOperation.payload.teamId)
-      operationError = error?.message || null
-    } else if (pendingOperation.kind === 'add-quick-team') {
-      const { data: temporaryTeam, error: teamError } = await supabase
-        .from('teams')
-        .insert({
-          name: pendingOperation.payload.name,
-          logo_url: pendingOperation.payload.logoUrl || null,
-          contact_phone: pendingOperation.payload.phone || null,
-          country: tournament.country || 'Panama',
-          city: tournament.location || null,
-          discipline_id: tournament.discipline?.id || null,
-          created_by: userData.user.id,
-          is_public: true,
-          is_official: false,
-          temporary_tournament_id: tournament.id,
-        })
-        .select('id')
-        .single()
-      if (teamError || !temporaryTeam) operationError = teamError?.message || 'No se pudo crear el equipo temporal.'
-      else {
-        const { error: linkError } = await supabase.from('tournament_teams').insert({ tournament_id: tournament.id, team_id: temporaryTeam.id, division_id: pendingOperation.payload.divisionId })
-        operationError = linkError?.message || null
-        if (linkError) await supabase.from('teams').delete().eq('id', temporaryTeam.id)
+
+    for (const operation of operations) {
+      const operationError = await applyOperation(operation, userData.user.id)
+      if (operationError) {
+        setPendingOperations(remainingOperations)
+        return setMessage(`No se pudo guardar "${operation.title}": ${operationError}`)
       }
-    } else if (pendingOperation.kind === 'add-quick-player') {
-      const { data: temporaryPlayer, error: playerError } = await supabase.from('players').insert({ full_name: pendingOperation.payload.name, shirt_number: pendingOperation.payload.shirtNumber ? Number(pendingOperation.payload.shirtNumber) : null, position: pendingOperation.payload.position || null, created_by: userData.user.id, is_official: false, temporary_tournament_id: tournament.id }).select('id').single()
-      if (playerError || !temporaryPlayer) operationError = playerError?.message || 'No se pudo crear el jugador temporal.'
-      else {
-        const { error: linkError } = await supabase.from('team_players').insert({ team_id: pendingOperation.payload.teamId, player_id: temporaryPlayer.id })
-        operationError = linkError?.message || null
-        if (linkError) await supabase.from('players').delete().eq('id', temporaryPlayer.id)
+
+      const { error: auditError } = await supabase.rpc('record_tournament_edit', {
+        p_tournament_id: tournament.id,
+        p_changes: Object.fromEntries(operation.changes.map((change, index) => [`${operation.kind}_${index}`, { before: change.before, after: change.after }])),
+      })
+      if (auditError) {
+        setPendingOperations(remainingOperations.slice(1))
+        return setMessage(auditError.message)
       }
-    } else if (pendingOperation.kind === 'add-existing-player') {
-      const { error } = await supabase.from('team_players').insert({ team_id: pendingOperation.payload.teamId, player_id: pendingOperation.payload.playerId })
-      operationError = error?.message || null
-    } else if (pendingOperation.kind === 'claim-guest-player') {
-      const { error } = await supabase.rpc('claim_tournament_guest_player', { p_guest_player_id: pendingOperation.payload.guestPlayerId, p_official_player_id: pendingOperation.payload.officialPlayerId })
-      operationError = error?.message || null
-    } else {
-      await performGenerateFixture()
+      remainingOperations = remainingOperations.slice(1)
+      setPendingOperations(remainingOperations)
     }
-    if (operationError) return setMessage(operationError)
-    await supabase.rpc('record_tournament_edit', { p_tournament_id: tournament.id, p_changes: Object.fromEntries(pendingOperation.changes.map((change, index) => [`${pendingOperation.kind}_${index}`, { before: change.before, after: change.after }])) })
-    setPendingOperation(null)
+
+    setPendingOperations([])
+    setShowOperationSave(false)
     setDirtySection(null)
-    if (pendingOperation.kind !== 'generate-fixture') {
-      const operationMessage = pendingOperation.kind === 'add-team' ? 'Equipo agregado al torneo.' : pendingOperation.kind === 'remove-team' ? 'Equipo retirado del torneo.' : pendingOperation.kind === 'add-quick-team' ? 'Equipo temporal agregado al torneo.' : pendingOperation.kind === 'add-quick-player' ? 'Jugador temporal agregado a la plantilla.' : pendingOperation.kind === 'add-existing-player' ? 'Jugador registrado agregado a la plantilla.' : 'Perfil temporal reclamado correctamente.'
-      setMessage(operationMessage)
-      await loadTournament()
-    }
+    setMessage(`${operations.length} cambio${operations.length === 1 ? '' : 's'} guardado${operations.length === 1 ? '' : 's'} correctamente.`)
+    await loadTournament()
   }
 
   async function requestPlayerNumber(teamId: string, playerId: string, playerName: string, currentNumber: number | null, requestedNumber: number) {
@@ -418,9 +554,38 @@ export default function PublicTournamentPage() {
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} />}{section === 'fixtures' && <FixturesSection tournament={tournament} teams={teams} dates={dates} canManage={canManage && editMode} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => setEditMode(true)} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <FixturesSection tournament={tournament} teams={teams} dates={dates} canManage={canManage} onGenerate={requestGenerateFixture} onSaveChanges={requestUpdateFixture} onDeleteFixture={deleteFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => setEditMode(true)} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
-  </div>{pendingChanges && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{pendingOperation && <EditConfirmationOverlay title={pendingOperation.title} changes={Object.fromEntries(pendingOperation.changes.map((change, index) => [`${change.label}-${index}`, change]))} onCancel={() => setPendingOperation(null)} onConfirm={confirmOperation} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
+    {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
+  </div>{pendingChanges && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
+}
+
+function PendingOperationsPanel({ operations, onRemove, onSave }: { operations: PendingOperation[]; onRemove: (operationId: string) => void; onSave: () => void }) {
+  return (
+    <section className="rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Cambios pendientes</p>
+          <h2 className="mt-2 font-display text-2xl uppercase">Cambios pendientes</h2>
+          <p className="mt-2 text-sm text-slate-400">Revisa los cambios. La contraseña se solicitará únicamente al guardar.</p>
+        </div>
+        <button type="button" onClick={onSave} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]">
+          <Check size={17} />
+          Guardar cambios
+        </button>
+      </div>
+      <div className="mt-5 space-y-2">
+        {operations.map((operation) => (
+          <div key={operation.id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 bg-[#07131e] px-3 py-3 text-sm">
+            <span className="min-w-0 truncate text-slate-200">{operation.title}</span>
+            <button type="button" onClick={() => onRemove(operation.id)} className="shrink-0 cursor-pointer rounded-[5px] border border-[#ff7d88]/50 px-3 py-1.5 text-xs font-bold text-[#ff9ca5]">
+              Quitar
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function SummarySection({ tournament, divisions, teams, matches, events, onOpenFixtures, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; onOpenFixtures: () => void; canManage: boolean }) {
@@ -438,18 +603,93 @@ function TeamsSection({ teams, rosters, dates, divisions: allDivisions, availabl
   const [expandedTeams, setExpandedTeams] = useState<string[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [showRemove, setShowRemove] = useState(false)
-  const [newTeamId, setNewTeamId] = useState('')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
+  const [selectedDivisionIds, setSelectedDivisionIds] = useState<Record<string, string>>({})
   const [teamQuery, setTeamQuery] = useState('')
-  const [newDivisionId, setNewDivisionId] = useState(allDivisions[0]?.id || '')
-  const filteredTeams = availableTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
-  const selectedTeam = availableTeams.find((team) => team.id === newTeamId)
-  const divisions = selectedTeam?.divisionNames?.length ? allDivisions.filter((division) => selectedTeam.divisionNames?.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) : allDivisions
-  useEffect(() => { setNewDivisionId(divisions[0]?.id || '') }, [newTeamId])
+  const filteredTeams = availableTeams.filter((team) => !selectedTeamIds.includes(team.id) && `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
+  function getCompatibleDivisions(team: TeamSummary) {
+    return team.divisionNames?.length ? allDivisions.filter((division) => team.divisionNames?.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) : allDivisions
+  }
   const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => { const existing = groups.find((item) => item.id === team.id); if (existing) { if (!existing.divisions.includes(team.division_name)) existing.divisions.push(team.division_name) } else groups.push({ ...team, divisions: [team.division_name] }); return groups }, [])
-  return <div className="pt-6"><div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Participantes</p><h2 className="mt-2 font-display text-3xl uppercase">Equipos y plantillas</h2><p className="mt-2 text-sm text-slate-400">Selecciona un equipo para desplegar su plantilla y todas sus divisiones.</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{groupedTeams.length} equipos</span>{canManage && editMode && <><button type="button" onClick={() => { setShowAdd(!showAdd); setShowRemove(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Users size={15} />Agregar equipo</button><button type="button" onClick={() => { setShowRemove(!showRemove); setShowAdd(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]"><X size={15} />Expulsar</button></>}</div></div>{canManage && editMode && showAdd && <form onSubmit={(event) => { event.preventDefault(); onAddTeam(newTeamId, newDivisionId); setNewTeamId(''); setTeamQuery(''); setShowAdd(false) }} className="mt-5 grid gap-3 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-semibold sm:col-span-2">Buscar equipo<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input required value={teamQuery} onChange={(event) => { setTeamQuery(event.target.value); setNewTeamId('') }} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div>{teamQuery && <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">{filteredTeams.map((team) => <button key={team.id} type="button" onClick={() => { setNewTeamId(team.id); setTeamQuery(team.name) }} className={`block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-[#b4ff45]/10 ${newTeamId === team.id ? 'bg-[#b4ff45]/10 text-[#dfffba]' : 'text-slate-200'}`}>{team.name}<span className="ml-2 text-xs text-slate-500">{team.athlonx_code || team.handle || ''}</span></button>)}{!filteredTeams.length && <p className="px-3 py-3 text-sm text-slate-500">No se encontraron equipos.</p>}</div>}</label><label className="text-sm font-semibold">División<select required value={newDivisionId} onChange={(event) => setNewDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Seleccionar división</option>{divisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select></label><button type="submit" disabled={!newTeamId} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Continuar</button></form>}{canManage && editMode && showRemove && <p className="mt-5 rounded-[5px] border border-[#ff7d88]/30 bg-[#ff7d88]/5 p-4 text-sm text-[#ffb0b7]">Selecciona “Expulsar del torneo” en el equipo que deseas retirar.</p>}<div className="mt-6 space-y-3">{groupedTeams.length ? groupedTeams.map((team) => { const expanded = expandedTeams.includes(team.id); const teamRoster = rosters.filter((player) => player.team_id === team.id); return <article key={team.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e]"><button type="button" onClick={() => setExpandedTeams((current) => current.includes(team.id) ? current.filter((id) => id !== team.id) : [...current, team.id])} className="flex w-full cursor-pointer items-center gap-3 p-4 text-left sm:p-5"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[#b4ff45]/15 font-bold text-[#b4ff45]">{team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : team.name.slice(0, 1).toUpperCase()}</div><div className="min-w-0 flex-1"><p className="truncate font-bold">{team.name}</p><p className="mt-1 text-xs text-slate-400">{team.divisions.join(' · ')} · {team.athlonx_code || 'Código pendiente'} · {teamRoster.length} atletas</p></div><ChevronDown size={18} className={`shrink-0 text-[#b4ff45] transition ${expanded ? 'rotate-180' : ''}`} /></button>{showRemove && canManage && editMode && <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-5"><button type="button" onClick={() => onRemoveTeam(team)} className="rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]">Expulsar del torneo</button></div>}{expanded && <div className="border-t border-white/10 p-4 sm:p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Plantilla registrada</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{teamRoster.map((player) => <div key={player.player_id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span className="min-w-0 truncate">{player.full_name}{player.is_substitute && <span className="ml-2 text-xs text-slate-500">Suplente</span>}</span><span className="flex items-center gap-2 text-xs text-slate-400">#{player.shirt_number ?? '--'}{player.user_id === currentUserId && <button type="button" onClick={() => onNumberRequest({ teamId: team.id, playerId: player.player_id, playerName: player.full_name, currentNumber: player.shirt_number })} className="cursor-pointer rounded-[5px] border border-[#31556b] px-2 py-1 font-bold text-[#dfffba] hover:border-[#b4ff45]">Cambiar</button>}</span></div>)}{!teamRoster.length && <p className="text-sm text-slate-500">Plantilla pendiente.</p>}</div></div>}</article> }) : <p className="text-sm text-slate-500">Todavía no hay equipos inscritos.</p>}</div></div>
+  return <div className="pt-6"><div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Participantes</p><h2 className="mt-2 font-display text-3xl uppercase">Equipos y plantillas</h2><p className="mt-2 text-sm text-slate-400">Selecciona un equipo para desplegar su plantilla y todas sus divisiones.</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{groupedTeams.length} equipos</span>{canManage && editMode && <><button type="button" onClick={() => { setShowAdd(!showAdd); setShowRemove(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Users size={15} />Invitar equipo</button><button type="button" onClick={() => { setShowRemove(!showRemove); setShowAdd(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]"><X size={15} />Expulsar</button></>}</div></div>{canManage && editMode && showAdd && <form onSubmit={(event) => { event.preventDefault(); selectedTeamIds.forEach((teamId) => onAddTeam(teamId, selectedDivisionIds[teamId] || '')); setSelectedTeamIds([]); setSelectedDivisionIds({}); setTeamQuery(''); setShowAdd(false) }} className="mt-5 grid gap-3 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-semibold sm:col-span-2">Buscar equipo registrado<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input value={teamQuery} onChange={(event) => setTeamQuery(event.target.value)} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div>{teamQuery && <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">{filteredTeams.map((team) => <button key={team.id} type="button" onClick={() => { setSelectedTeamIds((current) => current.includes(team.id) ? current : [...current, team.id]); setSelectedDivisionIds((current) => ({ ...current, [team.id]: getCompatibleDivisions(team)[0]?.id || '' })); setTeamQuery('') }} className={`block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-[#b4ff45]/10 ${selectedTeamIds.includes(team.id) ? 'bg-[#b4ff45]/10 text-[#dfffba]' : 'text-slate-200'}`}>{team.name}<span className="ml-2 text-xs text-slate-500">{team.athlonx_code || team.handle || ''}</span></button>)}{!filteredTeams.length && <p className="px-3 py-3 text-sm text-slate-500">No se encontraron equipos.</p>}</div>}</label>{selectedTeamIds.length > 0 && <div className="mt-4 space-y-2">{selectedTeamIds.map((selectedId) => { const team = availableTeams.find((item) => item.id === selectedId); if (!team) return null; const options = getCompatibleDivisions(team); return <div key={selectedId} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-3"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{team.name}</span><button type="button" onClick={() => { setSelectedTeamIds((current) => current.filter((id) => id !== selectedId)); setSelectedDivisionIds((current) => { const next = { ...current }; delete next[selectedId]; return next }) }} className="cursor-pointer text-xs font-bold text-[#ff9ca5]">Quitar</button></div><StyledSelect label="División" value={selectedDivisionIds[selectedId] || ''} onChange={(value) => setSelectedDivisionIds((current) => ({ ...current, [selectedId]: value }))} options={[{ value: '', label: 'Seleccionar división' }, ...options.map((division) => ({ value: division.id, label: division.name }))]} required /></div> })}</div>}<button type="submit" disabled={!selectedTeamIds.length || selectedTeamIds.some((selectedId) => !selectedDivisionIds[selectedId])} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Enviar invitación</button></form>}{canManage && editMode && showRemove && <p className="mt-5 rounded-[5px] border border-[#ff7d88]/30 bg-[#ff7d88]/5 p-4 text-sm text-[#ffb0b7]">Selecciona “Expulsar del torneo” en el equipo que deseas retirar.</p>}<div className="mt-6 space-y-3">{groupedTeams.length ? groupedTeams.map((team) => { const expanded = expandedTeams.includes(team.id); const teamRoster = rosters.filter((player) => player.team_id === team.id); return <article key={team.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e]"><button type="button" onClick={() => setExpandedTeams((current) => current.includes(team.id) ? current.filter((id) => id !== team.id) : [...current, team.id])} className="flex w-full cursor-pointer items-center gap-3 p-4 text-left sm:p-5"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[#b4ff45]/15 font-bold text-[#b4ff45]">{team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : team.name.slice(0, 1).toUpperCase()}</div><div className="min-w-0 flex-1"><p className="truncate font-bold">{team.name}</p><p className="mt-1 text-xs text-slate-400">{team.divisions.join(' · ')} · {team.athlonx_code || 'Código pendiente'} · {teamRoster.length} atletas</p></div><ChevronDown size={18} className={`shrink-0 text-[#b4ff45] transition ${expanded ? 'rotate-180' : ''}`} /></button>{showRemove && canManage && editMode && <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-5"><button type="button" onClick={() => onRemoveTeam(team)} className="rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]">Expulsar del torneo</button></div>}{expanded && <div className="border-t border-white/10 p-4 sm:p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Plantilla registrada</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{teamRoster.map((player) => <div key={player.player_id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span className="min-w-0 truncate">{player.full_name}{player.is_substitute && <span className="ml-2 text-xs text-slate-500">Suplente</span>}</span><span className="flex items-center gap-2 text-xs text-slate-400">#{player.shirt_number ?? '--'}{player.user_id === currentUserId && <button type="button" onClick={() => onNumberRequest({ teamId: team.id, playerId: player.player_id, playerName: player.full_name, currentNumber: player.shirt_number })} className="cursor-pointer rounded-[5px] border border-[#31556b] px-2 py-1 font-bold text-[#dfffba] hover:border-[#b4ff45]">Cambiar</button>}</span></div>)}{!teamRoster.length && <p className="text-sm text-slate-500">Plantilla pendiente.</p>}</div></div>}</article> }) : <p className="text-sm text-slate-500">Todavía no hay equipos inscritos.</p>}</div></div>
 }
 
-function FixturesSection({ tournament, teams, dates, canManage, onGenerate }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[]) => void }) {
+function FixtureListSection({ tournament, teams, dates, matches }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; matches: Match[] }) {
+  const [editingDate, setEditingDate] = useState<number | null>(null)
+  const [draftDates, setDraftDates] = useState<Record<string, string>>({})
+  const [draftTimes, setDraftTimes] = useState<Record<string, string>>({})
+  const [draftPairs, setDraftPairs] = useState<Record<string, { localTeamId: string; visitorTeamId: string }>>({})
+  const [editError, setEditError] = useState('')
+  const [printTarget, setPrintTarget] = useState<number | 'all' | null>(null)
+  const datesSignature = dates.join(',')
+  const fixtureSignature = matches.map((match) => `${match.id}:${match.calendar_date || ''}:${match.scheduled_time || ''}:${match.local_team_id}:${match.visitor_team_id}`).join('|')
+
+  useEffect(() => {
+    setDraftDates(Object.fromEntries(dates.map((date) => [String(date), matches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || ''])))
+    setDraftTimes(Object.fromEntries(matches.map((match) => [match.id, match.scheduled_time || ''])))
+    setDraftPairs(Object.fromEntries(matches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }])))
+  }, [datesSignature, fixtureSignature, tournament.start_date])
+
+  useEffect(() => {
+    const clearPrintTarget = () => setPrintTarget(null)
+    window.addEventListener('afterprint', clearPrintTarget)
+    return () => window.removeEventListener('afterprint', clearPrintTarget)
+  }, [])
+
+  const fixtureGroups = dates.map((date) => ({ date, matches: matches.filter((match) => match.date_number === date), calendarDate: draftDates[String(date)] || '' }))
+  const dateChanges = fixtureGroups.flatMap((fixture) => {
+    const sourceMatch = fixture.matches[0]
+    const sourceDate = sourceMatch?.calendar_date || tournament.start_date || ''
+    return sourceMatch?.fixture_id && fixture.calendarDate !== sourceDate ? [{ fixtureId: sourceMatch.fixture_id, calendarDate: fixture.calendarDate || null }] : []
+  })
+  const timeChanges = matches.flatMap((match) => {
+    const nextTime = draftTimes[match.id] || ''
+    return nextTime !== (match.scheduled_time || '') ? [{ matchId: match.id, scheduledTime: nextTime || null }] : []
+  })
+  const matchChanges = matches.flatMap((match) => {
+    const nextPair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
+    return nextPair.localTeamId !== match.local_team_id || nextPair.visitorTeamId !== match.visitor_team_id ? [{ matchId: match.id, localTeamId: nextPair.localTeamId, visitorTeamId: nextPair.visitorTeamId }] : []
+  })
+  const hasDraftChanges = dateChanges.length > 0 || timeChanges.length > 0 || matchChanges.length > 0
+  const printDates = printTarget === 'all' ? dates : typeof printTarget === 'number' ? [printTarget] : []
+
+  function printFixture(target: number | 'all') {
+    setPrintTarget(target)
+    window.setTimeout(() => window.print(), 0)
+  }
+
+  return <>
+    <section className="pt-6 print:hidden">
+      <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start">
+        <div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Consulta</p><h2 className="mt-2 font-display text-3xl uppercase">Fixtures</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Consulta las fechas y los partidos creados para este torneo.</p></div>
+        {matches.length > 0 && <button type="button" onClick={() => printFixture('all')} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={17} />Generar PDF</button>}
+      </div>
+      {!matches.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}
+      <div className="mt-6 space-y-5">
+        {fixtureGroups.map((fixture) => {
+          const isEditing = false
+          return <article key={fixture.date} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5">
+            <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start">
+              <div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{isEditing ? <input type="date" value={fixture.calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]" /> : <p className="mt-2 text-sm capitalize text-slate-300">{fixture.calendarDate ? new Date(`${fixture.calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div>
+              <div className="flex flex-wrap gap-2">
+<button type="button" onClick={() => printFixture(fixture.date)} data-viewer-fixture="true" className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>
+              </div>
+            </div>
+            <div className="mt-3 divide-y divide-white/10">{fixture.matches.map((match) => {
+              const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
+              const divisionId = teams.find((team) => team.id === match.local_team_id)?.division_id || teams.find((team) => team.id === match.visitor_team_id)?.division_id
+              const divisionOptions = Array.from(new Map(teams.filter((team) => team.division_id === divisionId).map((team) => [team.id, team])).values())
+              return <div key={match.id} className="grid gap-3 py-4 sm:grid-cols-[120px_1fr_140px] sm:items-center"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{match.division_name || 'General'}</span>{isEditing ? <div className="grid gap-2 sm:grid-cols-2"><select value={pair.localTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, localTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]"><option value="">Local</option>{divisionOptions.map((team) => <option key={`local-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={pair.visitorTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, visitorTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]"><option value="">Visitante</option>{divisionOptions.filter((team) => team.id !== pair.localTeamId).map((team) => <option key={`visitor-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select></div> : <div className="font-semibold text-slate-100"><span>{match.local_team_name}</span><span className="px-2 text-slate-500">vs.</span><span>{match.visitor_team_name}</span></div>}{isEditing ? <input type="time" value={draftTimes[match.id] ?? ''} onChange={(event) => setDraftTimes((current) => ({ ...current, [match.id]: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]" /> : <span className="text-sm text-slate-400">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span>}</div>
+            })}</div>
+          </article>
+        })}
+      </div>
+    </section>
+    {printTarget !== null && <section className="hidden min-h-screen bg-white p-10 text-black print:block"><div className="flex items-start justify-between"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" className="h-16 w-48 object-contain object-left" /><img src="/upr.png" alt="Organización" className="h-20 w-36 object-contain object-right" /></div><h1 className="mt-8 text-center font-display text-3xl uppercase">Fixture del torneo</h1><p className="mt-2 text-center text-xl font-bold">{tournament.name}</p>{printDates.map((date) => { const printMatches = matches.filter((match) => match.date_number === date); const calendarDate = printMatches[0]?.calendar_date; return <div key={date} className="mt-8 break-inside-avoid"><div className="flex items-baseline justify-between border-b-2 border-slate-800 pb-2"><h2 className="text-xl font-black uppercase">Fecha {date}</h2><p className="text-sm">{calendarDate ? new Date(`${calendarDate}T00:00:00`).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p></div><div className="mt-3 space-y-2">{printMatches.map((match) => <div key={match.id} className="grid grid-cols-[120px_1fr_120px] gap-3 border-b border-slate-300 py-3 text-sm"><span>{match.division_name || 'General'}</span><span className="font-bold">{match.local_team_name} vs. {match.visitor_team_name}</span><span className="text-right">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></div>)}</div></div>})}</section>}
+  </>
+}
+
+function FixturesSection({ tournament, teams, dates, canManage, onGenerate, onSaveChanges, onDeleteFixture }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[]) => void; onSaveChanges: (dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches?: FixtureNewMatch[], deletedMatchIds?: string[]) => void; onDeleteFixture: (dateNumber: number) => Promise<void> }) {
   const [mode, setMode] = useState<'automatic' | 'manual'>('automatic')
   const [query, setQuery] = useState('')
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>(Array.from(new Set(teams.map((team) => team.id))))
@@ -457,13 +697,245 @@ function FixturesSection({ tournament, teams, dates, canManage, onGenerate }: { 
   const [manualDivisionId, setManualDivisionId] = useState(teams[0]?.division_id || '')
   const [localTeamId, setLocalTeamId] = useState('')
   const [visitorTeamId, setVisitorTeamId] = useState('')
+  const [matchesPerDivision, setMatchesPerDivision] = useState<Record<string, string>>({})
+  const [editingDate, setEditingDate] = useState<number | null>(null)
+  const [draftDates, setDraftDates] = useState<Record<string, string>>({})
+  const [draftTimes, setDraftTimes] = useState<Record<string, string>>({})
+  const [draftPairs, setDraftPairs] = useState<Record<string, { localTeamId: string; visitorTeamId: string }>>({})
+  const [draftNewMatches, setDraftNewMatches] = useState<Record<string, DraftNewFixtureMatch[]>>({})
+  const [deletedMatchIds, setDeletedMatchIds] = useState<string[]>([])
+  const [deleteDate, setDeleteDate] = useState<number | null>(null)
+  const [deleteMatchId, setDeleteMatchId] = useState<string | null>(null)
+  const [editError, setEditError] = useState('')
+  const [printTarget, setPrintTarget] = useState<number | 'all' | null>(null)
+  const fixtureMatches = tournament.fixtureMatches ?? []
+  const divisionRows = Array.from(new Map(teams.map((team) => [team.division_id, { id: team.division_id, name: team.division_name }])).values())
   const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => { const existing = groups.find((item) => item.id === team.id); if (existing) { if (!existing.divisions.includes(team.division_name)) existing.divisions.push(team.division_name) } else groups.push({ ...team, divisions: [team.division_name] }); return groups }, [])
   const filteredTeams = groupedTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(query.toLowerCase()))
   const divisionTeams = Array.from(new Map(teams.filter((team) => team.division_id === manualDivisionId && selectedTeamIds.includes(team.id)).map((team) => [team.id, team])).values())
+  const automaticConfigs = divisionRows.map((division) => ({ divisionId: division.id, matchesPerDate: Number(matchesPerDivision[division.id] ?? Math.floor(teams.filter((team) => team.division_id === division.id && selectedTeamIds.includes(team.id)).length / 2)) }))
+  const canGenerate = mode === 'automatic' ? selectedTeamIds.length >= 2 && automaticConfigs.some((config) => config.matchesPerDate > 0) : manualPairings.length > 0
+  const fixtureGroups = dates.map((date) => ({ date, matches: fixtureMatches.filter((match) => match.date_number === date), calendarDate: draftDates[String(date)] || '' }))
+  const datesSignature = dates.join(',')
+  const fixtureSignature = fixtureMatches.map((match) => `${match.id}:${match.calendar_date || ''}:${match.scheduled_time || ''}:${match.local_team_id}:${match.visitor_team_id}`).join('|')
+
+  useEffect(() => {
+    setDraftDates(Object.fromEntries(dates.map((date) => [String(date), fixtureMatches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || ''])))
+    setDraftTimes(Object.fromEntries(fixtureMatches.map((match) => [match.id, match.scheduled_time || ''])))
+    setDraftPairs(Object.fromEntries(fixtureMatches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }])))
+    setDraftNewMatches({})
+    setDeletedMatchIds([])
+    setEditingDate(null)
+  }, [datesSignature, fixtureSignature, tournament.start_date])
+
+  useEffect(() => {
+    setMatchesPerDivision((current) => Object.fromEntries(divisionRows.map((division) => [division.id, current[division.id] ?? String(Math.floor(teams.filter((team) => team.division_id === division.id && selectedTeamIds.includes(team.id)).length / 2))])))
+  }, [divisionRows.map((division) => division.id).join('|'), selectedTeamIds.join(','), teams.length])
+
+  useEffect(() => {
+    const clearPrintTarget = () => setPrintTarget(null)
+    window.addEventListener('afterprint', clearPrintTarget)
+    return () => window.removeEventListener('afterprint', clearPrintTarget)
+  }, [])
+
+  function toggleTeam(teamId: string) { setSelectedTeamIds((current) => current.includes(teamId) ? current.filter((id) => id !== teamId) : [...current, teamId]) }
+  function addManualPairing() { if (!manualDivisionId || !localTeamId || !visitorTeamId || localTeamId === visitorTeamId) return; setManualPairings((current) => [...current, { divisionId: manualDivisionId, localTeamId, visitorTeamId }]); setLocalTeamId(''); setVisitorTeamId('') }
+  function generateFixture() {
+    setEditError('')
+    if (mode === 'automatic') {
+      for (const config of automaticConfigs) {
+        const selectedDivisionTeams = teams.filter((team) => team.division_id === config.divisionId && selectedTeamIds.includes(team.id))
+        const maximumMatches = Math.floor(selectedDivisionTeams.length / 2)
+        if (!Number.isInteger(config.matchesPerDate) || config.matchesPerDate < 0 || config.matchesPerDate > maximumMatches) {
+          setEditError(`${divisionRows.find((division) => division.id === config.divisionId)?.name || 'La división'} permite entre 0 y ${maximumMatches} partidos con los equipos seleccionados.`)
+          return
+        }
+      }
+      if (!automaticConfigs.some((config) => config.matchesPerDate > 0)) return setEditError('Configura al menos un partido para generar la fecha.')
+    }
+    onGenerate(selectedTeamIds, mode, manualPairings, automaticConfigs)
+  }
+  function startEditing(date: number) { setEditError(''); setEditingDate(date) }
+  function cancelEditing() { setEditError(''); setEditingDate(null); setDraftNewMatches({}); setDeletedMatchIds([]); setDraftDates(Object.fromEntries(dates.map((date) => [String(date), fixtureMatches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || '']))); setDraftTimes(Object.fromEntries(fixtureMatches.map((match) => [match.id, match.scheduled_time || '']))); setDraftPairs(Object.fromEntries(fixtureMatches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }]))) }
+  function addNewMatch(date: number) { const divisionId = divisionRows[0]?.id || ''; if (!divisionId) return; setDraftNewMatches((current) => ({ ...current, [String(date)]: [...(current[String(date)] || []), { divisionId, localTeamId: '', visitorTeamId: '', scheduledTime: '' }] })) }
+  function saveDate(date: number) {
+    setEditError('')
+    const fixture = fixtureGroups.find((item) => item.date === date)
+    if (!fixture?.matches[0]?.fixture_id) return setEditError('No se pudo identificar el fixture de esta fecha.')
+    const deletedForDate = deletedMatchIds.filter((id) => fixture.matches.some((match) => match.id === id))
+    const visibleMatches = fixture.matches.filter((match) => !deletedForDate.includes(match.id))
+    const newMatchesForDate = draftNewMatches[String(date)] || []
+    const usedTeams = new Set<string>()
+    for (const match of visibleMatches) {
+      const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
+      if (!pair.localTeamId || !pair.visitorTeamId || pair.localTeamId === pair.visitorTeamId || usedTeams.has(pair.localTeamId) || usedTeams.has(pair.visitorTeamId)) return setEditError(`Revisa los enfrentamientos de la Fecha ${date}: los equipos deben ser diferentes y no repetirse.`)
+      usedTeams.add(pair.localTeamId); usedTeams.add(pair.visitorTeamId)
+    }
+    for (const match of newMatchesForDate) {
+      if (!match.localTeamId || !match.visitorTeamId || match.localTeamId === match.visitorTeamId || usedTeams.has(match.localTeamId) || usedTeams.has(match.visitorTeamId)) return setEditError(`Revisa los nuevos enfrentamientos de la Fecha ${date}: los equipos deben ser diferentes y no repetirse.`)
+      usedTeams.add(match.localTeamId); usedTeams.add(match.visitorTeamId)
+    }
+    const sourceDate = fixture.matches[0].calendar_date || tournament.start_date || ''
+    const dateChanges = fixture.calendarDate !== sourceDate ? [{ fixtureId: fixture.matches[0].fixture_id, calendarDate: fixture.calendarDate || null }] : []
+    const timeChanges = visibleMatches.flatMap((match) => { const nextTime = draftTimes[match.id] || ''; return nextTime !== (match.scheduled_time || '') ? [{ matchId: match.id, scheduledTime: nextTime || null }] : [] })
+    const matchChanges = visibleMatches.flatMap((match) => { const nextPair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }; return nextPair.localTeamId !== match.local_team_id || nextPair.visitorTeamId !== match.visitor_team_id ? [{ matchId: match.id, localTeamId: nextPair.localTeamId, visitorTeamId: nextPair.visitorTeamId }] : [] })
+    const addedMatches = newMatchesForDate.map((match) => ({ fixtureId: fixture.matches[0].fixture_id, divisionId: match.divisionId, localTeamId: match.localTeamId, visitorTeamId: match.visitorTeamId, scheduledTime: match.scheduledTime || null }))
+    if (!dateChanges.length && !timeChanges.length && !matchChanges.length && !addedMatches.length && !deletedForDate.length) return setEditError('No hay cambios nuevos para guardar.')
+    onSaveChanges(dateChanges, timeChanges, matchChanges, addedMatches, deletedForDate)
+    setEditingDate(null)
+    setDraftNewMatches((current) => ({ ...current, [String(date)]: [] }))
+    setDeletedMatchIds([])
+  }
+  function printFixture(target: number | 'all') { setPrintTarget(target); window.setTimeout(() => window.print(), 0) }
+
+  return <>
+    <div className="pt-6 print:hidden"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Planificación</p><h2 className="mt-2 font-display text-3xl uppercase">Generador de fixtures</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Genera fechas y administra sus enfrentamientos desde cada contenedor.</p></div><div className="flex flex-wrap gap-2">{fixtureMatches.length > 0 && <button type="button" onClick={() => printFixture('all')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={17} />Generar PDF</button>}{canManage && <button type="button" onClick={generateFixture} disabled={!canGenerate} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"><Wand2 size={17} />Generar fecha</button>}</div></div><div className="mt-6 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setMode('automatic')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'automatic' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación automática</span><span className="mt-1 block text-xs">Empareja equipos dentro de cada división.</span></button><button type="button" onClick={() => setMode('manual')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'manual' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación manual</span><span className="mt-1 block text-xs">Define cada enfrentamiento manualmente.</span></button></div>{mode === 'automatic' && <div className="mt-6 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4"><p className="text-sm font-bold text-[#dfffba]">Partidos por división en esta fecha</p><p className="mt-1 text-xs text-slate-400">Define cuántos enfrentamientos se crearán por división.</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{divisionRows.map((division) => { const count = teams.filter((team) => team.division_id === division.id && selectedTeamIds.includes(team.id)).length; const maximum = Math.floor(count / 2); return <label key={division.id} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 text-sm font-semibold"><span className="flex justify-between"><span>{division.name}</span><span className="text-xs font-normal text-slate-500">Máximo: {maximum}</span></span><input type="number" min="0" max={maximum} value={matchesPerDivision[division.id] ?? String(maximum)} onChange={(event) => setMatchesPerDivision((current) => ({ ...current, [division.id]: event.target.value }))} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-2 outline-none focus:border-[#b4ff45]" /></label> })}</div></div>}{editError && <p role="alert" className="mt-4 rounded-[5px] border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-3 text-sm text-[#ffb0b7]">{editError}</p>}<div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><label className="block text-sm font-semibold">Buscar equipos<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div></label><div className="mt-3 grid gap-2 sm:grid-cols-2">{filteredTeams.map((team) => <label key={team.id} className={`flex cursor-pointer items-center gap-3 rounded-[5px] border px-3 py-3 text-sm ${selectedTeamIds.includes(team.id) ? 'border-[#b4ff45]/60 bg-[#b4ff45]/10' : 'border-white/10'}`}><input type="checkbox" checked={selectedTeamIds.includes(team.id)} onChange={() => toggleTeam(team.id)} className="accent-[#b4ff45]" /><span className="min-w-0 flex-1 truncate">{team.name}</span><span className="text-xs text-slate-500">{team.divisions.join(' · ')}</span></label>)}</div></div>{mode === 'manual' && <div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><p className="text-sm font-bold text-[#dfffba]">Partidos manuales</p><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={manualDivisionId} onChange={(event) => { setManualDivisionId(event.target.value); setLocalTeamId(''); setVisitorTeamId('') }} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">División</option>{divisionRows.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select><select value={localTeamId} onChange={(event) => setLocalTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Local</option>{divisionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><select value={visitorTeamId} onChange={(event) => setVisitorTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Visitante</option>{divisionTeams.filter((team) => team.id !== localTeamId).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={addManualPairing} className="rounded-[5px] border border-[#b4ff45] px-4 py-3 font-bold text-[#dfffba]">Agregar</button></div><div className="mt-4 space-y-2">{manualPairings.map((pairing, index) => <div key={`${pairing.localTeamId}-${pairing.visitorTeamId}-${index}`} className="flex justify-between rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span>{teams.find((team) => team.id === pairing.localTeamId)?.name} vs {teams.find((team) => team.id === pairing.visitorTeamId)?.name}</span><button type="button" onClick={() => setManualPairings((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-[#ff9ca5]">Quitar</button></div>)}</div></div>}<div className="mt-6 grid gap-4 sm:grid-cols-3"><InfoRow label="Fechas generadas" value={String(dates.length)} /><InfoRow label="Equipos seleccionados" value={String(selectedTeamIds.length)} /><InfoRow label="Estado" value={tournament.status === 'finished' ? 'Torneo finalizado' : 'Configuración abierta'} /></div><section className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5">{fixtureMatches.length > 0 ? <><div className="border-b border-white/10 pb-4"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fixture creado</p><h3 className="mt-1 font-display text-2xl uppercase">Calendario de partidos</h3><p className="mt-1 text-sm text-slate-400">Edita cada fecha desde su propio contenedor.</p></div><div className="mt-5 space-y-5">{fixtureGroups.map((fixture) => { const isEditing = editingDate === fixture.date; const deletedForDate = deletedMatchIds.filter((id) => fixture.matches.some((match) => match.id === id)); const visibleMatches = fixture.matches.filter((match) => !deletedForDate.includes(match.id)); const newRows = draftNewMatches[String(fixture.date)] || []; return <article key={fixture.date} className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-4"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{isEditing ? <input type="date" value={fixture.calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]" /> : <p className="mt-2 text-sm capitalize text-slate-300">{fixture.calendarDate ? new Date(`${fixture.calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div><div className="flex flex-col items-stretch gap-2 sm:items-end"><button type="button" onClick={() => printFixture(fixture.date)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>{canManage && !isEditing && <button type="button" onClick={() => startEditing(fixture.date)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba] hover:bg-[#b4ff45]/10"><Pencil size={15} />Editar</button>}{canManage && isEditing && <><button type="button" onClick={cancelEditing} className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">Cancelar</button><button type="button" onClick={() => setDeleteDate(fixture.date)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#ff7d88]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7] hover:bg-[#ff7d88]/10"><Trash2 size={15} />Eliminar fecha</button></>}</div></div><div className="mt-3 divide-y divide-white/10">{visibleMatches.map((match) => { const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }; const divisionId = teams.find((team) => team.id === match.local_team_id)?.division_id || teams.find((team) => team.id === match.visitor_team_id)?.division_id; const options = Array.from(new Map(teams.filter((team) => team.division_id === divisionId).map((team) => [team.id, team])).values()); return <div key={match.id} className="grid gap-3 py-3 sm:grid-cols-[120px_1fr_140px] sm:items-center"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{match.division_name || 'General'}</span>{isEditing ? <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><select value={pair.localTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, localTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200"><option value="">Local</option>{options.map((team) => <option key={`local-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={pair.visitorTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, visitorTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200"><option value="">Visitante</option>{options.filter((team) => team.id !== pair.localTeamId).map((team) => <option key={`visitor-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={() => setDeleteMatchId(match.id)} className="rounded-[5px] border border-[#ff7d88]/50 px-2 py-2 text-[#ffb0b7]" title="Eliminar enfrentamiento"><Trash2 size={15} /></button><input type="time" value={draftTimes[match.id] || ''} onChange={(event) => setDraftTimes((current) => ({ ...current, [match.id]: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200 sm:col-span-3" /></div> : <><div className="font-semibold text-slate-100"><span>{match.local_team_name}</span><span className="px-2 text-slate-500">vs.</span><span>{match.visitor_team_name}</span></div><span className="text-sm text-slate-400">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></>}</div> })}</div>{isEditing && <div className="mt-4 space-y-3 border-t border-white/10 pt-4"><p className="text-sm font-bold text-[#dfffba]">Nuevos enfrentamientos</p>{newRows.map((row, index) => { const options = teams.filter((team) => team.division_id === row.divisionId); return <div key={`${fixture.date}-new-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={row.divisionId} onChange={(event) => setDraftNewMatches((current) => ({ ...current, [String(fixture.date)]: (current[String(fixture.date)] || []).map((item, itemIndex) => itemIndex === index ? { ...item, divisionId: event.target.value, localTeamId: '', visitorTeamId: '' } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200">{divisionRows.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select><select value={row.localTeamId} onChange={(event) => setDraftNewMatches((current) => ({ ...current, [String(fixture.date)]: (current[String(fixture.date)] || []).map((item, itemIndex) => itemIndex === index ? { ...item, localTeamId: event.target.value } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200"><option value="">Local</option>{options.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><select value={row.visitorTeamId} onChange={(event) => setDraftNewMatches((current) => ({ ...current, [String(fixture.date)]: (current[String(fixture.date)] || []).map((item, itemIndex) => itemIndex === index ? { ...item, visitorTeamId: event.target.value } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200"><option value="">Visitante</option>{options.filter((team) => team.id !== row.localTeamId).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={() => setDraftNewMatches((current) => ({ ...current, [String(fixture.date)]: (current[String(fixture.date)] || []).filter((_, itemIndex) => itemIndex !== index) }))} className="rounded-[5px] border border-[#ff7d88]/50 px-2 py-2 text-[#ffb0b7]"><X size={15} /></button><input type="time" value={row.scheduledTime} onChange={(event) => setDraftNewMatches((current) => ({ ...current, [String(fixture.date)]: (current[String(fixture.date)] || []).map((item, itemIndex) => itemIndex === index ? { ...item, scheduledTime: event.target.value } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200 sm:col-span-3" /></div>})}<div className="flex flex-wrap justify-between gap-3"><button type="button" onClick={() => addNewMatch(fixture.date)} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-sm font-bold text-[#dfffba]">Agregar enfrentamiento</button>{(isEditing && (draftNewMatches[String(fixture.date)]?.length || deletedForDate.length || draftDates[String(fixture.date)] !== (fixture.matches[0]?.calendar_date || tournament.start_date || '') || visibleMatches.some((match) => (draftTimes[match.id] || '') !== (match.scheduled_time || '') || (draftPairs[match.id]?.localTeamId || match.local_team_id) !== match.local_team_id || (draftPairs[match.id]?.visitorTeamId || match.visitor_team_id) !== match.visitor_team_id))) && <button type="button" onClick={() => saveDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e]"><Check size={16} />Guardar cambios</button>}</div></div>}</article>})}</div></> : <div className="rounded-[5px] border border-dashed border-[#31556b] p-5 text-sm text-slate-400">Todavía no hay fixtures creados. Genera una fecha para comenzar.</div>}</section></div>{(deleteDate !== null || deleteMatchId !== null) && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02070c]/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-6 text-white shadow-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Confirmar eliminación</p><h2 className="mt-2 font-display text-2xl uppercase">¿Seguro que deseas eliminarlo?</h2><p className="mt-3 text-sm leading-6 text-slate-400">{deleteDate !== null ? `Se eliminará la Fecha ${deleteDate} completa.` : 'Se eliminará este enfrentamiento del fixture.'}</p><div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={() => { setDeleteDate(null); setDeleteMatchId(null) }} className="rounded-[5px] border border-[#31556b] px-4 py-3 font-bold text-slate-300">No, cancelar</button><button type="button" onClick={() => { if (deleteDate !== null) { const target = deleteDate; setDeleteDate(null); setEditingDate(null); void onDeleteFixture(target) } else if (deleteMatchId) { setDeletedMatchIds((current) => [...current, deleteMatchId]); setDeleteMatchId(null) } }} className="rounded-[5px] bg-[#ff7d88] px-4 py-3 font-bold text-[#07131e]">Sí, eliminar</button></div></div></div>}{printTarget !== null && <section className="hidden min-h-screen bg-white p-10 text-black print:block"><div className="flex items-start justify-between"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" className="h-16 w-48 object-contain object-left" /><img src="/upr.png" alt="Organización" className="h-20 w-36 object-contain object-right" /></div><h1 className="mt-8 text-center font-display text-3xl uppercase">Fixture del torneo</h1><p className="mt-2 text-center text-xl font-bold">{tournament.name}</p>{(printTarget === 'all' ? dates : [printTarget]).map((date) => { const printMatches = fixtureMatches.filter((match) => match.date_number === date); return <div key={date} className="mt-8 break-inside-avoid"><div className="flex items-baseline justify-between border-b-2 border-slate-800 pb-2"><h2 className="text-xl font-black uppercase">Fecha {date}</h2><p className="text-sm">{printMatches[0]?.calendar_date || 'Fecha por definir'}</p></div><div className="mt-3 space-y-2">{printMatches.map((match) => <div key={match.id} className="grid grid-cols-[120px_1fr_120px] gap-3 border-b border-slate-300 py-3 text-sm"><span>{match.division_name || 'General'}</span><span className="font-bold">{match.local_team_name} vs. {match.visitor_team_name}</span><span className="text-right">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></div>)}</div></div>})}</section>}
+  </>
+}
+
+function LegacyFixturesSection({ tournament, teams, dates, canManage, onGenerate, onSaveChanges, onDeleteFixture }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[]) => void; onSaveChanges: (dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches?: FixtureNewMatch[], deletedMatchIds?: string[]) => void; onDeleteFixture: (dateNumber: number) => Promise<void> }) {
+  const [mode, setMode] = useState<'automatic' | 'manual'>('automatic')
+  const [query, setQuery] = useState('')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>(Array.from(new Set(teams.map((team) => team.id))))
+  const [manualPairings, setManualPairings] = useState<ManualPairing[]>([])
+  const [manualDivisionId, setManualDivisionId] = useState(teams[0]?.division_id || '')
+  const [localTeamId, setLocalTeamId] = useState('')
+  const [visitorTeamId, setVisitorTeamId] = useState('')
+  const [matchesPerDivision, setMatchesPerDivision] = useState<Record<string, string>>({})
+  const [draftDates, setDraftDates] = useState<Record<string, string>>({})
+  const [draftTimes, setDraftTimes] = useState<Record<string, string>>({})
+  const [draftPairs, setDraftPairs] = useState<Record<string, { localTeamId: string; visitorTeamId: string }>>({})
+  const [editError, setEditError] = useState('')
+  const [printTarget, setPrintTarget] = useState<number | 'all' | null>(null)
+  const [deleteConfirmationDate, setDeleteConfirmationDate] = useState<number | null>(null)
+  const fixtureMatches = tournament.fixtureMatches ?? []
+  const divisionRows = Array.from(new Map(teams.map((team) => [team.division_id, { id: team.division_id, name: team.division_name }])).values())
+  const datesSignature = dates.join(',')
+  const fixtureSignature = fixtureMatches.map((match) => `${match.id}:${match.calendar_date || ''}:${match.scheduled_time || ''}`).join('|')
+  const divisionSignature = divisionRows.map((division) => division.id).join('|')
+
+  useEffect(() => {
+    setDraftDates(Object.fromEntries(dates.map((date) => [String(date), fixtureMatches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || ''])))
+    setDraftTimes(Object.fromEntries(fixtureMatches.map((match) => [match.id, match.scheduled_time || ''])))
+    setDraftPairs(Object.fromEntries(fixtureMatches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }])))
+  }, [datesSignature, fixtureSignature, tournament.start_date])
+
+  useEffect(() => {
+    setMatchesPerDivision((current) => Object.fromEntries(divisionRows.map((division) => [division.id, current[division.id] ?? String(Math.floor(teams.filter((team) => team.division_id === division.id && selectedTeamIds.includes(team.id)).length / 2))])))
+  }, [divisionSignature, selectedTeamIds.join(','), teams.length])
+
+  useEffect(() => {
+    const clearPrintTarget = () => setPrintTarget(null)
+    window.addEventListener('afterprint', clearPrintTarget)
+    return () => window.removeEventListener('afterprint', clearPrintTarget)
+  }, [])
+
+  const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => { const existing = groups.find((item) => item.id === team.id); if (existing) { if (!existing.divisions.includes(team.division_name)) existing.divisions.push(team.division_name) } else groups.push({ ...team, divisions: [team.division_name] }); return groups }, [])
+  const filteredTeams = groupedTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(query.toLowerCase()))
+  const divisionTeams = Array.from(new Map(teams.filter((team) => team.division_id === manualDivisionId && selectedTeamIds.includes(team.id)).map((team) => [team.id, team])).values())
+  const fixtureGroups = dates.map((date) => ({ date, matches: fixtureMatches.filter((match) => match.date_number === date), calendarDate: draftDates[String(date)] || '' }))
+  const dateChanges = fixtureGroups.flatMap((fixture) => {
+    const sourceMatch = fixture.matches[0]
+    const sourceDate = sourceMatch?.calendar_date || tournament.start_date || ''
+    return sourceMatch?.fixture_id && fixture.calendarDate !== sourceDate ? [{ fixtureId: sourceMatch.fixture_id, calendarDate: fixture.calendarDate || null }] : []
+  })
+  const timeChanges = fixtureMatches.flatMap((match) => {
+    const nextTime = draftTimes[match.id] || ''
+    return nextTime !== (match.scheduled_time || '') ? [{ matchId: match.id, scheduledTime: nextTime || null }] : []
+  })
+  const matchChanges = fixtureMatches.flatMap((match) => {
+    const nextPair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
+    return nextPair.localTeamId !== match.local_team_id || nextPair.visitorTeamId !== match.visitor_team_id ? [{ matchId: match.id, localTeamId: nextPair.localTeamId, visitorTeamId: nextPair.visitorTeamId }] : []
+  })
+  const hasDraftChanges = dateChanges.length > 0 || timeChanges.length > 0 || matchChanges.length > 0
+  const printDates = printTarget === 'all' ? dates : typeof printTarget === 'number' ? [printTarget] : []
   const toggleTeam = (teamId: string) => setSelectedTeamIds((current) => current.includes(teamId) ? current.filter((id) => id !== teamId) : [...current, teamId])
   const addManualPairing = () => { if (!manualDivisionId || !localTeamId || !visitorTeamId || localTeamId === visitorTeamId) return; setManualPairings((current) => [...current, { divisionId: manualDivisionId, localTeamId, visitorTeamId }]); setLocalTeamId(''); setVisitorTeamId('') }
-  const canGenerate = mode === 'automatic' ? selectedTeamIds.length >= 2 : manualPairings.length > 0
-  return <div className="pt-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Planificación</p><h2 className="mt-2 font-display text-3xl uppercase">Generador de fixtures</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Elige si quieres crear los emparejamientos automáticamente o definir cada partido manualmente.</p></div>{canManage && <button type="button" onClick={() => onGenerate(selectedTeamIds, mode, manualPairings)} disabled={!canGenerate} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"><Wand2 size={17} />Generar fecha</button>}</div><div className="mt-6 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setMode('automatic')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'automatic' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación automática</span><span className="mt-1 block text-xs">Empareja equipos consecutivos dentro de cada división.</span></button><button type="button" onClick={() => setMode('manual')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'manual' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación manual</span><span className="mt-1 block text-xs">Define local, visitante y división partido por partido.</span></button></div><div className="mt-6 grid gap-4 sm:grid-cols-3"><InfoRow label="Fechas generadas" value={String(dates.length)} /><InfoRow label="Equipos seleccionados" value={String(selectedTeamIds.length)} /><InfoRow label="Estado" value={tournament.status === 'finished' ? 'Torneo finalizado' : 'Configuración abierta'} /></div><div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><label className="block text-sm font-semibold">Buscar equipos<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div></label><div className="mt-3 grid gap-2 sm:grid-cols-2">{filteredTeams.map((team) => <label key={team.id} className={`flex cursor-pointer items-center gap-3 rounded-[5px] border px-3 py-3 text-sm ${selectedTeamIds.includes(team.id) ? 'border-[#b4ff45]/60 bg-[#b4ff45]/10' : 'border-white/10'}`}><input type="checkbox" checked={selectedTeamIds.includes(team.id)} onChange={() => toggleTeam(team.id)} className="accent-[#b4ff45]" /><span className="min-w-0 flex-1 truncate">{team.name}</span><span className="text-xs text-slate-500">{team.divisions.join(' · ')}</span></label>)}{!filteredTeams.length && <p className="text-sm text-slate-500">No se encontraron equipos.</p>}</div></div>{mode === 'manual' && <div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><p className="text-sm font-bold text-[#dfffba]">Partidos manuales</p><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={manualDivisionId} onChange={(event) => { setManualDivisionId(event.target.value); setLocalTeamId(''); setVisitorTeamId('') }} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">División</option>{Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select><select value={localTeamId} onChange={(event) => setLocalTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Local</option>{divisionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><select value={visitorTeamId} onChange={(event) => setVisitorTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Visitante</option>{divisionTeams.filter((team) => team.id !== localTeamId).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={addManualPairing} className="rounded-[5px] border border-[#b4ff45] px-4 py-3 font-bold text-[#dfffba]">Agregar</button></div><div className="mt-4 space-y-2">{manualPairings.map((pairing, index) => { const local = teams.find((team) => team.id === pairing.localTeamId); const visitor = teams.find((team) => team.id === pairing.visitorTeamId); const division = teams.find((team) => team.division_id === pairing.divisionId)?.division_name || 'División'; return <div key={`${pairing.localTeamId}-${pairing.visitorTeamId}-${index}`} className="flex items-center justify-between rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span>{division}: {local?.name} vs {visitor?.name}</span><button type="button" onClick={() => setManualPairings((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-[#ff9ca5]">Quitar</button></div> })}{!manualPairings.length && <p className="text-sm text-slate-500">Agrega al menos un partido manual.</p>}</div></div>}<div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-5 text-sm text-slate-400">La fecha se creará con los equipos seleccionados y quedará registrada en el historial del torneo.</div></div>
+  const automaticConfigs = divisionRows.map((division) => ({ divisionId: division.id, matchesPerDate: Number(matchesPerDivision[division.id] ?? 0) }))
+  const canGenerate = mode === 'automatic' ? selectedTeamIds.length >= 2 && automaticConfigs.some((config) => config.matchesPerDate > 0) : manualPairings.length > 0
+  const generateFixture = () => {
+    setEditError('')
+    if (mode === 'automatic') {
+      for (const config of automaticConfigs) {
+        const selectedDivisionTeams = teams.filter((team) => team.division_id === config.divisionId && selectedTeamIds.includes(team.id))
+        const maximumMatches = Math.floor(selectedDivisionTeams.length / 2)
+        if (!Number.isInteger(config.matchesPerDate) || config.matchesPerDate < 0 || config.matchesPerDate > maximumMatches) {
+          const division = divisionRows.find((item) => item.id === config.divisionId)
+          setEditError(`${division?.name || 'La división'} permite entre 0 y ${maximumMatches} partidos con los equipos seleccionados.`)
+          return
+        }
+      }
+      if (!automaticConfigs.some((config) => config.matchesPerDate > 0)) {
+        setEditError('Configura al menos un partido para generar la fecha.')
+        return
+      }
+    }
+    onGenerate(selectedTeamIds, mode, manualPairings, automaticConfigs)
+  }
+  const saveFixtureChanges = () => {
+    setEditError('')
+    for (const fixture of fixtureGroups) {
+      const usedTeams = new Set<string>()
+      for (const match of fixture.matches) {
+        const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
+        if (!pair.localTeamId || !pair.visitorTeamId || pair.localTeamId === pair.visitorTeamId) {
+          setEditError(`El partido de la Fecha ${fixture.date} debe tener dos equipos diferentes.`)
+          return
+        }
+        if (usedTeams.has(pair.localTeamId) || usedTeams.has(pair.visitorTeamId)) {
+          setEditError(`Un equipo no puede jugar dos veces en la Fecha ${fixture.date}.`)
+          return
+        }
+        usedTeams.add(pair.localTeamId)
+        usedTeams.add(pair.visitorTeamId)
+      }
+    }
+    onSaveChanges(dateChanges, timeChanges, matchChanges)
+  }
+  const printFixture = (target: number | 'all') => {
+    setPrintTarget(target)
+    window.setTimeout(() => window.print(), 0)
+  }
+  return (
+    <>
+      <div className="pt-6 print:hidden">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Planificación</p>
+            <h2 className="mt-2 font-display text-3xl uppercase">Generador de fixtures</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Elige si quieres crear los emparejamientos automáticamente o definir cada partido manualmente.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {fixtureMatches.length > 0 && <button type="button" onClick={() => printFixture('all')} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={17} />Generar PDF</button>}
+            {canManage && <button type="button" onClick={generateFixture} disabled={!canGenerate} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"><Wand2 size={17} />Generar fecha</button>}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+          <button type="button" onClick={() => setMode('automatic')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'automatic' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación automática</span><span className="mt-1 block text-xs">Empareja equipos consecutivos dentro de cada división.</span></button>
+          <button type="button" onClick={() => setMode('manual')} className={`rounded-[5px] border px-4 py-3 text-left ${mode === 'manual' ? 'border-[#b4ff45] bg-[#b4ff45]/10 text-[#dfffba]' : 'border-[#31556b] text-slate-400'}`}><span className="block font-bold">Generación manual</span><span className="mt-1 block text-xs">Define local, visitante y división partido por partido.</span></button>
+        </div>
+
+        {mode === 'automatic' && <div className="mt-6 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4"><div><p className="text-sm font-bold text-[#dfffba]">Partidos por división en esta fecha</p><p className="mt-1 text-xs text-slate-400">Define cuántos enfrentamientos se crearán por división. Cada equipo solo puede jugar una vez en la misma fecha.</p></div><div className="mt-4 grid gap-3 sm:grid-cols-2">{divisionRows.map((division) => { const selectedCount = teams.filter((team) => team.division_id === division.id && selectedTeamIds.includes(team.id)).length; const maximumMatches = Math.floor(selectedCount / 2); return <label key={division.id} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 text-sm font-semibold"><span className="flex items-center justify-between gap-3"><span>{division.name}</span><span className="text-xs font-normal text-slate-500">Máximo: {maximumMatches}</span></span><input type="number" min="0" max={maximumMatches} value={matchesPerDivision[division.id] ?? String(maximumMatches)} onChange={(event) => setMatchesPerDivision((current) => ({ ...current, [division.id]: event.target.value }))} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-2 text-white outline-none focus:border-[#b4ff45]" /></label> })}</div></div>}
+        {editError && <p role="alert" className="mt-4 rounded-[5px] border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-3 text-sm text-[#ffb0b7]">{editError}</p>}
+        {canManage && fixtureMatches.length > 0 && <div className="mt-4 rounded-[5px] border border-[#ff7d88]/20 bg-[#ff7d88]/5 p-4"><p className="text-sm font-bold text-[#ffb0b7]">Gestionar fechas</p><div className="mt-3 flex flex-wrap gap-2">{dates.map((date) => <button key={date} type="button" onClick={() => setDeleteConfirmationDate(date)} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ff7d88]/60 px-3 py-2 text-sm font-bold text-[#ffb0b7] hover:bg-[#ff7d88]/10"><Trash2 size={15} />Eliminar Fecha {date}</button>)}</div></div>}
+        {deleteConfirmationDate !== null && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02070c]/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-6 text-white shadow-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Eliminar fixture</p><h2 className="mt-2 font-display text-2xl uppercase">¿Seguro que deseas eliminar este fixture?</h2><p className="mt-3 text-sm leading-6 text-slate-400">Se eliminarán los partidos de la Fecha {deleteConfirmationDate}. Esta acción no solicita contraseña.</p><div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={() => setDeleteConfirmationDate(null)} className="cursor-pointer rounded-[5px] border border-[#31556b] px-4 py-3 font-bold text-slate-300">No, cancelar</button><button type="button" onClick={() => { const target = deleteConfirmationDate; setDeleteConfirmationDate(null); void onDeleteFixture(target) }} className="cursor-pointer rounded-[5px] bg-[#ff7d88] px-4 py-3 font-bold text-[#07131e]">Sí, eliminar</button></div></div></div>}
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-3"><InfoRow label="Fechas generadas" value={String(dates.length)} /><InfoRow label="Equipos seleccionados" value={String(selectedTeamIds.length)} /><InfoRow label="Estado" value={tournament.status === 'finished' ? 'Torneo finalizado' : 'Configuración abierta'} /></div>
+
+        <div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
+          <label className="block text-sm font-semibold">Buscar equipos<div className="relative mt-2"><Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre, @usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3 outline-none focus:border-[#b4ff45]" /></div></label>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">{filteredTeams.map((team) => <label key={team.id} className={`flex cursor-pointer items-center gap-3 rounded-[5px] border px-3 py-3 text-sm ${selectedTeamIds.includes(team.id) ? 'border-[#b4ff45]/60 bg-[#b4ff45]/10' : 'border-white/10'}`}><input type="checkbox" checked={selectedTeamIds.includes(team.id)} onChange={() => toggleTeam(team.id)} className="accent-[#b4ff45]" /><span className="min-w-0 flex-1 truncate">{team.name}</span><span className="text-xs text-slate-500">{team.divisions.join(' · ')}</span></label>)}{!filteredTeams.length && <p className="text-sm text-slate-500">No se encontraron equipos.</p>}</div>
+        </div>
+
+        {mode === 'manual' && <div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><p className="text-sm font-bold text-[#dfffba]">Partidos manuales</p><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={manualDivisionId} onChange={(event) => { setManualDivisionId(event.target.value); setLocalTeamId(''); setVisitorTeamId('') }} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">División</option>{Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select><select value={localTeamId} onChange={(event) => setLocalTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Local</option>{divisionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><select value={visitorTeamId} onChange={(event) => setVisitorTeamId(event.target.value)} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Visitante</option>{divisionTeams.filter((team) => team.id !== localTeamId).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={addManualPairing} className="rounded-[5px] border border-[#b4ff45] px-4 py-3 font-bold text-[#dfffba]">Agregar</button></div><div className="mt-4 space-y-2">{manualPairings.map((pairing, index) => { const local = teams.find((team) => team.id === pairing.localTeamId); const visitor = teams.find((team) => team.id === pairing.visitorTeamId); const division = teams.find((team) => team.division_id === pairing.divisionId)?.division_name || 'División'; return <div key={`${pairing.localTeamId}-${pairing.visitorTeamId}-${index}`} className="flex items-center justify-between rounded-[5px] border border-white/10 px-3 py-2 text-sm"><span>{division}: {local?.name} vs {visitor?.name}</span><button type="button" onClick={() => setManualPairings((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-[#ff9ca5]">Quitar</button></div> })}{!manualPairings.length && <p className="text-sm text-slate-500">Agrega al menos un partido manual.</p>}</div></div>}
+
+        {fixtureMatches.length > 0 ? <section className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fixture creado</p><h3 className="mt-1 font-display text-2xl uppercase">Calendario de partidos</h3><p className="mt-1 text-sm text-slate-400">Aquí puedes revisar y editar las fechas, horarios y enfrentamientos guardados.</p></div>{canManage && hasDraftChanges && <button type="button" onClick={saveFixtureChanges} className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><Check size={17} />Guardar cambios</button>}</div><div className="mt-5 space-y-5">{fixtureGroups.map((fixture) => <article key={fixture.date} className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-4"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-3 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{canManage ? <input type="date" value={fixture.calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]" /> : <p className="mt-2 text-sm text-slate-300">{fixture.calendarDate ? new Date(`${fixture.calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div><button type="button" onClick={() => printFixture(fixture.date)} className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button></div><div className="mt-3 divide-y divide-white/10">{fixture.matches.map((match) => { const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }; const divisionOptions = Array.from(new Map(teams.filter((team) => team.division_id === teams.find((item) => item.id === match.local_team_id)?.division_id).map((team) => [team.id, team])).values()); return <div key={match.id} className="grid gap-3 py-3 sm:grid-cols-[120px_1fr_140px] sm:items-center"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{match.division_name || 'General'}</span>{canManage ? <div className="grid gap-2 sm:grid-cols-2"><select value={pair.localTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, localTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]"><option value="">Local</option>{divisionOptions.map((team) => <option key={`local-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={pair.visitorTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, visitorTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]"><option value="">Visitante</option>{divisionOptions.filter((team) => team.id !== pair.localTeamId).map((team) => <option key={`visitor-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select></div> : <div className="font-semibold text-slate-100"><span>{match.local_team_name}</span><span className="px-2 text-slate-500">vs.</span><span>{match.visitor_team_name}</span></div>}{canManage ? <input type="time" value={draftTimes[match.id] ?? ''} onChange={(event) => setDraftTimes((current) => ({ ...current, [match.id]: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200 outline-none focus:border-[#b4ff45]" /> : <span className="text-sm text-slate-400">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span>}</div> })}</div></article>)}</div></section> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-5 text-sm text-slate-400">Todavía no hay fixtures creados. Cuando confirmes la generación, aparecerán aquí automáticamente.</div>}
+      </div>
+
+      {printTarget !== null && <section className="hidden min-h-screen bg-white p-10 text-black print:block"><div className="flex items-start justify-between"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" className="h-16 w-48 object-contain object-left" /><img src="/upr.png" alt="Organización" className="h-20 w-36 object-contain object-right" /></div><h1 className="mt-8 text-center font-display text-3xl uppercase">Fixture del torneo</h1><p className="mt-2 text-center text-xl font-bold">{tournament.name}</p>{printDates.map((date) => { const printMatches = fixtureMatches.filter((match) => match.date_number === date); const calendarDate = printMatches[0]?.calendar_date; return <div key={date} className="mt-8 break-inside-avoid"><div className="flex items-baseline justify-between border-b-2 border-slate-800 pb-2"><h2 className="text-xl font-black uppercase">Fecha {date}</h2><p className="text-sm">{calendarDate ? new Date(`${calendarDate}T00:00:00`).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p></div><div className="mt-3 space-y-2">{printMatches.map((match) => <div key={match.id} className="grid grid-cols-[120px_1fr_120px] gap-3 border-b border-slate-300 py-3 text-sm"><span>{match.division_name || 'General'}</span><span className="font-bold">{match.local_team_name} vs. {match.visitor_team_name}</span><span className="text-right">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></div>)}</div></div>})}</section>}
+    </>
+  )
 }
 
 function MatchesSection({ matches, dates, events, onOpenFixtures, canManage }: { matches: Match[]; dates: number[]; events: MatchEvent[]; onOpenFixtures: () => void; canManage: boolean }) {

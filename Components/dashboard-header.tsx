@@ -43,11 +43,14 @@ export function DashboardHeader() {
   }, [])
 
   useEffect(() => {
+    let active = true
+
     async function loadProfileName() {
       if (!supabase) return
       const { data } = await supabase.auth.getUser()
       if (!data.user) return
       const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', data.user.id).maybeSingle()
+      if (!active) return
       setProfileName(profile?.full_name || data.user.user_metadata?.full_name || 'Usuario AthlonX')
       const [accountContexts, teams] = await Promise.all([loadAccountContexts(data.user.id), loadManagedTeams(data.user.id)])
       const fallbackContexts: AccountContext[] = teams.map((team) => ({
@@ -60,12 +63,25 @@ export function DashboardHeader() {
         role: team.role === 'owner' ? 'directivo' : (team.role as AccountContext['role']),
         roleLabel: null,
       }))
-      const availableContexts = accountContexts.length ? accountContexts : fallbackContexts
+      const contextsByKey = new Map<string, AccountContext>()
+      for (const context of [...accountContexts, ...fallbackContexts]) {
+        const key = `${context.contextType}:${context.teamId ?? context.organizationId ?? context.role}`
+        if (!contextsByKey.has(key)) contextsByKey.set(key, context)
+      }
+      const availableContexts = [...contextsByKey.values()]
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
-      const selectableContexts = availableContexts.filter((context) => context.contextType !== 'personal')
-      const selectedContext = selectableContexts.find((context) => context.id === storedContextId)
-        ?? selectableContexts[0]
-        ?? availableContexts.find((context) => context.contextType === 'personal')
+      const accountType = data.user.user_metadata?.account_type
+      const storedContext = availableContexts.find((context) => context.id === storedContextId)
+      const storedContextMatchesAccount = accountType === 'equipo'
+        ? storedContext?.contextType === 'team'
+        : accountType === 'organizacion'
+          ? storedContext?.contextType === 'organization'
+          : Boolean(storedContext)
+      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : null
+      const selectedContext = (storedContextMatchesAccount ? storedContext : null)
+        ?? (preferredContextType ? availableContexts.find((context) => context.contextType === preferredContextType) : null)
+        ?? availableContexts[0]
+      if (!active) return
       setContexts(availableContexts)
       setActiveContextId(selectedContext?.id ?? '')
       if (selectedContext) {
@@ -74,6 +90,13 @@ export function DashboardHeader() {
       }
     }
     void loadProfileName()
+
+    const refreshContexts = () => { void loadProfileName() }
+    window.addEventListener('athlonx-roles-updated', refreshContexts)
+    return () => {
+      active = false
+      window.removeEventListener('athlonx-roles-updated', refreshContexts)
+    }
   }, [])
 
   useEffect(() => {
@@ -101,7 +124,13 @@ export function DashboardHeader() {
     if (context.teamId) window.dispatchEvent(new CustomEvent('athlonx-team-change', { detail: context.teamId }))
 
     const destination = context.contextType === 'personal'
-      ? '/dashboard/atleta'
+      ? context.role === 'entrenador'
+        ? '/dashboard/entrenador'
+        : context.role === 'staff'
+          ? context.contextType === 'personal' ? '/dashboard/calendario' : '/dashboard/staff'
+          : context.role === 'atleta'
+            ? '/dashboard/atleta'
+            : '/dashboard/organizaciones'
       : context.contextType === 'organization'
       ? '/dashboard/organizaciones'
       : context.role === 'entrenador'
@@ -120,7 +149,7 @@ export function DashboardHeader() {
   const initials = profileName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
   const key = pathname?.startsWith('/dashboard/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
   const activeContext = contexts.find((context) => context.id === activeContextId)
-  const selectableContexts = contexts.filter((context) => context.contextType !== 'personal')
+  const selectableContexts = contexts
   const canSwitchContexts = selectableContexts.length > 1
   return <header className="border-b border-[#1b3548] bg-[#07131e]/95 px-6 py-4 text-white backdrop-blur-xl print:hidden lg:ml-64 md:px-10">
     <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">

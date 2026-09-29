@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Award, Building2, CalendarDays, ChevronRight, ExternalLink, Globe2, Link2, Mail, MapPin, Network, Phone, Trophy, UserRound, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../../lib/supabase'
+import { StyledSelect } from '../../../../Components/styled-select'
 
 type Discipline = { id: string; code: string; name: string }
 type Modality = { id: string; code: string; name: string; discipline_id: string }
@@ -119,7 +120,7 @@ function HierarchySection({ relationships }: { relationships: Relationship[] }) 
 }
 
 function EventsSection({ tournaments, filter, onFilterChange }: { tournaments: Tournament[]; filter: TournamentFilter; onFilterChange: (value: TournamentFilter) => void }) {
-  return <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8"><div className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between"><SectionHeading eyebrow="Actividad competitiva" title="Torneos y eventos" icon={<Trophy size={27} />} description="Eventos creados por la organización y torneos en los que participaron sus equipos." /><select value={filter} onChange={(event) => onFilterChange(event.target.value as TournamentFilter)} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-3 text-sm font-semibold text-white outline-none focus:border-[#b4ff45]"><option value="all">Todos los eventos</option><option value="created">Creados por la organización</option><option value="participated">Participación de sus equipos</option></select></div>{tournaments.length ? <div className="mt-6 grid gap-4 md:grid-cols-2">{tournaments.map((tournament) => <TournamentCard key={tournament.id} tournament={tournament} />)}</div> : <EmptyState>No hay torneos públicos para este filtro y disciplina.</EmptyState>}</section>
+  return <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8"><div className="flex flex-col gap-5 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between"><SectionHeading eyebrow="Actividad competitiva" title="Torneos y eventos" icon={<Trophy size={27} />} description="Eventos creados por la organización y torneos en los que participaron sus equipos." /><StyledSelect label="Filtrar eventos" value={filter} onChange={(value) => onFilterChange(value as TournamentFilter)} options={[{ value: 'all', label: 'Todos los eventos' }, { value: 'created', label: 'Creados por la organización' }, { value: 'participated', label: 'Participación de sus equipos' }]} /></div>{tournaments.length ? <div className="mt-6 grid gap-4 md:grid-cols-2">{tournaments.map((tournament) => <TournamentCard key={tournament.id} tournament={tournament} />)}</div> : <EmptyState>No hay torneos públicos para este filtro y disciplina.</EmptyState>}</section>
 }
 
 function TournamentCard({ tournament, compact = false }: { tournament: Tournament; compact?: boolean }) {

@@ -13,19 +13,66 @@ export type AccountContext = {
   roleLabel: string | null
 }
 
+const accountRoles: AccountRole[] = ['atleta', 'entrenador', 'staff', 'directivo']
+
+function normalizeRole(value: unknown): AccountRole | null {
+  return typeof value === 'string' && accountRoles.includes(value as AccountRole)
+    ? value as AccountRole
+    : null
+}
+
+function roleFromTeamContext(value: unknown): AccountRole {
+  if (value === 'owner') return 'directivo'
+  if (value === 'coach') return 'entrenador'
+  if (value === 'arbitro' || value === 'analista') return 'staff'
+  return normalizeRole(value) ?? 'staff'
+}
+
 export async function loadAccountContexts(userId: string): Promise<AccountContext[]> {
   if (!supabase) return []
 
-  const { data: rows, error } = await supabase
+  const [{ data: contextRows }, { data: roleRows }, { data: authData }] = await Promise.all([
+    supabase
     .from('user_contexts')
     .select('id, context_type, team_id, organization_id, role, role_label')
     .eq('user_id', userId)
-    .eq('status', 'active')
+    .eq('status', 'active'),
+    supabase.from('user_roles').select('role').eq('user_id', userId),
+    supabase.auth.getUser(),
+  ])
 
-  if (error || !rows?.length) return []
+  const rows = contextRows ?? []
+  const contextPersonalRoles = rows
+    .filter((row) => row.context_type === 'personal')
+    .map((row) => normalizeRole(row.role))
+    .filter((role): role is AccountRole => Boolean(role))
+  const metadataRoles = authData.user?.user_metadata?.roles
+  const fallbackRoles = Array.isArray(metadataRoles)
+    ? metadataRoles.map((role: unknown) => normalizeRole(role)).filter((role: AccountRole | null): role is AccountRole => Boolean(role))
+    : normalizeRole(authData.user?.user_metadata?.role) ? [normalizeRole(authData.user?.user_metadata?.role) as AccountRole] : []
+  const databaseRoles = (roleRows ?? [])
+    .map((row) => normalizeRole(row.role))
+    .filter((role): role is AccountRole => Boolean(role))
+  const personalRoles = [...new Set([...contextPersonalRoles, ...databaseRoles, ...fallbackRoles])]
+  const existingPersonalRoles = new Set(contextPersonalRoles)
+  const generatedPersonalRows = personalRoles
+    .filter((role) => !existingPersonalRoles.has(role))
+    .map((role) => ({
+      id: `personal:${userId}:${role}`,
+      context_type: 'personal' as const,
+      team_id: null,
+      organization_id: null,
+      role,
+      role_label: null,
+    }))
+  const personalRows = [...rows.filter((row) => row.context_type === 'personal'), ...generatedPersonalRows]
+  const contextRowsWithoutPersonal = rows.filter((row) => row.context_type !== 'personal')
+  const allRows = [...personalRows, ...contextRowsWithoutPersonal]
 
-  const teamIds = rows.flatMap((row) => row.team_id ? [row.team_id] : [])
-  const organizationIds = rows.flatMap((row) => row.organization_id ? [row.organization_id] : [])
+  if (!allRows.length) return []
+
+  const teamIds = allRows.flatMap((row) => row.team_id ? [row.team_id] : [])
+  const organizationIds = allRows.flatMap((row) => row.organization_id ? [row.organization_id] : [])
   const [{ data: teams }, { data: organizations }, { data: disciplines }] = await Promise.all([
     teamIds.length ? supabase.from('teams').select('id, name, discipline_id').in('id', teamIds).eq('is_official', true) : Promise.resolve({ data: [] }),
     organizationIds.length ? supabase.from('organizations').select('id, name').in('id', organizationIds) : Promise.resolve({ data: [] }),
@@ -37,11 +84,7 @@ export async function loadAccountContexts(userId: string): Promise<AccountContex
   const disciplineNames = new Map((disciplines ?? []).map((discipline) => [discipline.id, discipline.name]))
   const organizationNames = new Map((organizations ?? []).map((organization) => [organization.id, organization.name]))
 
-  const personalContext = rows.find((row) => row.context_type === 'personal')
-  const contextRows = rows.filter((row) => row.context_type !== 'personal')
-  if (personalContext) contextRows.unshift(personalContext)
-
-  return contextRows.map((row) => ({
+  return allRows.map((row) => ({
     id: row.id,
     contextType: row.context_type,
     teamId: row.team_id,
@@ -50,7 +93,7 @@ export async function loadAccountContexts(userId: string): Promise<AccountContex
       ? 'Mi vista'
       : row.team_id ? (teamNames.get(row.team_id) ?? 'Equipo') : (organizationNames.get(row.organization_id ?? '') ?? 'Organización'),
     discipline: row.team_id ? disciplineNames.get(teamDisciplines.get(row.team_id) ?? '') ?? null : null,
-    role: row.role === 'owner' ? 'directivo' : row.role === 'coach' ? 'entrenador' : row.role === 'arbitro' || row.role === 'analista' ? 'staff' : row.role as AccountRole,
+    role: row.context_type === 'personal' ? normalizeRole(row.role) ?? 'atleta' : roleFromTeamContext(row.role),
     roleLabel: row.role_label,
   }))
 }

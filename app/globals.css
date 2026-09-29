@@ -212,6 +212,24 @@ button {
   cursor: pointer;
 }
 
+/* Native fallbacks keep the AthlonX palette on legacy forms that have not
+   migrated to StyledSelect yet. */
+select {
+  color-scheme: dark;
+  color: #e8eef3;
+}
+
+select option {
+  background: #0a1722;
+  color: #e8eef3;
+}
+
+select option:checked,
+select option:hover {
+  background: #b4ff45;
+  color: #07131e;
+}
+
 h1,
 h2,
 h3 {

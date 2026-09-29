@@ -2,6 +2,7 @@
 
 import { Archive, Edit3, Eye, Megaphone, Plus, Save, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
+import { StyledSelect } from "../../../Components/styled-select";
 import { supabase } from "../../../lib/supabase";
 
 type PlatformUpdate = {
@@ -224,18 +225,7 @@ export default function UpdatesAdminPage() {
                 />
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-semibold">
-                  Categoría
-                  <select
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value)}
-                    className="mt-2 w-full cursor-pointer rounded-xl border border-white/15 bg-[#07131e] px-4 py-3 text-white outline-none focus:border-[#b4ff45]"
-                  >
-                    {categories.map((item) => (
-                      <option key={item}>{item}</option>
-                    ))}
-                  </select>
-                </label>
+                <StyledSelect label="Categoría" value={category} onChange={setCategory} options={categories.map((item) => ({ value: item, label: item }))} />
                 <label className="block text-sm font-semibold">
                   Versión{" "}
                   <span className="font-normal text-slate-500">(opcional)</span>

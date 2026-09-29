@@ -2,6 +2,7 @@
 
 import { ChevronDown, Search, UserPlus, Users } from 'lucide-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
+import { StyledSelect } from './styled-select'
 
 type Division = { id: string; name: string; sort_order: number }
 type Modality = { code: string; name: string }
@@ -78,7 +79,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
   const [expanded, setExpanded] = useState<string[]>([])
   const [teamMode, setTeamMode] = useState<'existing' | 'new' | null>(null)
   const [teamQuery, setTeamQuery] = useState('')
-  const [teamId, setTeamId] = useState('')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
+  const [selectedDivisionIds, setSelectedDivisionIds] = useState<Record<string, string>>({})
   const [divisionId, setDivisionId] = useState(divisions[0]?.id || '')
   const [teamName, setTeamName] = useState('')
   const [teamLogo, setTeamLogo] = useState('')
@@ -103,13 +105,13 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
     return groups
   }, [])
-  const selectedTeam = availableTeams.find((team) => team.id === teamId)
-  const compatibleDivisions = selectedTeam?.divisionNames?.length
-    ? divisions.filter((division) => selectedTeam.divisionNames?.some((name) => normalize(name) === normalize(division.name)))
-    : divisions
-  const filteredTeams = availableTeams.filter((team) => `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
+  const filteredTeams = availableTeams.filter((team) => !selectedTeamIds.includes(team.id) && `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
   const filteredPlayers = availablePlayers.filter((player) => player.full_name.toLowerCase().includes(playerQuery.toLowerCase()))
   const positionOptions = getPositionOptions(modality)
+
+  function getCompatibleDivisions(team: TeamSummary) {
+    return team.divisionNames?.length ? divisions.filter((division) => team.divisionNames?.some((name) => normalize(name) === normalize(division.name))) : divisions
+  }
 
   useEffect(() => {
     const currentTeamIds = groupedTeams.map((team) => team.id)
@@ -126,14 +128,11 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
     previousTeamIds.current = currentTeamIds
   }, [groupedTeams])
 
-  useEffect(() => {
-    setDivisionId(compatibleDivisions[0]?.id || '')
-  }, [teamId, divisions.length])
-
   function resetTeamForm() {
     setTeamMode(null)
     setTeamQuery('')
-    setTeamId('')
+    setSelectedTeamIds([])
+    setSelectedDivisionIds({})
   }
 
   function resetPlayerForm() {
@@ -147,7 +146,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
   function submitExistingTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onAddTeam(teamId, divisionId)
+    selectedTeamIds.forEach((teamId) => onAddTeam(teamId, selectedDivisionIds[teamId] || ''))
     resetTeamForm()
   }
 
@@ -195,11 +194,11 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
             <>
               <button type="button" onClick={() => setTeamMode(teamMode === 'existing' ? null : 'existing')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200">
                 <Users size={15} />
-                Añadir equipo existente
+                Invitar equipo
               </button>
               <button type="button" onClick={() => setTeamMode(teamMode === 'new' ? null : 'new')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">
                 <Users size={15} />
-                Añadir equipo nuevo
+                Añadir equipo no registrado
               </button>
             </>
           )}
@@ -209,15 +208,15 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
       {canManage && editMode && teamMode === 'existing' && (
         <form onSubmit={submitExistingTeam} className="mt-5 grid gap-3 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:grid-cols-[1fr_1fr_auto]">
           <label className="text-sm font-semibold sm:col-span-2">
-            Buscar equipo registrado
+            Buscar equipo registrado para invitar
             <div className="relative mt-2">
               <Search size={17} className="pointer-events-none absolute left-3 top-3.5 text-slate-400" />
-              <input required value={teamQuery} onChange={(event) => { setTeamQuery(event.target.value); setTeamId('') }} placeholder="Nombre, usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3" />
+              <input value={teamQuery} onChange={(event) => setTeamQuery(event.target.value)} placeholder="Nombre, usuario o código AthlonX" className="w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] py-3 pl-10 pr-3" />
             </div>
             {teamQuery && (
               <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">
                 {filteredTeams.map((team) => (
-                  <button key={team.id} type="button" onClick={() => { setTeamId(team.id); setTeamQuery(team.name) }} className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-slate-200 hover:bg-[#b4ff45]/10">
+                  <button key={team.id} type="button" onClick={() => { setSelectedTeamIds((current) => current.includes(team.id) ? current : [...current, team.id]); setSelectedDivisionIds((current) => ({ ...current, [team.id]: getCompatibleDivisions(team)[0]?.id || '' })); setTeamQuery('') }} className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-slate-200 hover:bg-[#b4ff45]/10">
                     {team.name}
                     <span className="ml-2 text-xs text-slate-500">{team.athlonx_code || team.handle || ''}</span>
                   </button>
@@ -226,14 +225,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
               </div>
             )}
           </label>
-          <label className="text-sm font-semibold">
-            División
-            <select required value={divisionId} onChange={(event) => setDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3">
-              <option value="">Seleccionar división</option>
-              {compatibleDivisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}
-            </select>
-          </label>
-          <button type="submit" disabled={!teamId} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Agregar</button>
+          {selectedTeamIds.length > 0 && <div className="mt-4 space-y-2 sm:col-span-2">{selectedTeamIds.map((selectedId) => { const team = availableTeams.find((item) => item.id === selectedId); if (!team) return null; const options = getCompatibleDivisions(team); return <div key={selectedId} className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-3"><div className="flex items-center justify-between gap-3"><span className="font-semibold">{team.name}</span><button type="button" onClick={() => { setSelectedTeamIds((current) => current.filter((id) => id !== selectedId)); setSelectedDivisionIds((current) => { const next = { ...current }; delete next[selectedId]; return next }) }} className="cursor-pointer text-xs font-bold text-[#ff9ca5]">Quitar</button></div><StyledSelect label="División" value={selectedDivisionIds[selectedId] || ''} onChange={(value) => setSelectedDivisionIds((current) => ({ ...current, [selectedId]: value }))} options={[{ value: '', label: 'Seleccionar división' }, ...options.map((division) => ({ value: division.id, label: division.name }))]} required /></div> })}</div>}
+          <button type="submit" disabled={!selectedTeamIds.length || selectedTeamIds.some((selectedId) => !selectedDivisionIds[selectedId])} className="self-end rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Enviar invitación</button>
         </form>
       )}
 
@@ -242,8 +235,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
           <label className="text-sm font-semibold">Nombre del equipo<input required value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="Equipo invitado" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
           <label className="text-sm font-semibold">Teléfono<input value={teamPhone} onChange={(event) => setTeamPhone(event.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
           <label className="text-sm font-semibold">Imagen del equipo<input type="url" value={teamLogo} onChange={(event) => setTeamLogo(event.target.value)} placeholder="URL de imagen opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
-          <label className="text-sm font-semibold">División<select required value={divisionId} onChange={(event) => setDivisionId(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3"><option value="">Seleccionar división</option>{divisions.map((division) => <option key={division.id} value={division.id}>{division.name}</option>)}</select></label>
-          <div className="flex items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-slate-400">Este equipo será temporal y no aparecerá como equipo oficial.</p><button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e]">Crear equipo temporal</button></div>
+          <StyledSelect label="División" value={divisionId} onChange={setDivisionId} options={[{ value: '', label: 'Seleccionar división' }, ...divisions.map((division) => ({ value: division.id, label: division.name }))]} required />
+          <div className="flex items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-slate-400">Este equipo será temporal y no aparecerá como equipo oficial.</p><button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e]">Añadir equipo no registrado</button></div>
         </form>
       )}
 
@@ -285,13 +278,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
                         <form onSubmit={submitNewPlayer} className="mt-4 grid gap-3 sm:grid-cols-3">
                           <label className="text-sm font-semibold sm:col-span-3">Nombre completo<input required value={playerName} onChange={(event) => setPlayerName(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
                           <label className="text-sm font-semibold">Número<input type="number" min="0" max="99" value={playerNumber} onChange={(event) => setPlayerNumber(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
-                          <label className="text-sm font-semibold sm:col-span-2">
-                            Posición
-                            <select required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3">
-                              <option value="">Seleccionar posición</option>
-                              {positionOptions.map((position) => <option key={position} value={position}>{position}</option>)}
-                            </select>
-                          </label>
+                          <StyledSelect label="Posición" value={playerPosition} onChange={setPlayerPosition} options={[{ value: '', label: 'Seleccionar posición' }, ...positionOptions.map((position) => ({ value: position, label: position }))]} required className="sm:col-span-2" />
                           <button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] sm:col-span-3">Crear jugador temporal</button>
                         </form>
                       ) : (

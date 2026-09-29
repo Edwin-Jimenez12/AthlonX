@@ -20,6 +20,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { supabase } from "../../../../lib/supabase";
+import { StyledSelect } from "../../../../Components/styled-select";
 
 type Team = { id?: string; divisionId?: string; name: string; division: string; logo?: string | null };
 type FixtureMatch = {
@@ -1065,35 +1066,8 @@ function Players({
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <label className="font-semibold">
-          Fecha del fixture
-          <select
-            value={selectedFixtureId}
-            onChange={(event) => setSelectedFixtureId(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 font-normal"
-          >
-            {fixtureDates.map((fixtureDate) => (
-              <option key={fixtureDate.id} value={fixtureDate.id}>
-                Fecha {fixtureDate.date}
-                {fixtureDate.calendarDate ? ` · ${fixtureDate.calendarDate}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="font-semibold">
-          Equipo
-          <select
-            value={selectedTeamId}
-            onChange={(event) => setSelectedTeamId(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 font-normal"
-          >
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name} · {team.division}
-              </option>
-            ))}
-          </select>
-        </label>
+        <StyledSelect label="Fecha del fixture" value={selectedFixtureId} onChange={setSelectedFixtureId} options={fixtureDates.map((fixtureDate) => ({ value: fixtureDate.id, label: `Fecha ${fixtureDate.date}${fixtureDate.calendarDate ? ` · ${fixtureDate.calendarDate}` : ""}` }))} />
+        <StyledSelect label="Equipo" value={selectedTeamId} onChange={setSelectedTeamId} options={teams.map((team) => ({ value: team.id || '', label: `${team.name} · ${team.division}` }))} />
       </div>
 
       <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1250,21 +1224,7 @@ function Players({
             Agregar jugador
           </h3>
           <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr_140px_auto] lg:items-end">
-            <label className="font-semibold">
-              Jugador existente
-              <select
-                value={existingPlayerId}
-                onChange={(event) => setExistingPlayerId(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 font-normal"
-              >
-                <option value="">Crear jugador nuevo</option>
-                {teamPlayers.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <StyledSelect label="Jugador existente" value={existingPlayerId} onChange={setExistingPlayerId} options={[{ value: '', label: 'Crear jugador nuevo' }, ...teamPlayers.map((player) => ({ value: player.id, label: player.name }))]} />
             <label className="font-semibold">
               Nombre nuevo
               <input
@@ -1942,15 +1902,8 @@ function Matches({
             {indicatorType === "change" && (
               <div className="mt-3 space-y-2 rounded-lg border border-white/10 bg-[#0b1b29] p-3">
                 <p className="text-sm font-semibold">Selecciona el cambio</p>
-                <select value={player.id} disabled className="w-full rounded-lg border border-white/10 bg-[#142332] px-3 py-2 text-sm text-white disabled:opacity-80">
-                  <option value={player.id}>{player.name} sale</option>
-                </select>
-                <select value={changeInId} onChange={(event) => setChangeInId(event.target.value)} className="w-full rounded-lg border border-white/10 bg-[#142332] px-3 py-2 text-sm text-white">
-                  <option value="">Seleccionar suplente que entra</option>
-                  {rosterPlayers
-                    .filter((item) => item.teamId === player.teamId && item.isSubstitute && !changedInIds.has(item.id))
-                    .map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
+                <StyledSelect label="Jugador que sale" value={player.id} onChange={() => undefined} disabled options={[{ value: player.id, label: `${player.name} sale` }]} />
+                <StyledSelect label="Suplente que entra" value={changeInId} onChange={setChangeInId} options={[{ value: '', label: 'Seleccionar suplente que entra' }, ...rosterPlayers.filter((item) => item.teamId === player.teamId && item.isSubstitute && !changedInIds.has(item.id)).map((item) => ({ value: item.id, label: item.name }))]} />
                 <button
                   type="button"
                   disabled={busy || !changeInId}
@@ -2034,17 +1987,7 @@ function Matches({
         </div>
 
         <div className="mt-5 rounded-xl border border-white/10 bg-[#10283a] p-3">
-          <label className="block text-xs font-bold uppercase tracking-[.2em] text-slate-400" htmlFor="match-selector">Seleccionar partido</label>
-          <select
-            id="match-selector"
-            value={selectedMatchId}
-            onChange={(event) => setSelectedMatchId(event.target.value)}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-[#142332] px-3 py-3 text-sm text-white"
-          >
-            {matches.map((item, index) => (
-              <option key={item.id ?? index} value={item.id}>{`Fecha ${item.date}: ${item.local} vs. ${item.visitor} · ${timeLabel(item.time)}`}</option>
-            ))}
-          </select>
+          <StyledSelect label="Seleccionar partido" value={selectedMatchId} onChange={setSelectedMatchId} options={matches.map((item, index) => ({ value: item.id || String(index), label: `Fecha ${item.date}: ${item.local} vs. ${item.visitor} · ${timeLabel(item.time)}` }))} />
         </div>
 
         <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
@@ -2059,22 +2002,7 @@ function Matches({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-[.15em] text-slate-400">
-              Período
-              <select
-                value={period}
-                disabled={!canManage || isFinished || busy}
-                onChange={(event) =>
-                  void changePeriod(
-                    event.target.value as "first_half" | "second_half",
-                  )
-                }
-                className="mt-2 block rounded-lg border border-white/10 bg-[#142332] px-3 py-2 text-sm text-white disabled:opacity-60"
-              >
-                <option value="first_half">Primer tiempo</option>
-                <option value="second_half">Segundo tiempo</option>
-              </select>
-            </label>
+            <StyledSelect label="Período" value={period} disabled={!canManage || isFinished || busy} onChange={(value) => void changePeriod(value as "first_half" | "second_half")} options={[{ value: 'first_half', label: 'Primer tiempo' }, { value: 'second_half', label: 'Segundo tiempo' }]} />
             <p className="font-display text-5xl">{clock}</p>
             {canManage && running && (
               <div className="mt-3 flex flex-wrap justify-center gap-1">
@@ -2364,10 +2292,7 @@ function Scores({ teams, divisions, matches }: { teams: Team[]; divisions: strin
         <h1 className="font-display text-4xl uppercase sm:text-5xl">Puntajes</h1>
         <div className="mt-3 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <p className="text-slate-500">Consulta la clasificación, resultados recientes y líderes de la liga.</p>
-          <select className="rounded-xl border border-[#70b719] bg-white px-4 py-3 text-sm font-semibold text-[#243650] shadow-sm">
-            <option>Todas las fechas</option>
-            {Array.from(new Set(teams.map((team) => team.division))).map((division) => <option key={division}>{division}</option>)}
-          </select>
+          <StyledSelect label="Filtrar fechas" value="all" onChange={() => undefined} options={[{ value: 'all', label: 'Todas las fechas' }, ...Array.from(new Set(teams.map((team) => team.division))).map((division) => ({ value: division, label: division }))]} variant="light" />
         </div>
       </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
@@ -3008,26 +2933,9 @@ function Fixtures({
                     <span className="mb-1 block text-sm font-semibold">Fecha</span>
                     <input type="number" min="1" value={manualDate} onChange={(event) => setManualDate(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3" />
                   </label>
-                  <label>
-                    <span className="mb-1 block text-sm font-semibold">División</span>
-                    <select value={selectedDivision} onChange={(event) => setSelectedDivision(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3">
-                      {divisions.map((division) => <option key={division}>{division}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-sm font-semibold">Equipo local</span>
-                    <select value={manualLocal} onChange={(event) => setManualLocal(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3">
-                      <option value="">Seleccionar</option>
-                      {divisionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-sm font-semibold">Equipo visitante</span>
-                    <select value={manualVisitor} onChange={(event) => setManualVisitor(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3">
-                      <option value="">Seleccionar</option>
-                      {divisionTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
-                    </select>
-                  </label>
+                  <StyledSelect label="División" value={selectedDivision} onChange={setSelectedDivision} options={divisions.map((division) => ({ value: division, label: division }))} />
+                  <StyledSelect label="Equipo local" value={manualLocal} onChange={setManualLocal} options={[{ value: '', label: 'Seleccionar' }, ...divisionTeams.map((team) => ({ value: team.id || '', label: team.name }))]} />
+                  <StyledSelect label="Equipo visitante" value={manualVisitor} onChange={setManualVisitor} options={[{ value: '', label: 'Seleccionar' }, ...divisionTeams.map((team) => ({ value: team.id || '', label: team.name }))]} />
                   <label>
                     <span className="mb-1 block text-sm font-semibold">Horario</span>
                     <input type="time" value={manualTime} onChange={(event) => setManualTime(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3" />

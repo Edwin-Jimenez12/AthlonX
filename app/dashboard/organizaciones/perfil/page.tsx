@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Building2, Check, ExternalLink, Globe2, History, LockKeyhole, Save, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../../../lib/supabase'
+import { StyledSelect } from '../../../../Components/styled-select'
 
 type Organization = { id: string; name: string; type: string; country: string; province: string | null; city: string | null; phone: string | null; institutional_email: string | null; contact_email: string | null; contact_phone: string | null; website_url: string | null; social_links: Record<string, string> | null; logo_url: string | null; description: string | null; slug: string | null; handle: string | null; status: string; is_public: boolean; created_by: string | null }
 type Discipline = { id: string; name: string; code: string }
@@ -276,7 +277,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
 }
 
 function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: readonly (readonly [string, string])[] }) {
-  return <label className="block text-sm font-semibold text-slate-200">{label}<select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-4 py-3 text-white outline-none focus:border-[#b4ff45]">{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select></label>
+  return <StyledSelect label={label} value={value} onChange={onChange} options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))} />
 }
 
 function HistoryPanel({ history }: { history: HistoryEntry[] }) {

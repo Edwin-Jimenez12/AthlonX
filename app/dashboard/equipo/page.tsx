@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
 import { TeamRosterPanel } from '../../../Components/team-roster-panel'
+import { TeamDivisionSettings } from '../../../Components/team-division-settings'
 
 export default function TeamDashboard() {
   const [teams, setTeams] = useState<ManagedTeam[]>([])
@@ -55,6 +56,7 @@ export default function TeamDashboard() {
       <section className="mt-8 overflow-hidden rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8"><div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-5"><div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#b4ff45] font-display text-3xl text-[#07131e]">{initials}</div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Identidad deportiva</p><h3 className="mt-1 font-display text-4xl uppercase">{loading ? 'Cargando equipo' : name}</h3><p className="mt-2 text-slate-400">{team?.discipline || 'Disciplina pendiente'} <span className="mx-2 text-[#b4ff45]">•</span> {team?.city || 'Ubicación pendiente'}</p></div></div><span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#cfff91]"><span className="h-2 w-2 rounded-full bg-[#b4ff45]" />Perfil activo</span></div></section>
       <div className="mt-8 space-y-6">
         {team?.id && <TeamRosterPanel teamId={team.id} />}
+        {team?.id && <TeamDivisionSettings teamId={team.id} />}
       </div>
     </section>
   </main>

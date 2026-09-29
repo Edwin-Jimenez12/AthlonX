@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { PANAMA_CITIES } from '../../../lib/location-options'
 import { supabase } from '../../../lib/supabase'
+import { StyledSelect } from '../../../Components/styled-select'
 
 type ResultType = 'todos' | 'persona' | 'organizacion' | 'equipo' | 'torneo'
 type Officiality = 'todos' | 'oficiales' | 'no_oficiales'
@@ -22,6 +23,8 @@ type SearchResult = {
   is_official: boolean
   relevance: number
   can_edit?: boolean
+  division_id?: string | null
+  division_name?: string | null
 }
 type Affiliation = { role: string; role_label: string | null; organization_name: string | null; team_name: string | null }
 
@@ -110,8 +113,23 @@ export default function SearchPage() {
       setLoading(false)
       return
     }
-    const directoryResults = ([...(data ?? []), ...(rosterData ?? [])] as SearchResult[])
-      .sort((left, right) => left.relevance - right.relevance || left.display_name.localeCompare(right.display_name))
+    const { data: divisionData, error: divisionError } = resultType === 'todos' || resultType === 'equipo'
+      ? await supabase.rpc('search_public_team_divisions_filtered', {
+        p_query: normalizedQuery,
+        p_officiality: officiality,
+        p_discipline_code: discipline === 'all' ? null : discipline,
+        p_location: location.trim() || null,
+        p_limit: 40,
+      })
+      : { data: [], error: null }
+    if (divisionError && !divisionError.message.includes('search_public_team_divisions_filtered')) {
+      setError(divisionError.message)
+      setResults([])
+      setSearched(true)
+      return
+    }
+    const directoryResults = ([...(data ?? []), ...(rosterData ?? []), ...(divisionData ?? [])] as SearchResult[])
+      .sort((left, right) => left.relevance - right.relevance || (left.division_id ? 1 : 0) - (right.division_id ? 1 : 0) || left.display_name.localeCompare(right.display_name))
     const tournamentIds = directoryResults.filter((result) => result.result_type === 'torneo').map((result) => result.entity_id)
     const { data: userData } = await supabase.auth.getUser()
     const { data: ownedTournaments } = tournamentIds.length && userData.user
@@ -159,67 +177,9 @@ export default function SearchPage() {
             </button>
           </div>
 
-          <div className="mt-7">
-            <label
-              htmlFor="discipline"
-              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
-            >
-              Disciplina
-            </label>
-            <select
-              id="discipline"
-              value={discipline}
-              onChange={(event) => setDiscipline(event.target.value)}
-              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
-            >
-              <option value="all">Todas las disciplinas</option>
-              <option value="baloncesto">Basketball</option>
-              <option value="rugby">Rugby</option>
-            </select>
-          </div>
-
-          <div className="mt-5">
-            <label
-              htmlFor="location"
-              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
-            >
-              Ciudad
-            </label>
-            <select
-              id="location"
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
-            >
-              <option value="">Todas las ciudades</option>
-              {PANAMA_CITIES.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-5">
-            <label
-              htmlFor="officiality"
-              className="text-xs font-bold uppercase tracking-[.16em] text-slate-400"
-            >
-              Estado del registro
-            </label>
-            <select
-              id="officiality"
-              value={officiality}
-              onChange={(event) => setOfficiality(event.target.value as Officiality)}
-              className="mt-3 h-12 w-full cursor-pointer rounded-xl border border-[#29485d] bg-[#07131e] px-3 text-sm text-white outline-none focus:border-[#b4ff45]"
-            >
-              {officialityOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="mt-7"><StyledSelect label="Disciplina" value={discipline} onChange={setDiscipline} options={disciplines} /></div>
+          <div className="mt-5"><StyledSelect label="Ciudad" value={location} onChange={setLocation} options={[{ value: '', label: 'Todas las ciudades' }, ...PANAMA_CITIES.map((city) => ({ value: city, label: city }))]} /></div>
+          <div className="mt-5"><StyledSelect label="Estado del registro" value={officiality} onChange={(value) => setOfficiality(value as Officiality)} options={officialityOptions} /></div>
 
           <div className="mt-7">
             <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">
@@ -253,7 +213,9 @@ function SearchResultCard({ result }: { result: SearchResult }) {
   const entityHref = result.result_type === 'persona'
     ? `/dashboard/perfil/${result.entity_id}`
     : result.result_type === 'equipo'
-      ? `/dashboard/equipos/${result.entity_id}`
+      ? result.division_id
+        ? `/dashboard/equipos/${result.entity_id}?division=${encodeURIComponent(result.division_id)}`
+        : `/dashboard/equipos/${result.entity_id}`
     : result.result_type === 'organizacion'
       ? `/dashboard/organizaciones/${result.entity_id}`
       : result.result_type === 'torneo'
@@ -282,6 +244,11 @@ function SearchResultCard({ result }: { result: SearchResult }) {
           </span>
           {result.location && (
             <span className="text-xs text-slate-500">{result.location}</span>
+          )}
+          {result.result_type === 'equipo' && (
+            <span className="rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#cfff91]">
+              {result.division_name || 'Equipo general'}
+            </span>
           )}
         </div>
         <h4 className="mt-3 truncate font-heading text-3xl font-bold text-white">

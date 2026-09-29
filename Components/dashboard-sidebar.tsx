@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { BarChart3, Bell, Building2, CalendarDays, ClipboardCheck, ClipboardList, Globe2, Menu, Megaphone, MessageSquare, Search, Shield, Users } from 'lucide-react'
+import { Bell, Building2, CalendarDays, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
+import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
 
 type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean }
@@ -33,11 +34,7 @@ const trainerNavigation: NavigationItem[] = [
 const staffNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
-  { label: 'Mi panel', icon: Shield, href: '/dashboard/staff' },
   { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
-  { label: 'Asistencia', icon: ClipboardCheck, href: '/dashboard/staff#asistencia' },
-  { label: 'Comunicados', icon: MessageSquare, href: '/dashboard/staff#comunicados' },
-  { label: 'Reportes', icon: BarChart3, href: '/dashboard/staff#reportes' },
 ]
 
 const personNavigation: NavigationItem[] = [
@@ -71,25 +68,64 @@ export function DashboardSidebar() {
   const close = () => setOpen(false)
 
   useEffect(() => {
+    let active = true
+
     async function loadAccountType() {
       if (!supabase) return
       const { data } = await supabase.auth.getUser()
+      if (!active) return
       setAccountType(data.user?.user_metadata?.account_type ?? '')
       if (!data.user) return
       const metadataRoles = Array.isArray(data.user?.user_metadata?.roles) ? data.user.user_metadata.roles : []
-      const [{ data: storedRoles }, accountContexts] = await Promise.all([
+      const [{ data: storedRoles }, accountContexts, managedTeams] = await Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', data.user.id),
         loadAccountContexts(data.user.id),
+        loadManagedTeams(data.user.id),
       ])
       setIsTrainer(metadataRoles.includes('entrenador') || Boolean(storedRoles?.some(({ role }) => role === 'entrenador')))
       setIsStaff(metadataRoles.includes('staff') || Boolean(storedRoles?.some(({ role }) => role === 'staff')))
       const { data: admin } = await supabase.from('platform_update_admins').select('user_id').eq('user_id', data.user.id).maybeSingle()
+      if (!active) return
       setIsPlatformAdmin(Boolean(admin))
-      setContexts(accountContexts)
+      const fallbackContexts: AccountContext[] = managedTeams.map((team) => ({
+        id: `team:${team.id}:${team.role}`,
+        contextType: 'team',
+        teamId: team.id,
+        organizationId: null,
+        name: team.name,
+        discipline: team.discipline,
+        role: team.role === 'owner' ? 'directivo' : team.role as AccountContext['role'],
+        roleLabel: null,
+      }))
+      const contextsByKey = new Map<string, AccountContext>()
+      for (const context of [...accountContexts, ...fallbackContexts]) {
+        const key = `${context.contextType}:${context.teamId ?? context.organizationId ?? context.role}`
+        if (!contextsByKey.has(key)) contextsByKey.set(key, context)
+      }
+      const availableContexts = [...contextsByKey.values()]
+      setContexts(availableContexts)
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
-      setActiveContextId(accountContexts.find((context) => context.id === storedContextId)?.id ?? accountContexts[0]?.id ?? '')
+      const storedContext = availableContexts.find((context) => context.id === storedContextId)
+      const accountType = data.user.user_metadata?.account_type
+      const storedContextMatchesAccount = accountType === 'equipo'
+        ? storedContext?.contextType === 'team'
+        : accountType === 'organizacion'
+          ? storedContext?.contextType === 'organization'
+          : Boolean(storedContext)
+      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : null
+      const selectedContext = (storedContextMatchesAccount ? storedContext : null)
+        ?? (preferredContextType ? availableContexts.find((context) => context.contextType === preferredContextType) : null)
+        ?? availableContexts[0]
+      setActiveContextId(selectedContext?.id ?? '')
     }
     void loadAccountType()
+
+    const refreshRoles = () => { void loadAccountType() }
+    window.addEventListener('athlonx-roles-updated', refreshRoles)
+    return () => {
+      active = false
+      window.removeEventListener('athlonx-roles-updated', refreshRoles)
+    }
   }, [])
 
   useEffect(() => {
@@ -104,6 +140,12 @@ export function DashboardSidebar() {
   const activeContext = contexts.find((context) => context.id === activeContextId)
   let baseNavigation = personNavigation
   if (activeContext?.contextType === 'organization') {
+    baseNavigation = organizationNavigation
+  } else if (activeContext?.contextType === 'personal' && activeContext.role === 'entrenador') {
+    baseNavigation = trainerNavigation
+  } else if (activeContext?.contextType === 'personal' && activeContext.role === 'staff') {
+    baseNavigation = staffNavigation
+  } else if (activeContext?.contextType === 'personal' && activeContext.role === 'directivo') {
     baseNavigation = organizationNavigation
   } else if (activeContext?.contextType === 'team' && activeContext.role === 'entrenador') {
     baseNavigation = trainerNavigation

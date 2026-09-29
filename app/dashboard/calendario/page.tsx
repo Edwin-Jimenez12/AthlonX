@@ -20,6 +20,7 @@ import type { LucideIcon } from 'lucide-react'
 import { loadAccountContexts } from '../../../lib/account-contexts'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
+import { StyledSelect } from '../../../Components/styled-select'
 
 type EventType = 'training' | 'match' | 'game' | 'meeting' | 'other'
 type EventSourceType = 'team' | 'organization'
@@ -41,6 +42,8 @@ type CalendarEvent = {
   source_type: EventSourceType
   source_name: string
   source_id: string
+  division_id: string | null
+  division_name: string | null
   discipline_id: string | null
   discipline_name: string | null
   editable: boolean
@@ -91,7 +94,7 @@ const eventOptions: EventOption[] = [
 
 const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const calendarEventFields = 'id, created_by, event_type, title, description, location, starts_at, ends_at, all_day, created_at, updated_at'
-const teamCalendarEventSelect = `team_id, ${calendarEventFields}`
+const teamCalendarEventSelect = `team_id, division_id, ${calendarEventFields}`
 const organizationCalendarEventSelect = `organization_id, ${calendarEventFields}`
 
 function startOfDay(date: Date) {
@@ -181,6 +184,7 @@ export default function TeamCalendarPage() {
   const [teams, setTeams] = useState<ManagedTeam[]>([])
   const [organizations, setOrganizations] = useState<OrganizationSource[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
+  const [teamDivisions, setTeamDivisions] = useState<Array<{ id: string; team_id: string; name: string; athlonx_code: string | null }>>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState('all')
   const [selectedOrganizationId, setSelectedOrganizationId] = useState('')
@@ -218,7 +222,7 @@ export default function TeamCalendarPage() {
     const teamIds = managedTeams.map((team) => team.id)
     const organizationContexts = accountContexts.filter((context) => context.contextType === 'organization' && context.organizationId)
     const organizationIds = Array.from(new Set(organizationContexts.map((context) => context.organizationId as string)))
-    const [teamEventsResult, organizationEventsResult, disciplinesResult, tournamentsResult, tournamentTeamsResult] = await Promise.all([
+    const [teamEventsResult, organizationEventsResult, disciplinesResult, tournamentsResult, tournamentTeamsResult, divisionsResult] = await Promise.all([
       teamIds.length
         ? supabase.from('team_calendar_events').select(teamCalendarEventSelect).in('team_id', teamIds).order('starts_at', { ascending: true })
         : Promise.resolve({ data: [], error: null }),
@@ -230,6 +234,9 @@ export default function TeamCalendarPage() {
       teamIds.length
         ? supabase.from('tournament_teams').select('tournament_id, team_id').in('team_id', teamIds)
         : Promise.resolve({ data: [], error: null }),
+      teamIds.length
+        ? supabase.from('team_division_catalog').select('id, team_id, name, athlonx_code').in('team_id', teamIds).order('name')
+        : Promise.resolve({ data: [], error: null }),
     ])
 
     if (teamEventsResult.error) {
@@ -239,6 +246,7 @@ export default function TeamCalendarPage() {
     }
 
     const teamById = new Map(managedTeams.map((team) => [team.id, team]))
+    const divisionById = new Map((divisionsResult.data ?? []).map((division) => [division.id, division]))
     const organizationById = new Map<string, OrganizationSource>()
     organizationContexts.forEach((context) => {
       if (!context.organizationId) return
@@ -260,6 +268,8 @@ export default function TeamCalendarPage() {
         source_type: 'team' as const,
         source_name: team?.name || 'Equipo',
         source_id: event.team_id,
+        division_id: event.division_id || null,
+        division_name: event.division_id ? divisionById.get(event.division_id)?.name || null : null,
         discipline_id: team?.disciplineId || null,
         discipline_name: team?.discipline || null,
         editable: Boolean(team && ['owner', 'directivo', 'entrenador', 'staff'].includes(team.role)),
@@ -274,6 +284,8 @@ export default function TeamCalendarPage() {
         source_type: 'organization' as const,
         source_name: organization?.name || 'Organización',
         source_id: event.organization_id,
+        division_id: null,
+        division_name: null,
         discipline_name: discipline?.name || null,
         editable: Boolean(organization?.canManage),
       }
@@ -310,6 +322,8 @@ export default function TeamCalendarPage() {
           source_type: sourceType,
           source_name: organization?.name || team?.name || 'Torneo',
           source_id: sourceId,
+          division_id: null,
+          division_name: null,
           discipline_id: tournament.discipline_id || null,
           discipline_name: discipline?.name || null,
           editable: false,
@@ -319,6 +333,7 @@ export default function TeamCalendarPage() {
     setTeams(managedTeams)
     setOrganizations(Array.from(organizationById.values()).sort((left, right) => left.name.localeCompare(right.name)))
     setDisciplines(disciplineRows)
+    setTeamDivisions((divisionsResult.data ?? []) as Array<{ id: string; team_id: string; name: string; athlonx_code: string | null }>)
     const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
     const activeContext = accountContexts.find((context) => context.id === storedContextId && context.contextType !== 'personal')
       || accountContexts.find((context) => context.contextType !== 'personal')
@@ -421,6 +436,7 @@ export default function TeamCalendarPage() {
     const endsAt = String(formData.get('ends_at') || '')
     const description = String(formData.get('description') || '').trim()
     const location = String(formData.get('location') || '').trim()
+    const divisionId = String(formData.get('division_id') || '')
     const allDay = formData.get('all_day') === 'on'
 
     if (!title || !startsAt || !endsAt) {
@@ -469,6 +485,7 @@ export default function TeamCalendarPage() {
         }
       : {
           team_id: source.id,
+           division_id: divisionId || null,
           created_by: userData.user.id,
           event_type: eventType,
           title,
@@ -478,11 +495,10 @@ export default function TeamCalendarPage() {
           ends_at: new Date(endsAt).toISOString(),
           all_day: allDay,
         }
-    const { data: createdEvent, error: createError } = await supabase
-      .from(isOrganizationEvent ? 'organization_calendar_events' : 'team_calendar_events')
-      .insert(insertPayload as never)
-      .select(isOrganizationEvent ? organizationCalendarEventSelect : teamCalendarEventSelect)
-      .single()
+    const createdEventResult = isOrganizationEvent
+      ? await supabase.from('organization_calendar_events').insert(insertPayload as never).select(organizationCalendarEventSelect).single()
+      : await supabase.from('team_calendar_events').insert(insertPayload as never).select(teamCalendarEventSelect).single()
+    const { data: createdEvent, error: createError } = createdEventResult
 
     if (createError || !createdEvent) {
       setSaving(false)
@@ -495,6 +511,8 @@ export default function TeamCalendarPage() {
       source_type: isOrganizationEvent ? 'organization' as const : 'team' as const,
       source_name: sourceName || 'Entidad',
       source_id: source.id,
+      division_id: isOrganizationEvent ? null : divisionId || null,
+      division_name: isOrganizationEvent ? null : teamDivisions.find((division) => division.id === divisionId)?.name || null,
       discipline_id: isOrganizationEvent ? disciplineId || null : sourceDisciplineId,
       discipline_name: isOrganizationEvent ? selectedDiscipline?.name || null : sourceDisciplineName,
       editable: true,
@@ -521,15 +539,10 @@ export default function TeamCalendarPage() {
     setError('')
     setSuccess('')
 
-    const tableName = currentEvent.source_type === 'organization'
-      ? 'organization_calendar_events'
-      : 'team_calendar_events'
-    const { data: updatedEvent, error: updateError } = await supabase
-      .from(tableName)
-      .update(input)
-      .eq('id', eventId)
-      .select(currentEvent.source_type === 'organization' ? organizationCalendarEventSelect : teamCalendarEventSelect)
-      .single()
+    const updatedEventResult = currentEvent.source_type === 'organization'
+      ? await supabase.from('organization_calendar_events').update(input).eq('id', eventId).select(organizationCalendarEventSelect).single()
+      : await supabase.from('team_calendar_events').update(input).eq('id', eventId).select(teamCalendarEventSelect).single()
+    const { data: updatedEvent, error: updateError } = updatedEventResult
 
     if (updateError || !updatedEvent) {
       setError(updateError?.message || 'No se pudo actualizar la actividad.')
@@ -612,27 +625,7 @@ export default function TeamCalendarPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {(teams.length > 0 || organizations.length > 0) && (
-              <label className="flex items-center gap-3 rounded-xl border border-[#31556b] bg-[#0b1d2c] px-4 py-3 text-sm font-semibold text-slate-200">
-                <Users size={18} className="text-[#b4ff45]" />
-                <span className="sr-only">Origen del calendario</span>
-                <select
-                  value={sourceFilter}
-                  onChange={(event) => handleSourceChange(event.target.value)}
-                  className="cursor-pointer bg-transparent outline-none"
-                >
-                  <option value="all" className="bg-[#0b1d2c]">Todas mis entidades</option>
-                  {teams.map((team) => (
-                    <option key={`team:${team.id}`} value={`team:${team.id}`} className="bg-[#0b1d2c]">
-                      {team.name}
-                    </option>
-                  ))}
-                  {organizations.map((organization) => (
-                    <option key={`organization:${organization.id}`} value={`organization:${organization.id}`} className="bg-[#0b1d2c]">
-                      {organization.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="flex min-w-64 items-center gap-3"><Users size={18} className="text-[#b4ff45]" /><StyledSelect label="Origen del calendario" value={sourceFilter} onChange={handleSourceChange} options={[{ value: 'all', label: 'Todas mis entidades' }, ...teams.map((team) => ({ value: `team:${team.id}`, label: team.name })), ...organizations.map((organization) => ({ value: `organization:${organization.id}`, label: organization.name }))]} /></div>
             )}
             {canManageSelectedSource && (
               <button
@@ -652,20 +645,8 @@ export default function TeamCalendarPage() {
         </header>
 
         <div className="mt-6 flex flex-wrap gap-3 rounded-2xl border border-[#29485d] bg-[#0b1d2c] p-4">
-          <label className="flex min-w-[190px] flex-1 flex-col gap-2 text-xs font-bold uppercase tracking-[.12em] text-slate-500">
-            Disciplina
-            <select value={disciplineFilter} onChange={(event) => setDisciplineFilter(event.target.value)} className="h-11 cursor-pointer rounded-lg border border-[#31556b] bg-[#07131e] px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none focus:border-[#b4ff45]">
-              <option value="all" className="bg-[#0b1d2c]">Todas las disciplinas</option>
-              {disciplines.map((discipline) => <option key={discipline.id} value={discipline.id} className="bg-[#0b1d2c]">{discipline.name}</option>)}
-            </select>
-          </label>
-          <label className="flex min-w-[190px] flex-1 flex-col gap-2 text-xs font-bold uppercase tracking-[.12em] text-slate-500">
-            Tipo de actividad
-            <select value={eventTypeFilter} onChange={(event) => setEventTypeFilter(event.target.value as EventType | 'all')} className="h-11 cursor-pointer rounded-lg border border-[#31556b] bg-[#07131e] px-3 text-sm font-semibold normal-case tracking-normal text-white outline-none focus:border-[#b4ff45]">
-              <option value="all" className="bg-[#0b1d2c]">Todas las actividades</option>
-              {eventOptions.map((option) => <option key={option.value} value={option.value} className="bg-[#0b1d2c]">{option.label}</option>)}
-            </select>
-          </label>
+          <StyledSelect label="Disciplina" value={disciplineFilter} onChange={setDisciplineFilter} options={[{ value: 'all', label: 'Todas las disciplinas' }, ...disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))]} className="min-w-[190px] flex-1" />
+          <StyledSelect label="Tipo de actividad" value={eventTypeFilter} onChange={(value) => setEventTypeFilter(value as EventType | 'all')} options={[{ value: 'all', label: 'Todas las actividades' }, ...eventOptions.map((option) => ({ value: option.value, label: option.label }))]} className="min-w-[190px] flex-1" />
         </div>
 
         {error && (
@@ -680,7 +661,7 @@ export default function TeamCalendarPage() {
         )}
 
         {showComposer && canManageSelectedSource && (
-          <EventComposer sourceName={calendarScope.name} disciplines={disciplines} saving={saving} onSubmit={createEvent} onCancel={() => setShowComposer(false)} />
+           <EventComposer sourceName={calendarScope.name} disciplines={disciplines} divisions={calendarScope.type === 'team' ? teamDivisions.filter((division) => division.team_id === calendarScope.id) : []} saving={saving} onSubmit={createEvent} onCancel={() => setShowComposer(false)} />
         )}
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -824,9 +805,9 @@ export default function TeamCalendarPage() {
                         <span className="block truncate font-bold text-white">{event.title}</span>
                         <span className="mt-1 block text-xs capitalize text-slate-400">{formatEventDate(event)}</span>
                         <span className="mt-1 flex items-center gap-1 text-xs text-[#b4ff45]"><Clock3 size={13} />{formatTimeRange(event)}</span>
-                        <span className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                         <span className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
                           <span className={`h-1.5 w-1.5 rounded-full ${eventIndicator(event).dotClass}`} />
-                          {event.source_name}
+                           {event.source_name}{event.division_name ? ` · ${event.division_name}` : ''}
                         </span>
                       </span>
                     </div>
@@ -883,9 +864,12 @@ function CalendarLegend() {
   )
 }
 
-function EventComposer({ sourceName, disciplines, saving, onSubmit, onCancel }: { sourceName: string; disciplines: Discipline[]; saving: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void }) {
+function EventComposer({ sourceName, disciplines, divisions, saving, onSubmit, onCancel }: { sourceName: string; disciplines: Discipline[]; divisions: Array<{ id: string; name: string; athlonx_code: string | null }>; saving: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void }) {
   const defaultStart = toDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
   const defaultEnd = toDateTimeInputValue(new Date(Date.now() + 2 * 60 * 60 * 1000))
+  const [eventType, setEventType] = useState<EventType>('training')
+  const [disciplineId, setDisciplineId] = useState('')
+  const [divisionId, setDivisionId] = useState('')
 
   return (
     <section className="mt-8 rounded-3xl border border-[#b4ff45]/40 bg-[#0d2730] p-6 sm:p-8">
@@ -907,20 +891,11 @@ function EventComposer({ sourceName, disciplines, saving, onSubmit, onCancel }: 
           <input name="title" required maxLength={160} placeholder="Entrenamiento general" className="mt-2 h-12 w-full rounded-xl border border-[#31556b] bg-[#071d2c] px-4 text-white outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" />
         </label>
 
-        <label className="block text-sm font-semibold">
-          Tipo de actividad
-          <select name="event_type" defaultValue="training" className="mt-2 h-12 w-full cursor-pointer rounded-xl border border-[#31556b] bg-[#071d2c] px-4 text-white outline-none focus:border-[#b4ff45]">
-            {eventOptions.map((option) => <option key={option.value} value={option.value} className="bg-[#0b1d2c]">{option.label}</option>)}
-          </select>
-        </label>
+        <StyledSelect label="Tipo de actividad" name="event_type" value={eventType} onChange={(value) => setEventType(value as EventType)} options={eventOptions.map((option) => ({ value: option.value, label: option.label }))} required />
 
-        <label className="block text-sm font-semibold">
-          Disciplina
-          <select name="discipline_id" defaultValue="" className="mt-2 h-12 w-full cursor-pointer rounded-xl border border-[#31556b] bg-[#071d2c] px-4 text-white outline-none focus:border-[#b4ff45]">
-            <option value="" className="bg-[#0b1d2c]">General</option>
-            {disciplines.map((discipline) => <option key={discipline.id} value={discipline.id} className="bg-[#0b1d2c]">{discipline.name}</option>)}
-          </select>
-        </label>
+        <StyledSelect label="Disciplina" name="discipline_id" value={disciplineId} onChange={setDisciplineId} options={[{ value: '', label: 'General' }, ...disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))]} />
+
+        {divisions.length > 0 && <StyledSelect label="División del equipo" name="division_id" value={divisionId} onChange={setDivisionId} options={[{ value: '', label: 'Actividad general' }, ...divisions.map((division) => ({ value: division.id, label: `${division.name} · ${division.athlonx_code || 'Código pendiente'}` }))]} />}
 
         <label className="block text-sm font-semibold">
           Lugar
@@ -1035,12 +1010,7 @@ function EventDetails({
             Título
             <input value={title} onChange={(formEvent) => setTitle(formEvent.target.value)} required maxLength={160} className="mt-2 h-11 w-full rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-white outline-none focus:border-[#b4ff45]" />
           </label>
-          <label className="block text-sm font-semibold">
-            Tipo de actividad
-            <select value={eventType} onChange={(formEvent) => setEventType(formEvent.target.value as EventType)} className="mt-2 h-11 w-full cursor-pointer rounded-lg border border-[#31556b] bg-[#071d2c] px-3 text-white outline-none focus:border-[#b4ff45]">
-              {eventOptions.map((item) => <option key={item.value} value={item.value} className="bg-[#0b1d2c]">{item.label}</option>)}
-            </select>
-          </label>
+          <StyledSelect label="Tipo de actividad" value={eventType} onChange={(value) => setEventType(value as EventType)} options={eventOptions.map((item) => ({ value: item.value, label: item.label }))} />
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-semibold">
               Inicio
@@ -1096,6 +1066,7 @@ function EventDetails({
           <span className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${eventIndicator(event).dotClass}`} />
             {event.source_name}
+           {event.division_name ? ` · ${event.division_name}` : ''}
           </span>
         </p>
         {event.location && <p className="flex items-start gap-3"><MapPin size={17} className="mt-0.5 shrink-0 text-[#b4ff45]" /><span>{event.location}</span></p>}

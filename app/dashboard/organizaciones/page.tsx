@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { OrganizationDirectPeoplePanel } from '../../../Components/organization-direct-people-panel'
 import { OrganizationHierarchyPanel } from '../../../Components/organization-hierarchy-panel'
 import { supabase } from '../../../lib/supabase'
+import { StyledSelect } from '../../../Components/styled-select'
 
 type Organization = { id: string; name: string; type: string; created_by: string | null }
 
@@ -60,7 +61,7 @@ export default function OrganizationsPage() {
   return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10">
     <div className="mx-auto max-w-6xl space-y-6">
       <header><p className="font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Estructura institucional</p><h1 className="mt-2 font-heading text-5xl font-black uppercase">Organización</h1><p className="mt-2 max-w-3xl text-slate-400">Administra la jerarquía, las afiliaciones directas y las organizaciones que forman parte de tu autoridad institucional.</p></header>
-      {organizations.length > 1 && <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-5"><label className="block text-sm font-bold text-white">Organización activa<select value={organizationId || ''} onChange={(event) => setActiveOrganizationId(event.target.value)} className="mt-2 w-full cursor-pointer rounded-[5px] border border-[#31556b] bg-[#07131e] px-4 py-3 text-white"><option value="">Seleccionar organización</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select></label></section>}
+      {organizations.length > 1 && <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-5"><StyledSelect label="Organización activa" value={organizationId || ''} onChange={setActiveOrganizationId} options={[{ value: '', label: 'Seleccionar organización' }, ...organizations.map((organization) => ({ value: organization.id, label: organization.name }))]} /></section>}
       {message && <p role="alert" className="rounded-[5px] border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{message}</p>}
       {!message && !organizationId && <section className="rounded-[10px] border border-dashed border-[#31556b] bg-[#0b1d2c] p-8 text-slate-400">No hay una organización disponible para administrar.</section>}
       {organizationId && <div className="grid items-start gap-6 xl:grid-cols-[1.35fr_.85fr]">
