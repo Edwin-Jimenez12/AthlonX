@@ -52,9 +52,12 @@ create table if not exists public.tournament_team_invitations (
   status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'cancelled')),
   message text,
   created_at timestamptz not null default now(),
-  responded_at timestamptz,
-  unique (tournament_id, team_id)
+  responded_at timestamptz
 );
+
+create unique index if not exists tournament_team_invitations_tournament_division_team_key
+  on public.tournament_team_invitations (tournament_id, division_id, team_id)
+  where status = 'pending';
 
 alter table public.tournament_team_invitations enable row level security;
 

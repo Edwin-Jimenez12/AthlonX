@@ -100,9 +100,10 @@ begin
     raise exception 'La respuesta de la invitacion no es valida';
   end if;
 
-  select * into invitation
-  from public.tournament_team_invitations
-  where id = p_invitation_id
+  select invitation_row.*
+  into invitation
+  from public.tournament_team_invitations as invitation_row
+  where invitation_row.id = p_invitation_id
   for update;
 
   if invitation.id is null then
@@ -124,9 +125,10 @@ begin
     raise exception 'Esta invitacion ya fue respondida';
   end if;
 
-  select status into tournament_status
-  from public.tournaments
-  where id = invitation.tournament_id;
+  select tournament_row.status
+  into tournament_status
+  from public.tournaments as tournament_row
+  where tournament_row.id = invitation.tournament_id;
 
   if p_decision = 'accepted' then
     if tournament_status not in ('published', 'in_progress') then
@@ -135,20 +137,22 @@ begin
 
     insert into public.tournament_teams (tournament_id, division_id, team_id)
     values (invitation.tournament_id, invitation.division_id, invitation.team_id)
-    on conflict (tournament_id, division_id, team_id) do nothing;
+    on conflict do nothing;
   end if;
 
-  update public.tournament_team_invitations
+  update public.tournament_team_invitations as invitation_row
   set status = p_decision,
       responded_at = now()
-  where id = invitation.id;
+  where invitation_row.id = invitation.id;
 
-  update public.user_notifications
+  update public.user_notifications as notification_row
   set read_at = now()
-  where tournament_team_invitation_id = invitation.id
-    and recipient_user_id = auth.uid();
+  where notification_row.tournament_team_invitation_id = invitation.id
+    and notification_row.recipient_user_id = auth.uid();
 
-  return query select invitation.tournament_id, p_decision;
+  tournament_id := invitation.tournament_id;
+  invitation_status := p_decision;
+  return next;
 end;
 $$;
 

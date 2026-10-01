@@ -1,12 +1,9 @@
 {
-  "/dashboard/atleta/page": "app/dashboard/atleta/page.js",
   "/dashboard/busqueda/page": "app/dashboard/busqueda/page.js",
   "/dashboard/calendario/page": "app/dashboard/calendario/page.js",
-  "/dashboard/configuracion/page": "app/dashboard/configuracion/page.js",
-  "/dashboard/equipo/page": "app/dashboard/equipo/page.js",
-  "/dashboard/equipos/[id]/page": "app/dashboard/equipos/[id]/page.js",
   "/dashboard/eventos/page": "app/dashboard/eventos/page.js",
   "/dashboard/notificaciones/page": "app/dashboard/notificaciones/page.js",
-  "/dashboard/perfil/[id]/page": "app/dashboard/perfil/[id]/page.js",
+  "/dashboard/torneos/ver/[id]/page": "app/dashboard/torneos/ver/[id]/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
   "/page": "app/page.js"
 }

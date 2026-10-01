@@ -272,6 +272,15 @@ begin
     and (match.local_team_id = p_team_id or match.visitor_team_id = p_team_id);
   if not found then raise exception 'El partido no corresponde al equipo y torneo seleccionados'; end if;
   if match_division_id is distinct from p_division_id then raise exception 'La division no corresponde al partido'; end if;
+  if not exists (
+    select 1
+    from public.tournament_teams tournament_team
+    where tournament_team.tournament_id = p_tournament_id
+      and tournament_team.team_id = p_team_id
+      and tournament_team.division_id = p_division_id
+  ) then
+    raise exception 'El equipo no participa en esta division del torneo';
+  end if;
 
   select * into rule from public.tournament_callup_rules where tournament_id = p_tournament_id;
   if not found then
@@ -289,7 +298,13 @@ begin
   if p_submit and selected_count <> rule.max_players then raise exception 'Debes seleccionar exactamente % jugadores para enviar la convocatoria', rule.max_players; end if;
   if exists (
     select 1 from unnest(p_player_ids) selected_player
-    where not exists (select 1 from public.team_players team_player where team_player.team_id = p_team_id and team_player.player_id = selected_player)
+    where not exists (
+      select 1
+      from public.team_players team_player
+      where team_player.team_id = p_team_id
+        and team_player.player_id = selected_player
+        and team_player.division_id = p_division_id
+    )
   ) then raise exception 'Todos los jugadores deben pertenecer a la plantilla del equipo'; end if;
 
   insert into public.tournament_callups (

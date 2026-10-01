@@ -8,6 +8,21 @@ alter table public.team_user_memberships
 alter table public.affiliation_requests
   add column if not exists division_id uuid references public.team_division_catalog(id) on delete set null;
 
+-- El mismo usuario puede ejercer el mismo rol en varias divisiones del equipo.
+-- Los roles globales sin division conservan una sola membresia por equipo.
+alter table public.team_user_memberships
+  drop constraint if exists team_user_memberships_team_id_user_id_key;
+
+drop index if exists public.team_user_memberships_user_team_role_key;
+
+create unique index if not exists team_user_memberships_user_team_role_division_key
+  on public.team_user_memberships (team_id, user_id, role, division_id)
+  where division_id is not null;
+
+create unique index if not exists team_user_memberships_user_team_role_global_key
+  on public.team_user_memberships (team_id, user_id, role)
+  where division_id is null;
+
 create index if not exists team_user_memberships_team_division_idx
   on public.team_user_memberships (team_id, division_id)
   where role = 'atleta';
@@ -30,7 +45,7 @@ begin
     from public.team_user_memberships membership
     where membership.team_id = p_source_team_id
       and membership.user_id = auth.uid()
-      and membership.role in ('owner', 'directivo')
+      and membership.role in ('owner', 'directivo', 'entrenador')
       and membership.status = 'active'
   ) then
     raise exception 'No tienes permisos para administrar este equipo';
@@ -114,7 +129,7 @@ begin
     from public.team_user_memberships membership
     where membership.team_id = p_source_team_id
       and membership.user_id = auth.uid()
-      and membership.role in ('owner', 'directivo')
+      and membership.role in ('owner', 'directivo', 'entrenador')
       and membership.status = 'active'
   ) then
     raise exception 'No tienes permisos para administrar este equipo';
@@ -144,9 +159,10 @@ begin
     where membership.team_id = p_source_team_id
       and membership.user_id = p_target_user_id
       and membership.role = p_role
+      and membership.division_id is not distinct from p_division_id
       and membership.status = 'active'
   ) then
-    raise exception 'Esta persona ya tiene ese rol en el equipo';
+    raise exception 'Esta persona ya tiene ese rol en esta division';
   end if;
 
   if exists (
@@ -261,10 +277,25 @@ begin
       on conflict (organization_id, user_id, role)
       do update set role_label = excluded.role_label, status = 'active';
     elsif v_request.target_user_id is not null and v_request.source_team_id is not null then
-      insert into public.team_user_memberships (team_id, user_id, role, role_label, division_id, status)
-      values (v_request.source_team_id, v_request.target_user_id, v_request.role, v_request.role_label, v_request.division_id, 'active')
-      on conflict (team_id, user_id, role)
-      do update set role_label = excluded.role_label, division_id = excluded.division_id, status = 'active';
+      if exists (
+        select 1
+        from public.team_user_memberships membership
+        where membership.team_id = v_request.source_team_id
+          and membership.user_id = v_request.target_user_id
+          and membership.role = v_request.role
+          and membership.division_id is not distinct from v_request.division_id
+      ) then
+        update public.team_user_memberships
+        set role_label = v_request.role_label,
+            status = 'active'
+        where team_id = v_request.source_team_id
+          and user_id = v_request.target_user_id
+          and role = v_request.role
+          and division_id is not distinct from v_request.division_id;
+      else
+        insert into public.team_user_memberships (team_id, user_id, role, role_label, division_id, status)
+        values (v_request.source_team_id, v_request.target_user_id, v_request.role, v_request.role_label, v_request.division_id, 'active');
+      end if;
     elsif v_request.target_team_id is not null and v_request.source_organization_id is not null then
       update public.teams
       set organization_id = v_request.source_organization_id
@@ -297,6 +328,45 @@ begin
     and recipient_user_id = auth.uid();
 
   return v_request;
+end;
+$$;
+
+create or replace function public.remove_team_member_role_from_division(
+  p_team_id uuid,
+  p_user_id uuid,
+  p_role text,
+  p_division_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_role = 'owner' then
+    raise exception 'El propietario no se puede eliminar desde este panel';
+  end if;
+
+  if not exists (
+    select 1
+    from public.team_user_memberships manager
+    where manager.team_id = p_team_id
+      and manager.user_id = auth.uid()
+      and manager.role in ('owner', 'directivo')
+      and manager.status = 'active'
+  ) then
+    raise exception 'No tienes permisos para editar este equipo';
+  end if;
+
+  delete from public.team_user_memberships
+  where team_id = p_team_id
+    and user_id = p_user_id
+    and role = p_role
+    and division_id is not distinct from p_division_id;
+
+  if not found then
+    raise exception 'La membresia seleccionada no existe';
+  end if;
 end;
 $$;
 
@@ -338,7 +408,7 @@ as $$
       from public.team_user_memberships manager
       where manager.team_id = p_team_id
         and manager.user_id = auth.uid()
-        and manager.role in ('owner', 'directivo')
+        and manager.role in ('owner', 'directivo', 'entrenador')
         and manager.status = 'active'
     )
   order by profile.full_name, membership.role;
@@ -347,10 +417,12 @@ $$;
 revoke all on function public.create_team_division_player_invitation(uuid, uuid, uuid) from public;
 revoke all on function public.create_team_division_member_invitation(uuid, uuid, uuid, text, text) from public;
 revoke all on function public.remove_team_player_from_division(uuid, uuid) from public;
+revoke all on function public.remove_team_member_role_from_division(uuid, uuid, text, uuid) from public;
 revoke all on function public.respond_affiliation_request(uuid, text) from public;
 revoke all on function public.get_team_members_for_manager(uuid) from public;
 grant execute on function public.create_team_division_player_invitation(uuid, uuid, uuid) to authenticated;
 grant execute on function public.create_team_division_member_invitation(uuid, uuid, uuid, text, text) to authenticated;
 grant execute on function public.remove_team_player_from_division(uuid, uuid) to authenticated;
+grant execute on function public.remove_team_member_role_from_division(uuid, uuid, text, uuid) to authenticated;
 grant execute on function public.respond_affiliation_request(uuid, text) to authenticated;
 grant execute on function public.get_team_members_for_manager(uuid) to authenticated;

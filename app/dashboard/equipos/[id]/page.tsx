@@ -33,14 +33,20 @@ export default function PublicTeamPage() {
         setLoading(false)
         return
       }
-      const { data: response, error: teamError } = await supabase.rpc('get_public_team_profile', { p_team_id: params.id })
+      const [{ data: response, error: teamError }, { data: divisionResponse, error: divisionError }] = await Promise.all([
+        supabase.rpc('get_public_team_profile', { p_team_id: params.id }),
+        supabase.rpc('get_public_team_divisions', { p_team_id: params.id }),
+      ])
       if (teamError) {
         setError(teamError.message)
         setLoading(false)
         return
       }
       const payload = response as TeamPayload
-      setData(payload)
+      const divisions = divisionError
+        ? (payload.divisions ?? [])
+        : (Array.isArray(divisionResponse) ? divisionResponse as TeamDivision[] : [])
+      setData({ ...payload, divisions })
       if (!payload.team) setError('Este equipo no está disponible.')
       setLoading(false)
     }
@@ -73,7 +79,7 @@ export default function PublicTeamPage() {
         {team.description && <p className="mt-5 max-w-4xl text-sm leading-7 text-slate-300">{team.description}</p>}
       </section>
 
-       {!selectedDivision && divisions.length > 0 && (
+       {divisions.length > 0 && (
          <section className="rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8">
            <div className="flex flex-wrap items-start justify-between gap-3">
              <div>
@@ -81,11 +87,11 @@ export default function PublicTeamPage() {
                <h2 className="mt-2 font-display text-3xl uppercase">Divisiones del equipo</h2>
                <p className="mt-2 text-sm text-slate-400">Cada división tiene su código y su plantilla independiente.</p>
              </div>
-             <Link href={`/dashboard/equipos/${team.id}`} className="rounded-full border border-[#b4ff45]/40 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-[#dfffba]">Equipo general</Link>
+             <Link href={`/dashboard/equipos/${team.id}`} aria-current={!selectedDivision ? 'page' : undefined} className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition ${!selectedDivision ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#b4ff45]/40 text-[#dfffba] hover:bg-[#b4ff45]/10'}`}>Equipo general</Link>
            </div>
            <div className="mt-6 grid gap-3 sm:grid-cols-3">
              {divisions.map((division) => (
-               <Link key={division.id} href={`/dashboard/equipos/${team.id}?division=${encodeURIComponent(division.id)}`} className="rounded-2xl border border-[#29485d] bg-[#07131e] p-4 transition hover:border-[#b4ff45]/70">
+               <Link key={division.id} href={`/dashboard/equipos/${team.id}?division=${encodeURIComponent(division.id)}`} aria-current={selectedDivision?.id === division.id ? 'page' : undefined} className={`rounded-2xl border p-4 transition ${selectedDivision?.id === division.id ? 'border-[#b4ff45] bg-[#b4ff45]/10 shadow-[0_0_0_1px_rgba(180,255,69,.2)]' : 'border-[#29485d] bg-[#07131e] hover:border-[#b4ff45]/70'}`}>
                  <p className="font-bold text-white">{team.name}</p>
                  <p className="mt-1 text-sm text-[#cfff91]">{division.name}</p>
                  <p className="mt-3 font-mono text-xs text-slate-500">{division.athlonx_code || 'Código pendiente'}</p>
@@ -94,13 +100,6 @@ export default function PublicTeamPage() {
              ))}
            </div>
        </section>
-       )}
-
-       {selectedDivision && (
-         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-4 py-3 text-sm text-[#dfffba]">
-           <span>Mostrando únicamente la plantilla de <strong>{selectedDivision.name}</strong>.</span>
-           <Link href={`/dashboard/equipos/${team.id}`} className="font-bold underline underline-offset-4">Ver equipo general</Link>
-         </div>
        )}
 
        <div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">

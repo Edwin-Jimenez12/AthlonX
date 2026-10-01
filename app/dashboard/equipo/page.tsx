@@ -7,6 +7,7 @@ import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
 import { TeamRosterPanel } from '../../../Components/team-roster-panel'
 import { TeamDivisionSettings } from '../../../Components/team-division-settings'
+import { TeamCallupsPanel } from '../../../Components/team-callups-panel'
 
 export default function TeamDashboard() {
   const [teams, setTeams] = useState<ManagedTeam[]>([])
@@ -57,6 +58,7 @@ export default function TeamDashboard() {
       <div className="mt-8 space-y-6">
         {team?.id && <TeamRosterPanel teamId={team.id} />}
         {team?.id && <TeamDivisionSettings teamId={team.id} />}
+        {team?.id && <TeamCallupsPanel teamId={team.id} teamName={team.name} />}
       </div>
     </section>
   </main>

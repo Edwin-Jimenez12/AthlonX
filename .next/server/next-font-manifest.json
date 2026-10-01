@@ -1,11 +1,5 @@
 {
   "app": {
-    "[project]/app/dashboard/atleta/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
     "[project]/app/dashboard/busqueda/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
@@ -13,24 +7,6 @@
       "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
     ],
     "[project]/app/dashboard/calendario/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
-    "[project]/app/dashboard/configuracion/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
-    "[project]/app/dashboard/equipo/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
-    ],
-    "[project]/app/dashboard/equipos/[id]/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
@@ -48,7 +24,7 @@
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
       "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
     ],
-    "[project]/app/dashboard/perfil/[id]/page": [
+    "[project]/app/dashboard/torneos/ver/[id]/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",

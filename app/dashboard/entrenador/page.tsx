@@ -11,6 +11,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
+import { TeamDivisionSettings } from '../../../Components/team-division-settings'
+import { TeamCallupsPanel } from '../../../Components/team-callups-panel'
 
 export default function TrainerDashboard() {
   const [teams, setTeams] = useState<ManagedTeam[]>([])
@@ -102,6 +104,10 @@ function TrainerWorkspace({ team }: { team: ManagedTeam }) {
         </div>
       </section>
 
+      <TeamDivisionSettings teamId={team.id} canManageDivisions={false} canManageRoster />
+
+      <TeamCallupsPanel teamId={team.id} teamName={team.name} />
+
       <section className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
@@ -113,7 +119,6 @@ function TrainerWorkspace({ team }: { team: ManagedTeam }) {
         </div>
       </section>
 
-      <TrainerCallupsAccess teamId={team.id} />
     </div>
   )
 }
@@ -124,9 +129,40 @@ type TrainerTournament = {
   status: string
   start_date: string | null
   end_date: string | null
+  divisions: TrainerTournamentDivision[]
 }
 
-function TrainerCallupsAccess({ teamId }: { teamId: string }) {
+type TrainerTournamentDivision = {
+  id: string
+  name: string
+  matchdays: TrainerMatchday[]
+}
+
+type TrainerMatchday = {
+  id: string
+  dateNumber: number
+  calendarDate: string | null
+  scheduledTime: string | null
+  opponentName: string
+  status: string
+  deadlineAt: string | null
+}
+
+type TrainerCallup = { match_id: string; status: string; deadline_at: string }
+
+function formatTrainerDate(calendarDate: string | null, dateNumber: number) {
+  return calendarDate
+    ? new Intl.DateTimeFormat('es-PA', { day: 'numeric', month: 'short' }).format(new Date(`${calendarDate}T12:00:00`))
+    : `Fecha ${dateNumber}`
+}
+
+function trainerCallupStatus(callup: TrainerCallup | undefined, deadlineAt: string | null) {
+  if (!callup) return 'Pendiente'
+  if (callup.status !== 'reopened' && callup.status !== 'locked' && deadlineAt && new Date(deadlineAt).getTime() <= Date.now()) return 'Bloqueada'
+  return { pending: 'Pendiente', editing: 'En edición', submitted: 'Enviada', locked: 'Bloqueada', reopened: 'Reabierta' }[callup.status] || callup.status
+}
+
+function TrainerCallupsAccess({ teamId, teamName }: { teamId: string; teamName: string }) {
   const [tournaments, setTournaments] = useState<TrainerTournament[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -139,7 +175,7 @@ function TrainerCallupsAccess({ teamId }: { teamId: string }) {
 
       const { data: links } = await supabase
         .from('tournament_teams')
-        .select('tournament_id')
+        .select('tournament_id, division_id, tournament_divisions(name)')
         .eq('team_id', teamId)
 
       const tournamentIds = Array.from(new Set((links ?? []).map((link) => link.tournament_id)))
@@ -155,7 +191,52 @@ function TrainerCallupsAccess({ teamId }: { teamId: string }) {
         .neq('status', 'finished')
         .order('start_date', { ascending: true })
 
-      setTournaments((data ?? []) as TrainerTournament[])
+      const activeTournaments = (data ?? []) as Array<Omit<TrainerTournament, 'divisions'>>
+      const activeTournamentIds = activeTournaments.map((tournament) => tournament.id)
+      const { data: fixtures } = activeTournamentIds.length
+        ? await supabase.from('fixtures').select('id, tournament_id, date_number, calendar_date').in('tournament_id', activeTournamentIds).order('date_number')
+        : { data: [] }
+      const fixtureIds = (fixtures ?? []).map((fixture) => fixture.id)
+      const { data: matches } = fixtureIds.length
+        ? await supabase.from('matches').select('id, fixture_id, division_id, scheduled_time, local_team_id, visitor_team_id, local_team:teams!matches_local_team_id_fkey(name), visitor:teams!matches_visitor_team_id_fkey(name)').in('fixture_id', fixtureIds)
+        : { data: [] }
+      const { data: callups } = activeTournamentIds.length
+        ? await supabase.from('tournament_callups').select('match_id, status, deadline_at').eq('team_id', teamId).in('tournament_id', activeTournamentIds)
+        : { data: [] }
+      const fixtureById = new Map((fixtures ?? []).map((fixture) => [fixture.id, fixture]))
+      const callupByMatchId = new Map(((callups ?? []) as TrainerCallup[]).map((callup) => [callup.match_id, callup]))
+      const tournamentById = new Map(activeTournaments.map((tournament) => [tournament.id, { ...tournament, divisions: [] as TrainerTournamentDivision[] }]))
+
+      for (const link of (links ?? []) as Array<{ tournament_id: string; division_id: string; tournament_divisions: { name: string } | Array<{ name: string }> | null }>) {
+        const tournament = tournamentById.get(link.tournament_id)
+        if (!tournament) continue
+        const linkedDivision = Array.isArray(link.tournament_divisions) ? link.tournament_divisions[0] : link.tournament_divisions
+        const divisionMatches = (matches ?? []).filter((match) => {
+          const fixture = fixtureById.get(match.fixture_id)
+          return fixture?.tournament_id === link.tournament_id && match.division_id === link.division_id && (match.local_team_id === teamId || match.visitor_team_id === teamId)
+        })
+        const matchdays = divisionMatches
+          .map((match) => {
+            const fixture = fixtureById.get(match.fixture_id)
+            const opponent = match.local_team_id === teamId ? match.visitor : match.local
+            const callup = callupByMatchId.get(match.id)
+            return {
+              id: match.id,
+              dateNumber: fixture?.date_number ?? 0,
+              calendarDate: fixture?.calendar_date ?? null,
+              scheduledTime: match.scheduled_time,
+              opponentName: opponent?.name || 'Rival pendiente',
+              status: trainerCallupStatus(callup, callup?.deadline_at || null),
+              deadlineAt: callup?.deadline_at || null,
+            }
+          })
+          .sort((a, b) => a.dateNumber - b.dateNumber || (a.calendarDate || '').localeCompare(b.calendarDate || ''))
+        const division = tournament.divisions.find((item) => item.id === link.division_id)
+        if (division) division.matchdays = matchdays
+        else tournament.divisions.push({ id: link.division_id, name: linkedDivision?.name || 'División', matchdays })
+      }
+
+      setTournaments(Array.from(tournamentById.values()))
       setLoading(false)
     }
 
@@ -178,19 +259,41 @@ function TrainerCallupsAccess({ teamId }: { teamId: string }) {
       {loading ? (
         <p className="mt-5 text-sm text-slate-400">Cargando competencias...</p>
       ) : tournaments.length ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 space-y-5">
           {tournaments.map((tournament) => (
-            <Link
-              key={tournament.id}
-              href={`/dashboard/torneos/ver/${tournament.id}?tab=convocatorias`}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-[#31556b] bg-[#07131e] p-4 transition hover:border-[#b4ff45]"
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-bold text-white">{tournament.name}</span>
-                <span className="mt-1 block text-xs uppercase tracking-wider text-slate-500">{tournament.status}</span>
-              </span>
-              <ArrowUpRight className="shrink-0 text-[#b4ff45]" size={18} />
-            </Link>
+            <article key={tournament.id} className="rounded-2xl border border-[#31556b] bg-[#07131e] p-4 sm:p-5">
+              <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center">
+                <div>
+                  <h4 className="font-bold text-white">{tournament.name}</h4>
+                  <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">{tournament.status} · {teamName}</p>
+                </div>
+                <Link href={`/dashboard/torneos/ver/${tournament.id}?tab=convocatorias`} className="inline-flex items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">
+                  Ver competencia <ArrowUpRight size={16} />
+                </Link>
+              </div>
+              <div className="mt-4 space-y-4">
+                {tournament.divisions.map((division) => (
+                  <div key={division.id}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-[#dfffba]">{division.name}</p>
+                      <span className="text-xs text-slate-500">{division.matchdays.length} {division.matchdays.length === 1 ? 'jornada' : 'jornadas'}</span>
+                    </div>
+                    {division.matchdays.length ? <div className="mt-2 grid gap-2 lg:grid-cols-2">{division.matchdays.map((matchday) => (
+                      <Link key={matchday.id} href={`/dashboard/torneos/ver/${tournament.id}?tab=convocatorias&matchId=${matchday.id}&teamId=${teamId}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#29485d] p-3 transition hover:border-[#b4ff45]">
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-white">Jornada {matchday.dateNumber} · {formatTrainerDate(matchday.calendarDate, matchday.dateNumber)}</span>
+                          <span className="mt-1 block truncate text-xs text-slate-400">Rival: {matchday.opponentName}{matchday.scheduledTime ? ` · ${matchday.scheduledTime.slice(0, 5)}` : ''}</span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${matchday.status === 'Bloqueada' ? 'bg-red-400/10 text-red-200' : matchday.status === 'Enviada' ? 'bg-[#b4ff45]/10 text-[#dfffba]' : 'bg-white/5 text-slate-300'}`}>{matchday.status}</span>
+                          <ArrowUpRight className="text-[#b4ff45]" size={16} />
+                        </span>
+                      </Link>
+                    ))}</div> : <p className="mt-2 rounded-xl border border-dashed border-[#31556b] p-3 text-xs text-slate-500">El organizador todavía no genera partidos para esta división.</p>}
+                  </div>
+                ))}
+              </div>
+            </article>
           ))}
         </div>
       ) : (
