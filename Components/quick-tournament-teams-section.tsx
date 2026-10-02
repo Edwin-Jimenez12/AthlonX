@@ -92,6 +92,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
   const [playerName, setPlayerName] = useState('')
   const [playerNumber, setPlayerNumber] = useState('')
   const [playerPosition, setPlayerPosition] = useState('')
+  const [pendingPlayerAction, setPendingPlayerAction] = useState<'new' | 'existing' | null>(null)
   const previousTeamIds = useRef<string[] | null>(null)
 
   const groupedTeams = teams.reduce<Array<TournamentTeam & { divisions: string[] }>>((groups, team) => {
@@ -136,6 +137,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
   }
 
   function resetPlayerForm() {
+    setPendingPlayerAction(null)
     setPlayerTeamId('')
     setPlayerQuery('')
     setPlayerId('')
@@ -166,6 +168,10 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
   function submitNewPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setPendingPlayerAction('new')
+  }
+
+  function confirmNewPlayer() {
     onAddQuickPlayer(playerTeamId, {
       name: playerName,
       shirtNumber: playerNumber,
@@ -176,6 +182,10 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
   function submitExistingPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setPendingPlayerAction('existing')
+  }
+
+  function confirmExistingPlayer() {
     onAddExistingPlayer(playerTeamId, playerId)
     resetPlayerForm()
   }
@@ -280,6 +290,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
                           <label className="text-sm font-semibold">Número<input type="number" min="0" max="99" value={playerNumber} onChange={(event) => setPlayerNumber(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
                           <StyledSelect label="Posición" value={playerPosition} onChange={setPlayerPosition} options={[{ value: '', label: 'Seleccionar posición' }, ...positionOptions.map((position) => ({ value: position, label: position }))]} required className="sm:col-span-2" />
                           <button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] sm:col-span-3">Crear jugador temporal</button>
+                          {pendingPlayerAction === 'new' && <div className="flex items-center justify-end gap-2 sm:col-span-3"><span className="mr-auto text-xs text-slate-300">¿Confirmar creación del jugador?</span><button type="button" onClick={resetPlayerForm} className="rounded-[5px] border border-white/20 px-3 py-2 text-xs font-bold text-slate-300">Cancelar</button><button type="button" onClick={confirmNewPlayer} className="rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">Confirmar</button></div>}
                         </form>
                       ) : (
                         <form onSubmit={submitExistingPlayer} className="mt-4">
@@ -291,7 +302,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
                             </div>
                           </label>
                           {playerQuery && <div className="mt-2 max-h-40 overflow-y-auto rounded-[5px] border border-[#31556b] bg-[#0d2232]">{filteredPlayers.map((player) => <button key={player.id} type="button" onClick={() => { setPlayerId(player.id); setPlayerQuery(player.full_name) }} className="block w-full cursor-pointer px-3 py-2 text-left text-sm text-slate-200 hover:bg-[#b4ff45]/10">{player.full_name}<span className="ml-2 text-xs text-slate-500">{player.position || 'Jugador'}</span></button>)}</div>}
-                          <button type="submit" disabled={!playerId} className="mt-3 rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Agregar jugador registrado</button>
+                           <button type="submit" disabled={!playerId} className="mt-3 rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:opacity-50">Agregar jugador registrado</button>
+                           {pendingPlayerAction === 'existing' && <div className="mt-3 flex items-center justify-end gap-2"><span className="mr-auto text-xs text-slate-300">¿Confirmar incorporación del jugador?</span><button type="button" onClick={resetPlayerForm} className="rounded-[5px] border border-white/20 px-3 py-2 text-xs font-bold text-slate-300">Cancelar</button><button type="button" onClick={confirmExistingPlayer} className="rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">Confirmar</button></div>}
                         </form>
                       )}
                     </div>

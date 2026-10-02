@@ -181,6 +181,10 @@ function eventIndicator(event: Pick<CalendarEvent, 'event_type' | 'source_type'>
 }
 
 export default function TeamCalendarPage() {
+  return <main className="flex min-h-[60vh] items-center justify-center p-6"><section className="w-full max-w-xl rounded-[10px] border border-[#31556b] bg-[#0b1d2c] p-8 text-center"><CalendarDays className="mx-auto text-[#b4ff45]" size={42} /><p className="mt-5 text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Próximamente</p><h1 className="mt-2 font-display text-3xl uppercase text-white">Calendario</h1><p className="mt-3 text-sm leading-6 text-slate-400">Esta sección estará disponible próximamente.</p></section></main>
+}
+
+function LegacyTeamCalendarPage() {
   const [teams, setTeams] = useState<ManagedTeam[]>([])
   const [organizations, setOrganizations] = useState<OrganizationSource[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])

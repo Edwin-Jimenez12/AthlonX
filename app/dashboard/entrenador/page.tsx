@@ -115,7 +115,7 @@ function TrainerWorkspace({ team }: { team: ManagedTeam }) {
             <h3 className="mt-2 font-display text-3xl uppercase">Calendario</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Consulta los compromisos y actividades del equipo desde el calendario.</p>
           </div>
-          <Link href={`/dashboard/calendario?teamId=${team.id}`} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><CalendarDays size={18} />Abrir calendario<ArrowUpRight size={16} /></Link>
+          <button type="button" onClick={() => window.alert('El calendario llegará próximamente.')} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><CalendarDays size={18} />Abrir calendario<ArrowUpRight size={16} /></button>
         </div>
       </section>
 

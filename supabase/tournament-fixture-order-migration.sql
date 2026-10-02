@@ -100,6 +100,7 @@ as $$
         'date_number', fixture.date_number,
         'calendar_date', fixture.calendar_date,
         'fixture_order', match_row.fixture_order,
+        'division_id', match_row.division_id,
         'division_name', division.name,
         'scheduled_time', match_row.scheduled_time,
         'status', match_row.status,
@@ -113,6 +114,7 @@ as $$
         'visitor_score', match_row.visitor_score,
         'elapsed_seconds', match_row.elapsed_seconds,
         'first_half_seconds', match_row.first_half_seconds,
+        'second_half_seconds', match_row.second_half_seconds,
         'started_at', match_row.started_at,
         'is_paused', match_row.is_paused,
         'period', match_row.period

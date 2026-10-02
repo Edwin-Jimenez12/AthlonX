@@ -21,7 +21,7 @@ type Division = { id: string; name: string; sort_order: number }
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type ManualPairing = { divisionId: string; localTeamId: string; visitorTeamId: string }
 type AutomaticDivisionConfig = { divisionId: string; matchesPerDate: number; matchesPerTeam?: number; restTeamsPerDate?: number }
-type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_name: string | null; scheduled_time: string | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number; elapsed_seconds?: number | null; first_half_seconds?: number | null; started_at?: string | null; is_paused?: boolean; period?: 'first_half' | 'second_half' }
+type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_id: string | null; division_name: string | null; scheduled_time: string | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number; elapsed_seconds?: number | null; first_half_seconds?: number | null; second_half_seconds?: number | null; started_at?: string | null; is_paused?: boolean; period?: 'first_half' | 'second_half' }
 type FixtureRecess = { id: string; time: string | null; label?: string | null }
 type FixtureRecord = { id: string; date_number: number; calendar_date: string | null; recesses: FixtureRecess[] | null }
 type TournamentFixtureDate = { fixtureId: string; dateNumber: number; calendarDate: string | null }
@@ -588,19 +588,25 @@ export default function PublicTournamentPage() {
     queueOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
   }
 
-  function requestAddQuickPlayer(teamId: string, values: { name: string; shirtNumber: string; position: string }) {
+  async function requestAddQuickPlayer(teamId: string, values: { name: string; shirtNumber: string; position: string }) {
     if (!tournament.is_quick) return setMessage('Los jugadores temporales solo están disponibles en torneos rápidos.')
     if (!values.name.trim()) return setMessage('Escribe el nombre del jugador.')
     const team = teams.find((item) => item.id === teamId)
     if (!team) return setMessage('No se pudo identificar el equipo.')
-    queueOperation({ title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+    const operation: PendingOperation = { id: crypto.randomUUID(), title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] }
+    const error = await applyOperation(operation, currentUserId)
+    if (error) return setMessage(error)
+    window.location.reload()
   }
 
-  function requestAddExistingPlayer(teamId: string, playerId: string) {
+  async function requestAddExistingPlayer(teamId: string, playerId: string) {
     const player = availablePlayers.find((item) => item.id === playerId)
     const team = teams.find((item) => item.id === teamId)
     if (!player || !team) return setMessage('Selecciona un jugador y un equipo válidos.')
-    queueOperation({ title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] })
+    const operation: PendingOperation = { id: crypto.randomUUID(), title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] }
+    const error = await applyOperation(operation, currentUserId)
+    if (error) return setMessage(error)
+    window.location.reload()
   }
 
   function requestClaimGuestPlayer(guestPlayerId: string, guestPlayerName: string) {
@@ -783,7 +789,7 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
   }, [selectedDivisionId, teams])
   const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
   const divisionTeams = teams.filter((team) => team.division_id === selectedDivisionId)
-  const standings = divisionTeams.map((team) => { const row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0 }; matches.filter((match) => match.status === 'finished' && (match.local_team_id === team.id || match.visitor_team_id === team.id)).forEach((match) => { const local = match.local_team_id === team.id; const scored = local ? match.local_score : match.visitor_score; const conceded = local ? match.visitor_score : match.local_score; row.played += 1; row.pointsFor += scored; row.pointsAgainst += conceded; if (scored > conceded) { row.wins += 1; row.points += 4 } else if (scored === conceded) { row.draws += 1; row.points += 2 } else row.losses += 1 }); return row }).sort((a, b) => b.points - a.points || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst))
+  const standings = divisionTeams.map((team) => { const row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0 }; matches.filter((match) => match.status === 'finished' && match.division_id === team.division_id && (match.local_team_id === team.id || match.visitor_team_id === team.id)).forEach((match) => { const local = match.local_team_id === team.id; const scored = local ? match.local_score : match.visitor_score; const conceded = local ? match.visitor_score : match.local_score; row.played += 1; row.pointsFor += scored; row.pointsAgainst += conceded; if (scored > conceded) { row.wins += 1; row.points += 4 } else if (scored === conceded) { row.draws += 1; row.points += 2 } else row.losses += 1 }); return row }).sort((a, b) => b.points - a.points || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst))
   return <div className="pt-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Selecciona una división para consultar su tabla. Los puntos se calculan con los partidos finalizados: victoria 4, empate 2.</p></div><Table2 className="text-[#b4ff45]" /></div>{divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{divisions.map(([id, name]) => <button type="button" key={id} onClick={() => setSelectedDivisionId(id)} className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{name}</button>)}</div>}{divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={`${row.team.id}-${row.team.division_id}`} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 font-bold text-[#b4ff45]">{row.points}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos en esta división.</p>}</div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Todavía no hay divisiones configuradas.</div>}</div>
 }
 
@@ -1534,11 +1540,16 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
     const currentPeriod = match.period || 'first_half'
     const isSecondHalf = currentPeriod === 'second_half'
     const isStartingSecond = Boolean(match.is_paused && isSecondHalf)
+    const scoredEvents = events.reduce((score, event) => {
+      if (event.team_id === match.local_team_id) score.local += event.points || 0
+      if (event.team_id === match.visitor_team_id) score.visitor += event.points || 0
+      return score
+    }, { local: 0, visitor: 0 })
     const next = isStartingSecond
-        ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, period: 'second_half' }
+        ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, second_half_seconds: 0, period: 'second_half' }
       : !isSecondHalf
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, first_half_seconds: secondsRef.current, period: 'second_half' }
-        : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'second_half' }
+        : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
     if (error) return window.alert(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
@@ -1561,6 +1572,12 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
     const { error } = await supabase.from('match_events').insert({ ...newEvent, match_second: secondsRef.current, created_by: user.id })
     setSaving(false)
     if (error) return window.alert(error.message)
+    if (eventType === 'try' || eventType === 'conversion') {
+      const nextLocalScore = events.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.local_team_id ? points : 0)
+      const nextVisitorScore = events.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.visitor_team_id ? points : 0)
+      const { error: scoreError } = await supabase.from('matches').update({ local_score: nextLocalScore, visitor_score: nextVisitorScore }).eq('id', match.id)
+      if (scoreError) return window.alert(scoreError.message)
+    }
     setEvents((current) => [...current, newEvent])
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
@@ -1576,10 +1593,13 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
   const timer = `${String(Math.floor(regularSeconds / 60)).padStart(2, '0')}:${String(regularSeconds % 60).padStart(2, '0')}`
   const stoppageTimer = `+${String(Math.floor(stoppageSeconds / 60)).padStart(2, '0')}:${String(stoppageSeconds % 60).padStart(2, '0')}`
   const periodLabel = match.period === 'second_half' ? 'segundo tiempo' : 'primer tiempo'
-  const firstHalfSummary = match.period === 'first_half' ? seconds : (match.first_half_seconds ?? periodLimit)
+  const firstHalfSummary = match.period === 'first_half' ? seconds : (match.first_half_seconds ?? 0)
   const firstHalfTimer = `${String(Math.floor(Math.min(firstHalfSummary, periodLimit) / 60)).padStart(2, '0')}:${String(Math.min(firstHalfSummary, periodLimit) % 60).padStart(2, '0')}`
   const firstHalfStoppage = `+${String(Math.floor(Math.max(0, firstHalfSummary - periodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, firstHalfSummary - periodLimit) % 60).padStart(2, '0')}`
-  const secondHalfLabel = match.period === 'second_half' ? `${timer}${stoppageSeconds > 0 ? ` ${stoppageTimer}` : ''}` : 'Pendiente'
+  const secondHalfSummary = match.status === 'finished' ? (match.second_half_seconds ?? 0) : seconds
+  const secondHalfTimer = `${String(Math.floor(Math.min(secondHalfSummary, periodLimit) / 60)).padStart(2, '0')}:${String(Math.min(secondHalfSummary, periodLimit) % 60).padStart(2, '0')}`
+  const secondHalfStoppage = `+${String(Math.floor(Math.max(0, secondHalfSummary - periodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, secondHalfSummary - periodLimit) % 60).padStart(2, '0')}`
+  const secondHalfLabel = match.period !== 'second_half' ? 'Pendiente' : match.status === 'finished' ? `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}` : match.is_paused ? 'Pendiente' : `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}`
   const periodActionClass = match.is_paused && match.period === 'second_half' ? 'rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]' : 'rounded-[5px] border border-[#ff7d88] px-4 py-3 text-sm font-bold text-[#ffb0b7]'
   const homePlayers = rosters.filter((player) => player.team_id === match.local_team_id)
   const awayPlayers = rosters.filter((player) => player.team_id === match.visitor_team_id)

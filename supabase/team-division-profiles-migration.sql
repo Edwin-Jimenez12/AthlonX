@@ -47,11 +47,11 @@ where athlonx_code is null or trim(athlonx_code) = '';
 
 update public.team_players player_link
 set division_id = division.id
-from public.players player
-join public.team_division_catalog division
-  on division.team_id = player_link.team_id
- and lower(trim(division.name)) = lower(trim(player.division))
+from public.players player,
+     public.team_division_catalog division
 where player.id = player_link.player_id
+  and division.team_id = player_link.team_id
+  and lower(trim(division.name)) = lower(trim(player.division))
   and player_link.division_id is null
   and nullif(trim(player.division), '') is not null;
 
@@ -270,7 +270,7 @@ select jsonb_build_object(
   'players', coalesce((
     select jsonb_agg(jsonb_build_object(
       'id', player.id,
-      'profile_id', player.profile_id,
+      'profile_id', player.user_id,
       'full_name', player.full_name,
       'avatar_url', player.avatar_url,
       'shirt_number', player.shirt_number,
@@ -281,7 +281,7 @@ select jsonb_build_object(
     from (
       select
         player.id,
-        player.profile_id,
+        player.user_id,
         player.full_name,
         coalesce(profile.avatar_url, player.photo_url) as avatar_url,
         player.shirt_number,
@@ -290,7 +290,7 @@ select jsonb_build_object(
         division.name as division_name
       from public.team_players team_player
       join public.players player on player.id = team_player.player_id
-      left join public.profiles profile on profile.id = player.profile_id
+      left join public.profiles profile on profile.id = player.user_id
       left join public.team_division_catalog division on division.id = team_player.division_id
       where team_player.team_id = p_team_id
 
@@ -321,7 +321,7 @@ select jsonb_build_object(
       'players', coalesce((
         select jsonb_agg(jsonb_build_object(
           'id', player.id,
-          'profile_id', player.profile_id,
+          'profile_id', player.user_id,
           'full_name', player.full_name,
           'avatar_url', coalesce(profile.avatar_url, player.photo_url),
           'shirt_number', player.shirt_number,
@@ -331,7 +331,7 @@ select jsonb_build_object(
         ) order by player.full_name)
         from public.team_players team_player
         join public.players player on player.id = team_player.player_id
-        left join public.profiles profile on profile.id = player.profile_id
+        left join public.profiles profile on profile.id = player.user_id
         where team_player.team_id = p_team_id
           and team_player.division_id = division.id
       ), '[]'::jsonb)

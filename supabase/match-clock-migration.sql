@@ -11,6 +11,9 @@ alter table public.matches
   add column if not exists first_half_seconds integer not null default 0;
 
 alter table public.matches
+  add column if not exists second_half_seconds integer not null default 0;
+
+alter table public.matches
   drop constraint if exists matches_period_check;
 
 alter table public.matches

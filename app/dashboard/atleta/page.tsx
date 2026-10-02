@@ -205,7 +205,7 @@ export default function AthleteDashboard() {
                 <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Agenda global</p>
                 <h2 className="mt-2 font-display text-3xl uppercase">Próximos compromisos</h2>
               </div>
-              <Link href="/dashboard/calendario" className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#b4ff45] hover:text-white">Ver calendario <ArrowUpRight size={15} /></Link>
+              <button type="button" onClick={() => window.alert('El calendario llegará próximamente.')} className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#b4ff45] hover:text-white">Ver calendario <ArrowUpRight size={15} /></button>
             </div>
             <div className="mt-5 space-y-3">
               {loading && <p className="py-8 text-sm text-slate-400">Cargando tus compromisos...</p>}

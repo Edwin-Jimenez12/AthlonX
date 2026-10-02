@@ -9,7 +9,9 @@ import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
 import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
 
-type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean }
+type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean; notice?: string }
+
+const calendarNotice = 'El calendario llegará próximamente.'
 
 const searchNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
@@ -21,26 +23,26 @@ const teamNavigation: NavigationItem[] = [
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/dashboard/equipo' },
   { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario', disabled: true, notice: calendarNotice },
 ]
 
 const trainerNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/dashboard/entrenador' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario', disabled: true, notice: calendarNotice },
 ]
 
 const staffNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario', disabled: true, notice: calendarNotice },
 ]
 
 const personNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/dashboard/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/dashboard/notificaciones' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario', disabled: true, notice: calendarNotice },
 ]
 
 const athleteNavigation = personNavigation
@@ -51,7 +53,7 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Organización', icon: Building2, href: '/dashboard/organizaciones' },
   { label: 'Perfil público', icon: Globe2, href: '/dashboard/organizaciones/perfil' },
   { label: 'Eventos', icon: CalendarDays, href: '/dashboard/eventos' },
-  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario' },
+  { label: 'Calendario', icon: CalendarDays, href: '/dashboard/calendario', disabled: true, notice: calendarNotice },
   { label: 'Equipos', icon: Users, href: '/dashboard/equipos' },
   { label: 'Participantes', icon: Shield, disabled: true },
 ]
@@ -171,8 +173,8 @@ export function DashboardSidebar() {
     {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-30 cursor-pointer bg-[#081522]/60 print:hidden lg:hidden" />}
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[#1b3548] bg-[#07131e] px-5 py-6 text-white shadow-2xl transition-transform duration-200 print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <Link href="/dashboard/busqueda" onClick={close} className="block border-b border-white/10 pb-7"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-44" /></Link>
-      <nav className="mt-8 space-y-2">{navigation.map(({ label, icon: Icon, href, disabled }) => {
-        if (disabled) return <button key={label} type="button" disabled title="Disponible en próximas actualizaciones" className="flex w-full cursor-not-allowed items-center gap-4 rounded-[5px] px-4 py-3 text-left font-heading text-lg text-slate-500 opacity-70"><Icon size={20} /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span>{label}</span><span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span></span></button>
+      <nav className="mt-8 space-y-2">{navigation.map(({ label, icon: Icon, href, disabled, notice }) => {
+        if (disabled || label === 'Calendario') return <button key={label} type="button" onClick={() => window.alert(notice || calendarNotice)} title={notice || calendarNotice} className="flex w-full cursor-pointer items-center gap-4 rounded-[5px] px-4 py-3 text-left font-heading text-lg text-slate-500 opacity-70 hover:bg-white/10"><Icon size={20} /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span>{label}</span><span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span></span></button>
         if (!href) return null
         const isActive = pathname === href.split('#')[0] && !href.includes('#')
         return <Link key={href} href={href} onClick={close} className={`flex w-full cursor-pointer items-center gap-4 rounded-[5px] px-4 py-3 font-heading text-lg transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-[#b4ff45] font-bold text-[#081522]' : 'text-slate-300'}`}><Icon size={20} />{label}</Link>
