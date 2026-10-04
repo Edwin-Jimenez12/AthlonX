@@ -58,8 +58,8 @@ export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, d
 
   function addManualPairing() {
     if (!manualDivisionId || !localTeamId || !visitorTeamId || localTeamId === visitorTeamId) return
-    if (manualPairings.some((pairing) => pairing.localTeamId === localTeamId || pairing.visitorTeamId === localTeamId || pairing.localTeamId === visitorTeamId || pairing.visitorTeamId === visitorTeamId)) {
-      setError('Un equipo no puede aparecer dos veces en la misma fecha.')
+    if (manualPairings.some((pairing) => pairing.divisionId === manualDivisionId && ((pairing.localTeamId === localTeamId && pairing.visitorTeamId === visitorTeamId) || (pairing.localTeamId === visitorTeamId && pairing.visitorTeamId === localTeamId)))) {
+      setError('Ese enfrentamiento ya fue agregado para esta división.')
       return
     }
     setManualPairings((current) => [...current, { divisionId: manualDivisionId, localTeamId, visitorTeamId }])
