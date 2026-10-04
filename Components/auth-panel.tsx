@@ -46,6 +46,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
         .order('name')
       setDisciplines(data ?? [])
       if (error) setDisciplineError('No se pudieron cargar las disciplinas disponibles.')
+      else if (!data?.length) setDisciplineError('No hay disciplinas activas disponibles. Ejecuta la migración de acceso público en Supabase.')
+      else setDisciplineError('')
       const { data: modalityData } = await supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name')
       setModalities(modalityData ?? [])
     }
@@ -259,6 +261,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
                 <legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">Disciplinas representadas</legend>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {disciplines.map((discipline) => <label key={discipline.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border border-white/10 px-3 text-sm text-slate-300 transition hover:border-[#B4FF45]/50"><input type="checkbox" checked={organizationDisciplines.includes(discipline.id)} onChange={(event) => setOrganizationDisciplines((current) => event.target.checked ? [...current, discipline.id] : current.filter((id) => id !== discipline.id))} className="accent-[#B4FF45]" />{discipline.name}</label>)}
+                  {!disciplines.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{disciplineError || 'Cargando disciplinas...'}</p>}
                 </div>
               </fieldset>
               {organizationDisciplines.length > 0 && <fieldset className="rounded-[5px]"><legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">Modalidades que maneja</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{modalities.filter((modality) => organizationDisciplines.includes(modality.discipline_id)).map((modality) => <label key={modality.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border border-white/10 px-3 text-sm text-slate-300 transition hover:border-[#B4FF45]/50"><input type="checkbox" checked={organizationModalities.includes(modality.id)} onChange={(event) => setOrganizationModalities((current) => event.target.checked ? [...current, modality.id] : current.filter((id) => id !== modality.id))} className="accent-[#B4FF45]" />{modality.name}</label>)}</div></fieldset>}

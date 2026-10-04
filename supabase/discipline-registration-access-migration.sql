@@ -1,8 +1,17 @@
 -- AthlonX: disciplinas visibles durante el registro publico.
 -- Ejecutar despues de multidiscipline-migration.sql.
 
+insert into public.disciplines (code, name, is_active)
+values
+  ('rugby', 'Rugby', true),
+  ('baloncesto', 'Baloncesto', true),
+  ('futbol', 'Fútbol', true)
+on conflict (code) do update
+set name = excluded.name,
+    is_active = excluded.is_active;
+
 update public.disciplines
-set name = 'Basketball'
+set name = 'Baloncesto'
 where code = 'baloncesto';
 
 update public.disciplines

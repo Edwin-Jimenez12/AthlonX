@@ -28,9 +28,10 @@ type TournamentFixtureDate = { fixtureId: string; dateNumber: number; calendarDa
 type TournamentFixtureCallup = { id: string; fixture_id: string; team_id: string; division_id: string; status: string; deadline_at: string | null }
 type TournamentFixtureCallupPlayer = { callup_id: string; player_id: string; state: string; shirt_number: number | null }
 type MatchEvent = { match_id: string; team_id?: string | null; player_id?: string | null; event_type: string; points: number }
+type StandingAdjustment = { tournament_id: string; division_id: string; team_id: string; points_adjustment: number; reason: string }
 type RosterEntry = { team_id: string; division_id: string | null; division_name?: string | null; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
 type TournamentInvitation = { id: string; team_id: string; division_id: string | null; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; created_at: string; responded_at: string | null }
-type EditHistory = { id: string; edited_by: string; changes: Record<string, { before: string | null; after: string | null }>; created_at: string }
+type EditHistory = { id: string; edited_by: string; changes: Record<string, any>; created_at: string }
 type TournamentPayload = { tournament: Tournament | null; divisions: Division[]; teams: TournamentTeam[]; matches: Match[] }
 type EditValues = { name: string; season: string; status: string; start_date: string; end_date: string; country: string; location: string; discipline_id: string; modality_id: string }
 type PendingChange = { label: string; before: string; after: string; beforeValue: string | null; afterValue: string | null }
@@ -189,6 +190,7 @@ export default function PublicTournamentPage() {
   const [fixtureCallups, setFixtureCallups] = useState<TournamentFixtureCallup[]>([])
   const [fixtureCallupPlayers, setFixtureCallupPlayers] = useState<TournamentFixtureCallupPlayer[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
+  const [standingAdjustments, setStandingAdjustments] = useState<StandingAdjustment[]>([])
   const [ownerId, setOwnerId] = useState('')
   const [availableDisciplines, setAvailableDisciplines] = useState<Discipline[]>([])
   const [availableModalities, setAvailableModalities] = useState<Modality[]>([])
@@ -218,7 +220,7 @@ export default function PublicTournamentPage() {
       return
     }
     setLoading(true)
-    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }] = await Promise.all([
+    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }, { data: adjustmentRows }] = await Promise.all([
       supabase.rpc('get_public_tournament_profile', { p_tournament_id: params.id }),
       supabase.from('tournament_edit_history').select('id, edited_by, changes, created_at').eq('tournament_id', params.id).order('created_at', { ascending: false }),
       supabase.from('tournaments').select('created_by, is_quick').eq('id', params.id).maybeSingle(),
@@ -228,6 +230,7 @@ export default function PublicTournamentPage() {
       supabase.from('teams').select('id, name, athlonx_code, handle, organization_id, discipline_id, created_by').eq('is_public', true).eq('is_official', true).order('name'),
       supabase.from('team_division_catalog').select('id, team_id, name').order('name'),
       supabase.from('players').select('id, full_name, shirt_number, position, user_id').eq('is_official', true).order('full_name'),
+      supabase.from('tournament_standing_adjustments').select('tournament_id, division_id, team_id, points_adjustment, reason').eq('tournament_id', params.id),
     ])
     if (tournamentError) {
       setError(tournamentError.message)
@@ -269,6 +272,7 @@ export default function PublicTournamentPage() {
     }
     setData(normalizedPayload)
     setHistory((historyRows ?? []) as EditHistory[])
+    setStandingAdjustments((adjustmentRows ?? []) as StandingAdjustment[])
     setCurrentUserId(userData.user?.id || '')
     setOwnerId(ownerRow?.created_by || '')
     setAvailableDisciplines((disciplineRows ?? []) as Discipline[])
@@ -783,14 +787,82 @@ function SummarySection({ tournament, divisions, teams, matches, events, onOpenF
 }
 
 function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches: Match[] }) {
+  const routeParams = useParams<{ id: string }>()
   const [selectedDivisionId, setSelectedDivisionId] = useState(teams[0]?.division_id || '')
+  const [tournamentId, setTournamentId] = useState('')
+  const [isOwner, setIsOwner] = useState(false)
+  const [adjustments, setAdjustments] = useState<StandingAdjustment[]>([])
+  const [editing, setEditing] = useState(false)
+  const [draftAdjustments, setDraftAdjustments] = useState<Record<string, number>>({})
+  const [reason, setReason] = useState('')
+  const [password, setPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
+
   useEffect(() => {
     if (!teams.some((team) => team.division_id === selectedDivisionId)) setSelectedDivisionId(teams[0]?.division_id || '')
   }, [selectedDivisionId, teams])
-  const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
+
+  useEffect(() => {
+    let active = true
+    async function loadAdjustments() {
+      if (!supabase) return
+      const currentTournamentId = routeParams.id
+      if (!currentTournamentId) return
+      setTournamentId(currentTournamentId)
+      const [{ data: owner }, { data: userData }] = await Promise.all([
+        supabase.from('tournaments').select('created_by').eq('id', currentTournamentId).maybeSingle(),
+        supabase.auth.getUser(),
+      ])
+      if (active) {
+        const ownerAccess = Boolean(owner?.created_by && owner.created_by === userData.user?.id)
+        setIsOwner(ownerAccess)
+        if (!ownerAccess) setTournamentId('')
+      }
+      const { data } = await supabase.from('tournament_standing_adjustments').select('tournament_id, division_id, team_id, points_adjustment, reason').eq('tournament_id', currentTournamentId)
+      if (active) setAdjustments((data ?? []) as StandingAdjustment[])
+    }
+    void loadAdjustments()
+    return () => { active = false }
+  }, [matches, routeParams.id])
+
   const divisionTeams = teams.filter((team) => team.division_id === selectedDivisionId)
-  const standings = divisionTeams.map((team) => { const row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0 }; matches.filter((match) => match.status === 'finished' && match.division_id === team.division_id && (match.local_team_id === team.id || match.visitor_team_id === team.id)).forEach((match) => { const local = match.local_team_id === team.id; const scored = local ? match.local_score : match.visitor_score; const conceded = local ? match.visitor_score : match.local_score; row.played += 1; row.pointsFor += scored; row.pointsAgainst += conceded; if (scored > conceded) { row.wins += 1; row.points += 4 } else if (scored === conceded) { row.draws += 1; row.points += 2 } else row.losses += 1 }); return row }).sort((a, b) => b.points - a.points || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst))
-  return <div className="pt-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Selecciona una división para consultar su tabla. Los puntos se calculan con los partidos finalizados: victoria 4, empate 2.</p></div><Table2 className="text-[#b4ff45]" /></div>{divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{divisions.map(([id, name]) => <button type="button" key={id} onClick={() => setSelectedDivisionId(id)} className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{name}</button>)}</div>}{divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={`${row.team.id}-${row.team.division_id}`} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 font-bold text-[#b4ff45]">{row.points}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos en esta división.</p>}</div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Todavía no hay divisiones configuradas.</div>}</div>
+  const standings = divisionTeams.map((team) => {
+    const row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0, adjustment: adjustments.find((item) => item.division_id === selectedDivisionId && item.team_id === team.id)?.points_adjustment || 0 }
+    matches.filter((match) => match.status === 'finished' && match.division_id === team.division_id && (match.local_team_id === team.id || match.visitor_team_id === team.id)).forEach((match) => { const local = match.local_team_id === team.id; const scored = local ? match.local_score : match.visitor_score; const conceded = local ? match.visitor_score : match.local_score; row.played += 1; row.pointsFor += scored; row.pointsAgainst += conceded; if (scored > conceded) { row.wins += 1; row.points += 4 } else if (scored === conceded) { row.draws += 1; row.points += 2 } else row.losses += 1 })
+    return { ...row, totalPoints: row.points + row.adjustment }
+  }).sort((a, b) => b.totalPoints - a.totalPoints || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst))
+
+  function beginEditing() {
+    setDraftAdjustments(Object.fromEntries(standings.map((row) => [row.team.id, row.adjustment])))
+    setReason('')
+    setPassword('')
+    setMessage('')
+    setEditing(true)
+  }
+
+  async function saveAdjustments() {
+    if (!supabase || !tournamentId || !selectedDivisionId) return
+    if (!reason.trim()) return setMessage('Indica el motivo del ajuste.')
+    if (!password) return setMessage('Escribe la contraseña de la cuenta organizadora.')
+    setSaving(true)
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user?.email) { setSaving(false); return setMessage('No se pudo identificar la cuenta.') }
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
+    if (authError) { setSaving(false); return setMessage('La contraseña no es correcta.') }
+    const { error } = await supabase.rpc('save_tournament_standing_adjustments', { p_tournament_id: tournamentId, p_division_id: selectedDivisionId, p_adjustments: standings.map((row) => ({ team_id: row.team.id, points_adjustment: Number(draftAdjustments[row.team.id] || 0) })), p_reason: reason.trim() })
+    if (error) { setSaving(false); return setMessage(error.message) }
+    const { data } = await supabase.from('tournament_standing_adjustments').select('tournament_id, division_id, team_id, points_adjustment, reason').eq('tournament_id', tournamentId)
+    setAdjustments((data ?? []) as StandingAdjustment[])
+    setEditing(false)
+    setPassword('')
+    setReason('')
+    setMessage('Ajustes guardados y registrados en el historial.')
+    setSaving(false)
+  }
+
+  return <div className="pt-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Selecciona una división. Los puntos de partidos no se modifican; los ajustes administrativos se suman al total.</p></div><div className="flex items-center gap-3"><Table2 className="text-[#b4ff45]" />{tournamentId && !editing && <button type="button" onClick={beginEditing} className="inline-flex items-center gap-2 rounded-[5px] border border-[#b4ff45] px-3 py-2 text-sm font-bold text-[#dfffba]"><Pencil size={15} />Editar tabla</button>}</div></div>{divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{divisions.map(([id, name]) => <button type="button" key={id} onClick={() => { setSelectedDivisionId(id); setEditing(false) }} className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{name}</button>)}</div>}{editing && <div className="mt-5 grid gap-4 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-4 sm:grid-cols-2"><label className="text-sm font-semibold">Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" /></label><label className="text-sm font-semibold">Motivo del ajuste<textarea value={reason} onChange={(event) => setReason(event.target.value)} className="mt-2 min-h-10 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" placeholder="Ejemplo: sanción disciplinaria" /></label></div>}{divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4">Ajustes administrativos</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={`${row.team.id}-${row.team.division_id}`} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 text-slate-300">{editing ? <input type="number" value={draftAdjustments[row.team.id] ?? row.adjustment} onChange={(event) => setDraftAdjustments((current) => ({ ...current, [row.team.id]: Number(event.target.value) }))} className="w-28 rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-1 text-center outline-none focus:border-[#b4ff45]" /> : <span className={row.adjustment < 0 ? 'text-[#ff9ca5]' : row.adjustment > 0 ? 'text-[#dfffba]' : ''}>{row.adjustment > 0 ? `+${row.adjustment}` : row.adjustment}</span>}</td><td className="p-4 font-bold text-[#b4ff45]">{editing ? row.points + Number(draftAdjustments[row.team.id] ?? row.adjustment) : row.totalPoints}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos en esta división.</p>}</div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Todavía no hay divisiones configuradas.</div>}{editing && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setEditing(false)} className="rounded-[5px] border border-[#31556b] px-4 py-2 text-sm font-bold text-slate-300">Cancelar</button><button type="button" disabled={saving} onClick={() => void saveAdjustments()} className="rounded-[5px] bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e]">{saving ? 'Guardando...' : 'Guardar cambios'}</button></div>}{message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}</div>
 }
 
 function formatTournamentFixtureDateLabel(fixture: TournamentFixtureDate) {
@@ -1640,7 +1712,7 @@ function TeamMatchName({ name, logo }: { name: string; logo: string | null }) { 
 
 function EditHistorySection({ history }: { history: EditHistory[] }) {
   const labels: Record<string, string> = { name: 'Nombre', season: 'Temporada', status: 'Estado', start_date: 'Fecha inicial', end_date: 'Fecha final', country: 'País', location: 'Ciudad', discipline_id: 'Disciplina', modality_id: 'Modalidad' }
-  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><Clock3 className="text-[#b4ff45]" size={20} /><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Transparencia</p><h2 className="mt-1 font-display text-2xl uppercase">Historial de ediciones</h2></div></div>{history.length ? <div className="mt-6 space-y-4">{history.map((entry) => <article key={entry.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-white">Torneo actualizado</p><time className="text-xs text-slate-500">{new Date(entry.created_at).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' })}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(entry.changes).map(([field, change]) => <div key={field} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{labels[field] || field}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change.before || 'Sin valor'}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change.after || 'Sin valor'}</span></p></div>)}</div></article>)}</div> : <p className="mt-6 text-sm text-slate-400">Todavía no se han registrado ediciones.</p>}</section>
+  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><Clock3 className="text-[#b4ff45]" size={20} /><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Transparencia</p><h2 className="mt-1 font-display text-2xl uppercase">Historial de ediciones</h2></div></div>{history.length ? <div className="mt-6 space-y-4">{history.map((entry) => { const adjustment = entry.changes.type === 'standing_adjustment'; const teams = Array.isArray(entry.changes.teams) ? entry.changes.teams : []; return <article key={entry.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-white">{adjustment ? 'Ajuste administrativo de tabla' : 'Torneo actualizado'}</p><time className="text-xs text-slate-500">{new Date(entry.created_at).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' })}</time></div>{adjustment ? <><p className="mt-3 rounded-[5px] border border-[#b4ff45]/20 bg-[#b4ff45]/5 p-3 text-sm text-slate-300"><span className="font-bold text-[#dfffba]">Motivo:</span> {entry.changes.reason}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{teams.map((change: { team_id: string; team_name?: string; before: number; after: number }) => <div key={change.team_id} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Equipo {change.team_name || change.team_id}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change.before > 0 ? `+${change.before}` : change.before}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change.after > 0 ? `+${change.after}` : change.after}</span></p></div>)}</div></> : <div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(entry.changes).map(([field, change]) => <div key={field} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{labels[field] || field}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change?.before || 'Sin valor'}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change?.after || 'Sin valor'}</span></p></div>)}</div>}</article> })}</div> : <p className="mt-6 text-sm text-slate-400">Todavía no se han registrado ediciones.</p>}</section>
 }
 
 function GeneralInfoSection({ tournament, divisions, disciplines, modalities, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
