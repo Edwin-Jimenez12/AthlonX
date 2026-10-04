@@ -30,6 +30,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [name, setName] = useState('')
   const [disciplineId, setDisciplineId] = useState('')
   const [modalities, setModalities] = useState<Modality[]>([])
+  const [modalityError, setModalityError] = useState('')
   const [modalityId, setModalityId] = useState('')
   const [location, setLocation] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -45,8 +46,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   useEffect(() => {
     async function loadModalities() {
       if (!supabase) return
-      const { data } = await supabase.from('sport_modalities').select('id, name, code, discipline_id').eq('is_active', true).order('name')
+      const { data, error } = await supabase.from('sport_modalities').select('id, name, code, discipline_id').eq('is_active', true).order('name')
       setModalities((data ?? []) as Modality[])
+      setModalityError(error ? 'No se pudieron cargar las modalidades. Ejecuta la migración de disciplinas y modalidades en Supabase.' : !data?.length ? 'No hay modalidades activas disponibles. Ejecuta la migración de disciplinas y modalidades en Supabase.' : '')
     }
     void loadModalities()
   }, [])
@@ -154,6 +156,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
             <label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" placeholder="Copa AthlonX" /></label>
             <StyledSelect label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" required />
             <StyledSelect label="Modalidad" value={modalityId} onChange={setModalityId} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'} disabled={!disciplineId || !availableModalities.length} required />
+            {disciplineId && !availableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
             <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />
             <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
             <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
