@@ -257,4 +257,33 @@ h3 {
   @page {
     margin: 0;
   }
+
+  body.print-fixture-document main,
+  body.print-fixture-document main > div,
+  body.print-fixture-document main > div > section {
+    display: contents !important;
+  }
+
+  body.print-fixture-document main > div > section > *:not(.fixture-print-document) {
+    display: none !important;
+  }
+
+  body.print-fixture-document .fixture-print-document {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.print-fixture-document .fixture-print-document * {
+    visibility: visible !important;
+  }
+
+  body.print-fixture-document .fixture-print-document {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  body.print-fixture-document .fixture-print-document tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }

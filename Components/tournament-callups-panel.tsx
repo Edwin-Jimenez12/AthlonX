@@ -1,9 +1,10 @@
 'use client'
 
-import { Check, Clock3, LockKeyhole, RotateCcw, Save, Search, Send, UserPlus, Users, X } from 'lucide-react'
+import { Check, Clock3, FileDown, LockKeyhole, RotateCcw, Save, Search, Send, UserPlus, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { StyledSelect } from './styled-select'
+import { PlayerRoleIcon } from './player-role-icon'
 
 type TournamentTeam = { id: string; name: string; division_id: string; division_name: string }
 type Division = { id: string; name: string }
@@ -13,6 +14,7 @@ type RosterEntry = { team_id: string; division_id: string | null; division_name?
 type CallupRule = { tournament_id: string; max_players: number; active_players: number; inactive_players: number; lock_hours_before: number }
 type Callup = { id: string; tournament_id: string; fixture_id: string; team_id: string; division_id: string; status: string; deadline_at: string; submitted_at: string | null; non_participant_player_id: string | null; reopen_reason: string | null }
 type CallupPlayer = { callup_id: string; player_id: string; state: 'convocado' | 'no_participante' | 'no_convocado'; shirt_number: number | null }
+type TeamStaff = { user_id: string; full_name: string; role: 'entrenador' | 'staff'; role_label: string | null }
 type PendingSelection = { kind: 'date' | 'division'; value: string }
 
 const defaultRule: CallupRule = { tournament_id: '', max_players: 13, active_players: 12, inactive_players: 1, lock_hours_before: 24 }
@@ -103,6 +105,8 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
   const [rule, setRule] = useState<CallupRule>({ ...defaultRule, tournament_id: tournamentId })
   const [callups, setCallups] = useState<Callup[]>([])
   const [callupPlayers, setCallupPlayers] = useState<CallupPlayer[]>([])
+  const [teamStaff, setTeamStaff] = useState<TeamStaff[]>([])
+  const [tournamentName, setTournamentName] = useState('AthlonX')
   const [manageableTeamIds, setManageableTeamIds] = useState<string[]>([])
   const [staffTeamIds, setStaffTeamIds] = useState<string[]>([])
   const [isTournamentCreator, setIsTournamentCreator] = useState(false)
@@ -158,7 +162,7 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
       supabase.from('tournament_fixture_callups').select('id, tournament_id, fixture_id, team_id, division_id, status, deadline_at, submitted_at, non_participant_player_id, reopen_reason').eq('tournament_id', tournamentId),
       supabase.from('team_user_memberships').select('team_id, role').eq('user_id', userData.user.id).eq('status', 'active').in('role', ['owner', 'directivo', 'entrenador', 'staff']),
       supabase.from('fixtures').select('id, callup_deadline_at').eq('tournament_id', tournamentId),
-      supabase.from('tournaments').select('created_by').eq('id', tournamentId).maybeSingle(),
+      supabase.from('tournaments').select('created_by, name').eq('id', tournamentId).maybeSingle(),
     ])
     const callupIds = (callupResult.data ?? []).map((callup) => callup.id)
     const playerResult = callupIds.length ? await supabase.from('tournament_fixture_callup_players').select('callup_id, player_id, state, shirt_number').in('callup_id', callupIds) : { data: [], error: null }
@@ -167,6 +171,7 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
     setRule(nextRule)
     setCallups((callupResult.data ?? []) as Callup[])
     setCallupPlayers((playerResult.data ?? []) as CallupPlayer[])
+    setTournamentName(tournamentResult.data?.name || 'AthlonX')
     setFixtureDeadlines(Object.fromEntries((fixtureResult.data ?? []).map((fixture) => [fixture.id, fixture.callup_deadline_at || null])))
     setManageableTeamIds((membershipResult.data ?? []).map((membership) => membership.team_id))
     setStaffTeamIds((membershipResult.data ?? []).filter((membership) => membership.role === 'staff').map((membership) => membership.team_id))
@@ -176,6 +181,33 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
   }
 
   useEffect(() => { void loadCallups() }, [tournamentId])
+
+  // Carga el cuerpo técnico activo del equipo seleccionado para la lista oficial.
+  useEffect(() => {
+    let active = true
+
+    async function loadTeamStaff() {
+      if (!supabase || !selectedTeam?.id) {
+        setTeamStaff([])
+        return
+      }
+      const { data: members } = await supabase.rpc('get_team_members_for_manager', {
+        p_team_id: selectedTeam.id,
+      })
+      if (!active) return
+      setTeamStaff((members ?? []).filter((member) => (
+        member.role === 'entrenador' || member.role === 'staff'
+      )).map((member) => ({
+        user_id: member.user_id,
+        full_name: member.full_name || 'Perfil sin nombre',
+        role: member.role as TeamStaff['role'],
+        role_label: member.role_label,
+      })))
+    }
+
+    void loadTeamStaff()
+    return () => { active = false }
+  }, [selectedTeam?.id])
 
   useEffect(() => {
     const nextFixture = fixtureDates.find((fixture) => fixture.matches.some((match) => match.id === initialMatchId))
@@ -246,6 +278,109 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
     anchor.download = `convocatoria-fecha-${selectedFixture.dateNumber}-${selectedTeam.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.txt`
     anchor.click()
     URL.revokeObjectURL(url)
+  }
+
+  // Genera el PDF oficial de la convocatoria seleccionada.
+  function printCurrentList() {
+    if (!selectedTeam || !selectedFixture) return
+    const selectedPlayers = eligiblePlayers.filter((player) => selectedPlayerIds.includes(player.player_id))
+    if (!selectedPlayers.length) {
+      setError('Selecciona al menos un jugador antes de generar el PDF.')
+      return
+    }
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[character] || character))
+    const generatedDate = new Intl.DateTimeFormat('es-PA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date())
+    const calendarDate = selectedFixture.calendarDate
+      ? new Intl.DateTimeFormat('es-PA', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(new Date(`${selectedFixture.calendarDate}T12:00:00`))
+      : 'Fecha por definir'
+    const staffMarkup = teamStaff.length
+      ? teamStaff.map((member) => {
+          const label = member.role_label
+            || (member.role === 'entrenador' ? 'Entrenador' : 'Entrenador asistente')
+          return `<div class="staff-row"><strong>${escapeHtml(label)}</strong>
+            <span>${escapeHtml(member.full_name)}</span></div>`
+        }).join('')
+      : '<p class="empty">Sin cuerpo técnico registrado.</p>'
+    const playersMarkup = selectedPlayers.map((player, index) => `<tr>
+      <td>${index + 1}</td>
+      <td class="player-name">${escapeHtml(player.full_name)}</td>
+      <td>${escapeHtml(player.position || 'Jugador')}</td>
+      <td class="shirt-number">${escapeHtml(playerShirtNumbers[player.player_id] || '--')}</td>
+    </tr>`).join('')
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      setError('Permite las ventanas emergentes para generar el PDF.')
+      return
+    }
+    printWindow.document.write(`<!doctype html><html lang="es"><head>
+      <meta charset="utf-8" />
+      <title>Lista de convocados - ${escapeHtml(selectedTeam.name)}</title>
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #fff; color: #10151b; }
+        .page { width: 210mm; min-height: 297mm; padding: 16mm 15mm; }
+        .logos { display: flex; justify-content: space-between; align-items: flex-start; }
+        .logos img:first-child { width: 46mm; height: 18mm; object-fit: contain; }
+        .logos img:last-child { width: 38mm; height: 20mm; object-fit: contain; }
+        h1 { margin: 10mm 0 2mm; text-align: center; font: 700 24px Arial, sans-serif; }
+        h2 { margin: 10mm 0 3mm; border-bottom: 2px solid #122436; padding-bottom: 3mm;
+          font: 700 15px Arial, sans-serif; text-transform: uppercase; }
+        .league { margin: 0; text-align: center; font: 15px Arial, sans-serif; }
+        .meta { display: flex; justify-content: center; gap: 8mm; margin-top: 4mm;
+          color: #40566b; font: 12px Arial, sans-serif; }
+        .staff { margin-top: 10mm; border: 1px solid #c5d3df; padding: 4mm; }
+        .staff-row { display: flex; gap: 4mm; padding: 2mm 0; font: 12px Arial, sans-serif; }
+        .staff-row strong { width: 42mm; color: #4c8500; }
+        .empty { margin: 0; color: #6b7f90; font: 12px Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; font: 11px Arial, sans-serif; }
+        th { padding: 3mm 2mm; border-bottom: 2px solid #122436; text-align: left;
+          font-weight: 700; }
+        td { padding: 2.8mm 2mm; border-bottom: 1px solid #c5d3df; }
+        th:not(.player-name), td:not(.player-name) { text-align: center; }
+        .player-name { width: 48%; font-weight: 700; }
+        .shirt-number { font-weight: 700; color: #4c8500; }
+        .signature { margin-top: 35mm; width: 75mm; border-top: 1px solid #10151b;
+          padding-top: 3mm; text-align: center; font: 12px Arial, sans-serif; }
+        tr { break-inside: avoid; }
+      </style>
+    </head><body><main class="page">
+      <div class="logos">
+        <img src="${window.location.origin}/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
+        <img src="${window.location.origin}/upr.png" alt="Organización" />
+      </div>
+      <h1>Lista de convocados</h1>
+      <p class="league">${escapeHtml(tournamentName)}</p>
+      <div class="meta"><span>${escapeHtml(selectedTeam.name)}</span>
+        <span>Fecha ${selectedFixture.dateNumber}</span><span>${escapeHtml(selectedTeam.division_name)}</span></div>
+      <p class="meta">Fecha de generación: ${escapeHtml(generatedDate)} · Jornada: ${escapeHtml(calendarDate)}</p>
+      <section class="staff"><h2>Cuerpo técnico</h2>${staffMarkup}</section>
+      <section><h2>Jugadores convocados</h2><table>
+        <thead><tr><th>#</th><th class="player-name">Nombre</th><th>Posición</th>
+          <th>Camiseta</th></tr></thead><tbody>${playersMarkup}</tbody>
+      </table></section>
+      <div class="signature">Firma del equipo</div>
+    </main></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    window.setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 400)
   }
 
   async function saveCallup(submit: boolean) {
@@ -492,6 +627,7 @@ export function TournamentCallupsPanel({ tournamentId, divisions: _divisions, te
               onSubmit={() => void saveCallup(true)}
               onMarkInactive={() => void markInactive()}
               onReopen={() => void reopenCallup()}
+              onPrint={printCurrentList}
             /></div>
           </div>
         </>
@@ -536,7 +672,13 @@ function CallupEditorWithPicker({ selectedTeam, selectedFixture, eligiblePlayers
   return <div className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-6"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#b4ff45]">{selectedTeam.division_name}</p><h3 className="mt-1 text-2xl font-bold">{selectedTeam.name}</h3><p className="mt-1 text-sm capitalize text-slate-400">Fecha {selectedFixture.dateNumber}{selectedFixture.calendarDate ? ` · ${new Intl.DateTimeFormat('es-PA', { dateStyle: 'long' }).format(new Date(`${selectedFixture.calendarDate}T12:00:00`))}` : ''}</p></div><span className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedCallup ? statusLabels[selectedCallup.status] || selectedCallup.status : 'Pendiente'}</span></div>{deadline && <p className={`mt-4 rounded-[5px] border p-3 text-sm ${canEditSelection ? 'border-[#b4ff45]/20 bg-[#b4ff45]/5 text-slate-300' : 'border-red-400/20 bg-red-400/5 text-red-200'}`}>{canEditSelection ? `Puedes editar hasta ${formatDeadline(deadline)}.` : `Lista bloqueada desde ${formatDeadline(deadline)}.`}</p>}<div className="mt-5 flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugadores de la jornada</p><p className={`mt-1 text-2xl font-bold ${selectedPlayers.length === rule.max_players ? 'text-[#b4ff45]' : 'text-white'}`}>{selectedPlayers.length} / {rule.max_players}</p></div><Users className="text-[#b4ff45]" size={25} /></div>{canEditSelection && <button type="button" onClick={() => setShowPlayerPicker((current) => !current)} className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><UserPlus size={16} />{showPlayerPicker ? 'Ocultar jugadores' : 'Añadir jugador'}</button>}{showPlayerPicker && canEditSelection && <div className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#07131e] p-4"><label className="block text-sm font-semibold text-slate-200">Buscar jugador<input value={playerQuery} onChange={(event) => setPlayerQuery(event.target.value)} placeholder="Nombre del jugador" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3 text-white outline-none focus:border-[#b4ff45]" /></label><div className="mt-3 grid gap-2 sm:grid-cols-2">{filteredPlayers.map((player) => { const checked = selectedPlayerIds.includes(player.player_id); const disabled = !checked && selectedPlayers.length >= rule.max_players; return <label key={player.player_id} className={`flex cursor-pointer items-center gap-3 rounded-[5px] border px-3 py-3 text-sm ${checked ? 'border-[#b4ff45]/50 bg-[#b4ff45]/5' : 'border-white/10'} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => setSelectedPlayerIds(checked ? selectedPlayerIds.filter((id) => id !== player.player_id) : [...selectedPlayerIds, player.player_id])} className="accent-[#b4ff45]" /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{player.full_name}</span><span className="mt-1 block text-xs text-slate-500">#{player.shirt_number ?? '--'} · {player.position || 'Posición pendiente'}</span></span>{checked && <Check size={16} className="text-[#b4ff45]" />}</label> })}{!filteredPlayers.length && <p className="text-sm text-slate-500">No hay jugadores disponibles en esta división.</p>}</div></div>}{!showPlayerPicker && !selectedPlayers.length && <p className="mt-4 text-sm text-slate-500">Pulsa “Añadir jugador” para seleccionar jugadores de esta división.</p>}{selectedPlayers.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{selectedPlayers.map((player) => <span key={player.player_id} className="rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-1.5 text-xs font-semibold text-[#dfffba]">{player.full_name}</span>)}</div>}{canEditSelection && <div className="mt-5 flex flex-wrap gap-3"><button type="button" onClick={onSaveDraft} disabled={saving} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-200 disabled:opacity-50"><Save size={16} />Guardar lista</button><button type="button" onClick={onSubmit} disabled={saving || selectedPlayers.length !== rule.max_players} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} />Enviar convocatoria</button></div>}{selectedCallup && selectedPlayers.length === rule.max_players && <div className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugador 13</p><p className="mt-1 text-sm text-slate-300">Marca quién no participará en esta jornada.</p></div><LockKeyhole className="text-[#b4ff45]" size={19} /></div><div className="mt-3 flex flex-col gap-3 sm:flex-row"><StyledSelect label="Jugador 13" value={inactivePlayerId} onChange={setInactivePlayerId} disabled={!canSelectInactivePlayer || selectedCallup.status === 'locked'} options={[{ value: '', label: 'Seleccionar jugador 13' }, ...selectedPlayers.map((player) => ({ value: player.player_id, label: player.full_name }))]} className="min-w-0 flex-1" /><button type="button" onClick={onMarkInactive} disabled={!inactivePlayerId || saving || !canSelectInactivePlayer || selectedCallup.status === 'locked'} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#b4ff45] px-4 py-3 text-sm font-bold text-[#dfffba] disabled:cursor-not-allowed disabled:opacity-50"><Check size={16} />Confirmar</button></div></div>}{isOwner && selectedCallup && (selectedCallup.status === 'locked' || (deadline && new Date(deadline).getTime() <= Date.now())) && <button type="button" onClick={onReopen} disabled={saving} className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ffb45c]/50 px-4 py-3 text-sm font-bold text-[#ffd09b] disabled:opacity-50"><RotateCcw size={16} />Reabrir convocatoria</button>}</div>
 }
 
-type CallupEditorV2Props = CallupEditorProps & { allowSubmit: boolean; onBeginEdit: () => void; playerShirtNumbers: Record<string, string>; setPlayerShirtNumbers: (value: Record<string, string>) => void }
+type CallupEditorV2Props = CallupEditorProps & {
+  allowSubmit: boolean
+  onBeginEdit: () => void
+  onPrint: () => void
+  playerShirtNumbers: Record<string, string>
+  setPlayerShirtNumbers: (value: Record<string, string>) => void
+}
 
 function CallupEditorWithPickerV2Legacy({ selectedTeam, selectedFixture, eligiblePlayers, selectedPlayerIds, setSelectedPlayerIds, playerShirtNumbers, setPlayerShirtNumbers, inactivePlayerId, setInactivePlayerId, selectedCallup, deadline, rule, canEditSelection, canMarkInactive, isOwner, saving, onSaveDraft, onSubmit, onMarkInactive, onReopen, allowSubmit, onBeginEdit }: CallupEditorV2Props) {
   const [showPlayerPicker, setShowPlayerPicker] = useState(false)
@@ -550,7 +692,7 @@ function CallupEditorWithPickerV2Legacy({ selectedTeam, selectedFixture, eligibl
   return <div className="space-y-5"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#b4ff45]">{selectedTeam.division_name}</p><h3 className="mt-1 text-2xl font-bold">{selectedTeam.name}</h3><p className="mt-1 text-sm capitalize text-slate-400">Fecha {selectedFixture.dateNumber}{selectedFixture.calendarDate ? ` · ${new Intl.DateTimeFormat('es-PA', { dateStyle: 'long' }).format(new Date(`${selectedFixture.calendarDate}T12:00:00`))}` : ''}</p></div><span className="inline-flex items-center gap-2 self-start rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedCallup ? statusLabels[selectedCallup.status] || selectedCallup.status : 'Pendiente'}</span></div>{deadline && <p className={`rounded-[5px] border p-3 text-sm ${canEditSelection ? 'border-[#b4ff45]/20 bg-[#b4ff45]/5 text-slate-300' : 'border-red-400/20 bg-red-400/5 text-red-200'}`}>{canEditSelection ? `Puedes editar hasta ${formatDeadline(deadline)}.` : `Lista bloqueada desde ${formatDeadline(deadline)}.`}</p>}<div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugadores de la jornada</p><p className={`mt-1 text-2xl font-bold ${selectedPlayers.length === rule.max_players ? 'text-[#b4ff45]' : 'text-white'}`}>{selectedPlayers.length} / {rule.max_players}</p></div><Users className="text-[#b4ff45]" size={25} /></div>{isSubmitted && !canEditSelection && <button type="button" onClick={onBeginEdit} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#b4ff45] px-4 py-3 text-sm font-bold text-[#dfffba]"><RotateCcw size={16} />Editar lista enviada</button>}{canEditSelection && <button type="button" onClick={() => setShowPlayerPicker((current) => !current)} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><UserPlus size={16} />{showPlayerPicker ? 'Ocultar jugadores' : 'Añadir jugador'}</button>}{showPlayerPicker && canEditSelection && <div className="rounded-[5px] border border-[#b4ff45]/30 bg-[#07131e] p-4"><label className="block text-sm font-semibold text-slate-200">Buscar jugador<div className="mt-2 flex gap-2"><input value={playerQuery} onChange={(event) => setPlayerQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setPlayerSearch(playerQuery) } }} placeholder="Nombre del jugador" className="min-w-0 flex-1 rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3 text-white outline-none focus:border-[#b4ff45]" /><button type="button" onClick={() => setPlayerSearch(playerQuery)} className="inline-flex items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e]"><Search size={16} />Buscar</button></div></label><div className="mt-3 grid gap-2 sm:grid-cols-2">{filteredPlayers.map((player) => { const checked = selectedPlayerIds.includes(player.player_id); const disabled = !checked && selectedPlayers.length >= rule.max_players; return <label key={player.player_id} className={`flex items-center gap-3 rounded-[5px] border px-3 py-3 text-sm ${checked ? 'border-[#b4ff45]/50 bg-[#b4ff45]/5' : 'border-white/10'} ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => setSelectedPlayerIds(checked ? selectedPlayerIds.filter((id) => id !== player.player_id) : [...selectedPlayerIds, player.player_id])} className="accent-[#b4ff45]" /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{player.full_name}</span><span className="mt-1 block text-xs text-slate-500">#{player.shirt_number ?? '--'} · {player.position || 'Posición pendiente'}</span></span>{checked && <Check size={16} className="text-[#b4ff45]" />}</label> })}{!filteredPlayers.length && <p className="text-sm text-slate-500">No hay jugadores añadidos a este equipo en la división seleccionada.</p>}</div></div>}{selectedPlayers.length > 0 && <div><p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Jugadores añadidos a la lista</p><div className="flex flex-wrap gap-2">{selectedPlayers.map((player) => <button key={player.player_id} type="button" disabled={!canEditSelection} onClick={() => setSelectedPlayerIds(selectedPlayerIds.filter((id) => id !== player.player_id))} className="inline-flex items-center gap-2 rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-1.5 text-xs font-semibold text-[#dfffba] disabled:cursor-default">{player.full_name}{canEditSelection && <X size={13} />}</button>)}</div></div>}{!eligiblePlayers.length && <p className="text-sm text-slate-500">No hay jugadores añadidos a este equipo en la división seleccionada.</p>}{canEditSelection && <div className="flex flex-wrap gap-3"><button type="button" onClick={onSaveDraft} disabled={saving} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-200 disabled:opacity-50"><Save size={16} />{isSubmitted ? 'Guardar cambios' : 'Guardar lista'}</button>{allowSubmit && <button type="button" onClick={onSubmit} disabled={saving || selectedPlayers.length !== rule.max_players} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} />Enviar lista</button>}</div>}{selectedCallup && selectedPlayers.length === rule.max_players && <div className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugador 13</p><p className="mt-1 text-sm text-slate-300">Marca quién no participará en esta jornada.</p></div><LockKeyhole className="text-[#b4ff45]" size={19} /></div><div className="mt-3 flex flex-col gap-3 sm:flex-row"><StyledSelect label="Jugador 13" value={inactivePlayerId} onChange={setInactivePlayerId} disabled={!canSelectInactivePlayer || selectedCallup.status === 'locked'} options={[{ value: '', label: 'Seleccionar jugador 13' }, ...selectedPlayers.map((player) => ({ value: player.player_id, label: player.full_name }))]} className="min-w-0 flex-1" /><button type="button" onClick={onMarkInactive} disabled={!inactivePlayerId || saving || !canSelectInactivePlayer || selectedCallup.status === 'locked'} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#b4ff45] px-4 py-3 text-sm font-bold text-[#dfffba] disabled:cursor-not-allowed disabled:opacity-50"><Check size={16} />Confirmar</button></div></div>}{isOwner && selectedCallup && (selectedCallup.status === 'locked' || (deadline && new Date(deadline).getTime() <= Date.now())) && <button type="button" onClick={onReopen} disabled={saving} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#ffb45c]/50 px-4 py-3 text-sm font-bold text-[#ffd09b] disabled:opacity-50"><RotateCcw size={16} />Reabrir convocatoria</button>}</div>
 }
 
-function CallupEditorWithPickerV2({ selectedTeam, selectedFixture, eligiblePlayers, selectedPlayerIds, setSelectedPlayerIds, playerShirtNumbers, setPlayerShirtNumbers, inactivePlayerId, setInactivePlayerId, selectedCallup, deadline, rule, canEditSelection, canMarkInactive, isOwner, saving, onSaveDraft, onSubmit, onMarkInactive, onReopen, allowSubmit, onBeginEdit }: CallupEditorV2Props) {
+function CallupEditorWithPickerV2({ selectedTeam, selectedFixture, eligiblePlayers, selectedPlayerIds, setSelectedPlayerIds, playerShirtNumbers, setPlayerShirtNumbers, inactivePlayerId, setInactivePlayerId, selectedCallup, deadline, rule, canEditSelection, canMarkInactive, isOwner, saving, onSaveDraft, onSubmit, onMarkInactive, onReopen, allowSubmit, onBeginEdit, onPrint }: CallupEditorV2Props) {
   const [showPlayerPicker, setShowPlayerPicker] = useState(false)
   const [playerQuery, setPlayerQuery] = useState('')
   const [playerSearch, setPlayerSearch] = useState('')
@@ -582,10 +724,19 @@ function CallupEditorWithPickerV2({ selectedTeam, selectedFixture, eligiblePlaye
   return <div className="space-y-5">
     <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start">
       <div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#b4ff45]">{selectedTeam.division_name}</p><h3 className="mt-1 text-2xl font-bold">{selectedTeam.name}</h3><p className="mt-1 text-sm capitalize text-slate-400">Fecha {selectedFixture.dateNumber}{selectedFixture.calendarDate ? ` · ${new Intl.DateTimeFormat('es-PA', { dateStyle: 'long' }).format(new Date(`${selectedFixture.calendarDate}T12:00:00`))}` : ''}</p></div>
-      <span className="inline-flex items-center gap-2 self-start rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedCallup ? statusLabels[selectedCallup.status] || selectedCallup.status : 'Pendiente'}</span>
+      <div className="flex flex-wrap gap-2 self-start">
+        <span className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedCallup ? statusLabels[selectedCallup.status] || selectedCallup.status : 'Pendiente'}</span>
+        <button
+          type="button"
+          onClick={onPrint}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"
+        >
+          <FileDown size={15} />PDF
+        </button>
+      </div>
     </div>
     {deadline && <p className={`rounded-[5px] border p-3 text-sm ${canEditSelection ? 'border-[#b4ff45]/20 bg-[#b4ff45]/5 text-slate-300' : 'border-red-400/20 bg-red-400/5 text-red-200'}`}>{canEditSelection ? `Puedes editar hasta ${formatDeadline(deadline)}.` : `Lista bloqueada desde ${formatDeadline(deadline)}.`}</p>}
-    <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugadores de la jornada</p><p className={`mt-1 text-2xl font-bold ${selectedPlayers.length >= 5 ? 'text-[#b4ff45]' : 'text-white'}`}>{selectedPlayers.length} / {rule.max_players}</p><p className="mt-1 text-xs text-slate-400">Mínimo para enviar: 5</p></div><Users className="text-[#b4ff45]" size={25} /></div>
+    <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Jugadores de la jornada</p><p className={`mt-1 text-2xl font-bold ${selectedPlayers.length >= 5 ? 'text-[#b4ff45]' : 'text-white'}`}>{selectedPlayers.length} / {rule.max_players}</p><p className="mt-1 text-xs text-slate-400">Mínimo para enviar: 5</p></div><div className="flex items-center gap-3"><PlayerRoleIcon position="Portero" /><PlayerRoleIcon position="Jugador" /><Users className="text-[#b4ff45]" size={25} /></div></div>
     {isSubmitted && !canEditSelection && <button type="button" onClick={onBeginEdit} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#b4ff45] px-4 py-3 text-sm font-bold text-[#dfffba]"><RotateCcw size={16} />Editar lista enviada</button>}
     {canEditSelection && <button type="button" onClick={() => setShowPlayerPicker((current) => !current)} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><UserPlus size={16} />{showPlayerPicker ? 'Ocultar jugadores' : 'Añadir jugador'}</button>}
     {showPlayerPicker && canEditSelection && <div className="rounded-[5px] border border-[#b4ff45]/30 bg-[#07131e] p-4">

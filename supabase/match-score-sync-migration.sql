@@ -12,6 +12,7 @@ from (
   from public.match_events
   join public.matches source_match on source_match.id = match_events.match_id
   where event_type in ('try', 'conversion')
+    and not is_corrected
   group by match_id
 ) as scores
 where m.id = scores.match_id;
@@ -22,6 +23,7 @@ set local_score = 0, visitor_score = 0
 where not exists (
   select 1
   from public.match_events event
-  where event.match_id = m.id
-    and event.event_type in ('try', 'conversion')
+    where event.match_id = m.id
+      and event.event_type in ('try', 'conversion')
+      and not event.is_corrected
 );

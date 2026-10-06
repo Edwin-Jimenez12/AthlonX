@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase'
 
 type Discipline = { id: string; name: string; code: string }
 type Modality = { id: string; name: string; code: string; discipline_id: string }
+type ModalityRule = { id: string; modality_id: string; players_on_field: number; max_roster_size: number; substitutions_allowed: number | null; substitutions_unlimited: boolean; half_duration_minutes: number; extra_time_allowed: boolean; draws_allowed: boolean }
 type EventOption = { id: string; title: string; description: string; icon: LucideIcon; enabled: boolean }
 
 const eventOptions: EventOption[] = [
@@ -31,7 +32,11 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [disciplineId, setDisciplineId] = useState('')
   const [modalities, setModalities] = useState<Modality[]>([])
   const [modalityError, setModalityError] = useState('')
+  const [rulesError, setRulesError] = useState('')
   const [modalityId, setModalityId] = useState('')
+  const [modalityRules, setModalityRules] = useState<ModalityRule[]>([])
+  const [competitionFormat, setCompetitionFormat] = useState('quick_league')
+  const [courtsCount, setCourtsCount] = useState('1')
   const [location, setLocation] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -46,14 +51,22 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   useEffect(() => {
     async function loadModalities() {
       if (!supabase) return
-      const { data, error } = await supabase.from('sport_modalities').select('id, name, code, discipline_id').eq('is_active', true).order('name')
+      const [{ data, error }, rulesResult] = await Promise.all([
+        supabase.from('sport_modalities').select('id, name, code, discipline_id').eq('is_active', true).order('name'),
+        supabase.from('sport_modality_rules').select('id, modality_id, players_on_field, max_roster_size, substitutions_allowed, substitutions_unlimited, half_duration_minutes, extra_time_allowed, draws_allowed'),
+      ])
       setModalities((data ?? []) as Modality[])
+      setModalityRules((rulesResult.data ?? []) as ModalityRule[])
       setModalityError(error ? 'No se pudieron cargar las modalidades. Ejecuta la migración de disciplinas y modalidades en Supabase.' : !data?.length ? 'No hay modalidades activas disponibles. Ejecuta la migración de disciplinas y modalidades en Supabase.' : '')
+      setRulesError(rulesResult.error ? 'No se pudieron cargar las reglas de las modalidades. Ejecuta la migración de reglas de fútbol en Supabase.' : '')
     }
     void loadModalities()
   }, [])
 
   const availableModalities = modalities.filter((modality) => modality.discipline_id === disciplineId)
+  const selectedDiscipline = disciplines.find((discipline) => discipline.id === disciplineId)
+  const selectedRule = modalityRules.find((rule) => rule.modality_id === modalityId)
+  const isFootball = selectedDiscipline?.code === 'futbol'
 
   useEffect(() => {
     setModalityId((current) => availableModalities.some((modality) => modality.id === current) ? current : availableModalities[0]?.id || '')
@@ -65,6 +78,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setCreatedTournament(null)
     if (!supabase || (!organizationId && !sourceTeamId)) return setMessage('Selecciona o crea un perfil organizador antes de crear un evento.')
     if (!name.trim() || !disciplineId || !modalityId || !startDate || !endDate) return setMessage('Completa el nombre, la disciplina, la modalidad y las fechas del torneo.')
+    if (isFootball && (!selectedRule || !competitionFormat || !Number.isInteger(Number(courtsCount)) || Number(courtsCount) < 1)) return setMessage(rulesError || 'Completa la configuración de la modalidad de fútbol.')
     if (new Date(endDate) < new Date(startDate)) return setMessage('La fecha final no puede ser anterior a la fecha inicial.')
 
     setLoading(true)
@@ -113,12 +127,27 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       return setMessage(divisionError?.message || 'El torneo se creó, pero no se pudo preparar su división.')
     }
 
+    if (isFootball) {
+      const { error: settingsError } = await supabase.from('tournament_competition_settings').insert({
+        tournament_id: tournament.id,
+        competition_format: competitionFormat,
+        courts_count: Number(courtsCount),
+        modality_rules_id: selectedRule?.id || null,
+      })
+      if (settingsError) {
+        setLoading(false)
+        return setMessage(settingsError.message)
+      }
+    }
+
     setLoading(false)
     setCreatedTournament(tournament)
     setMessage('Torneo creado. Puedes completar sus equipos y fixtures desde la gestión del torneo.')
     onCreated?.()
     setName('')
     setModalityId('')
+    setCompetitionFormat('quick_league')
+    setCourtsCount('1')
     setLocation('')
     setStartDate('')
     setEndDate('')
@@ -157,6 +186,12 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
             <StyledSelect label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" required />
             <StyledSelect label="Modalidad" value={modalityId} onChange={setModalityId} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'} disabled={!disciplineId || !availableModalities.length} required />
             {disciplineId && !availableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
+            {isFootball && rulesError && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{rulesError}</p>}
+            {isFootball && <>
+              <StyledSelect label="Formato del torneo" value={competitionFormat} onChange={setCompetitionFormat} options={[{ value: 'quick_league', label: 'Liga rápida' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'knockout', label: 'Eliminación directa' }]} required />
+              <label className="block text-sm font-semibold">Número de canchas<input required type="number" min="1" value={courtsCount} onChange={(event) => setCourtsCount(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              {selectedRule && <div className="rounded-xl border border-[#b4ff45]/25 bg-[#b4ff45]/10 p-3 text-xs leading-5 text-[#d8ffad] sm:col-span-2">{selectedRule.players_on_field} jugadores en cancha · Plantilla máxima {selectedRule.max_roster_size} · {selectedRule.substitutions_unlimited ? 'Cambios ilimitados' : `${selectedRule.substitutions_allowed} cambios`} · {selectedRule.half_duration_minutes} minutos por tiempo.</div>}
+            </>}
             <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />
             <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
             <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>

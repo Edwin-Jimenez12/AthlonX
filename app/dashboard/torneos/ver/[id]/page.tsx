@@ -9,6 +9,7 @@ import { QuickTournamentTeamsSection } from '../../../../../Components/quick-tou
 import { StyledSelect } from '../../../../../Components/styled-select'
 import { TournamentCallupsPanel } from '../../../../../Components/tournament-callups-panel'
 import { TournamentFixtureGenerator } from '../../../../../Components/tournament-fixture-generator'
+import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
 import { supabase } from '../../../../../lib/supabase'
 
 type Discipline = { id: string; code: string; name: string }
@@ -21,18 +22,41 @@ type Division = { id: string; name: string; sort_order: number }
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type ManualPairing = { divisionId: string; localTeamId: string; visitorTeamId: string }
 type AutomaticDivisionConfig = { divisionId: string; matchesPerDate: number; matchesPerTeam?: number; restTeamsPerDate?: number }
-type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_id: string | null; division_name: string | null; scheduled_time: string | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number; elapsed_seconds?: number | null; first_half_seconds?: number | null; second_half_seconds?: number | null; started_at?: string | null; is_paused?: boolean; period?: 'first_half' | 'second_half' }
+type Match = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_id: string | null; division_name: string | null; scheduled_time: string | null; court_number?: number | null; status: string; local_team_id: string; local_team_name: string; local_logo_url: string | null; visitor_team_id: string; visitor_team_name: string; visitor_logo_url: string | null; local_score: number; visitor_score: number; elapsed_seconds?: number | null; first_half_seconds?: number | null; second_half_seconds?: number | null; started_at?: string | null; is_paused?: boolean; period?: 'first_half' | 'second_half' }
 type FixtureRecess = { id: string; time: string | null; label?: string | null }
 type FixtureRecord = { id: string; date_number: number; calendar_date: string | null; recesses: FixtureRecess[] | null }
 type TournamentFixtureDate = { fixtureId: string; dateNumber: number; calendarDate: string | null }
 type TournamentFixtureCallup = { id: string; fixture_id: string; team_id: string; division_id: string; status: string; deadline_at: string | null }
 type TournamentFixtureCallupPlayer = { callup_id: string; player_id: string; state: string; shirt_number: number | null }
-type MatchEvent = { match_id: string; team_id?: string | null; player_id?: string | null; event_type: string; points: number }
+type MatchEvent = {
+  id: string
+  match_id: string
+  team_id?: string | null
+  player_id?: string | null
+  event_type: string
+  points: number
+  match_second?: number | null
+  created_at?: string | null
+  is_corrected?: boolean
+  correction_reason?: string | null
+  corrected_at?: string | null
+}
+type MatchRules = { half_duration_minutes: number; extra_time_allowed: boolean; extra_time_half_minutes: number; penalty_shootout_allowed: boolean; draws_allowed: boolean }
+type MatchEventCorrection = {
+  id: string
+  match_event_id: string
+  match_id: string
+  event_type: string
+  points_removed: number
+  reason: string
+  created_at: string
+}
 type StandingAdjustment = { tournament_id: string; division_id: string; team_id: string; points_adjustment: number; reason: string }
 type RosterEntry = { team_id: string; division_id: string | null; division_name?: string | null; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
 type TournamentInvitation = { id: string; team_id: string; division_id: string | null; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; created_at: string; responded_at: string | null }
 type EditHistory = { id: string; edited_by: string; changes: Record<string, any>; created_at: string }
 type TournamentPayload = { tournament: Tournament | null; divisions: Division[]; teams: TournamentTeam[]; matches: Match[] }
+type ModalityRule = { modality_id: string; players_on_field: number; max_roster_size: number; substitutions_allowed: number; substitutions_unlimited: boolean }
 type EditValues = { name: string; season: string; status: string; start_date: string; end_date: string; country: string; location: string; discipline_id: string; modality_id: string }
 type PendingChange = { label: string; before: string; after: string; beforeValue: string | null; afterValue: string | null }
 type FixtureDateChange = { fixtureId: string; calendarDate: string | null }
@@ -58,6 +82,16 @@ function shuffle<T>(items: T[]) {
     ;[result[index], result[swapIndex]] = [result[swapIndex], result[index]]
   }
   return result
+}
+
+// Calcula el horario de cada partido respetando el intervalo configurado.
+function addMinutesToTime(time: string, minutes: number) {
+  const [hours, initialMinutes] = time.split(':').map(Number)
+  const totalMinutes = hours * 60 + initialMinutes + minutes
+  const normalizedMinutes = ((totalMinutes % 1440) + 1440) % 1440
+  const nextHours = Math.floor(normalizedMinutes / 60)
+  const nextMinutes = normalizedMinutes % 60
+  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}:00`
 }
 
 function buildRoundRobinRounds(teamIds: string[]) {
@@ -190,18 +224,22 @@ export default function PublicTournamentPage() {
   const [fixtureCallups, setFixtureCallups] = useState<TournamentFixtureCallup[]>([])
   const [fixtureCallupPlayers, setFixtureCallupPlayers] = useState<TournamentFixtureCallupPlayer[]>([])
   const [matchEvents, setMatchEvents] = useState<MatchEvent[]>([])
+  const [matchEventCorrections, setMatchEventCorrections] = useState<MatchEventCorrection[]>([])
   const [standingAdjustments, setStandingAdjustments] = useState<StandingAdjustment[]>([])
   const [ownerId, setOwnerId] = useState('')
   const [availableDisciplines, setAvailableDisciplines] = useState<Discipline[]>([])
   const [availableModalities, setAvailableModalities] = useState<Modality[]>([])
   const [availablePlayers, setAvailablePlayers] = useState<PlayerSummary[]>([])
+  const [modalityRule, setModalityRule] = useState<ModalityRule | null>(null)
   const [officialPlayerId, setOfficialPlayerId] = useState('')
-  const [section, setSection] = useState<'resumen' | 'tablas' | 'equipos' | 'convocatorias' | 'fixtures' | 'generador' | 'partidos' | 'general' | 'historial'>('resumen')
+  const [section, setSection] = useState<'resumen' | 'tablas' | 'llaves' | 'equipos' | 'convocatorias' | 'fixtures' | 'generador' | 'partidos' | 'general' | 'historial'>('resumen')
   const [editMode, setEditMode] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [isFootball, setIsFootball] = useState(false)
+  const [tiebreakers, setTiebreakers] = useState<string[]>([])
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChange> | null>(null)
   const [pendingDivisionNames, setPendingDivisionNames] = useState<string[] | null>(null)
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([])
@@ -270,7 +308,27 @@ export default function PublicTournamentPage() {
       tournament: tournamentWithQuickFlag,
       teams: normalizedTeams,
     }
+    const selectedModalityId = normalizedPayload.tournament?.modality?.id || ''
+    const { data: modalityRuleRow } = selectedModalityId
+      ? await supabase
+          .from('sport_modality_rules')
+          .select('modality_id, players_on_field, max_roster_size, substitutions_allowed, substitutions_unlimited')
+          .eq('modality_id', selectedModalityId)
+          .maybeSingle()
+      : { data: null }
+    const matchIds = (normalizedPayload.matches ?? []).map((match) => match.id)
+    const { data: courtRows } = matchIds.length
+      ? await supabase.from('matches').select('id, court_number').in('id', matchIds)
+      : { data: [] }
+    const courtByMatch = new Map(
+      (courtRows ?? []).map((row) => [row.id, row.court_number]),
+    )
+    normalizedPayload.matches = normalizedPayload.matches.map((match) => ({
+      ...match,
+      court_number: courtByMatch.get(match.id) ?? null,
+    }))
     setData(normalizedPayload)
+    setModalityRule((modalityRuleRow as ModalityRule | null) || null)
     setHistory((historyRows ?? []) as EditHistory[])
     setStandingAdjustments((adjustmentRows ?? []) as StandingAdjustment[])
     setCurrentUserId(userData.user?.id || '')
@@ -306,9 +364,26 @@ export default function PublicTournamentPage() {
     if (normalizedPayload.tournament) {
       const matchIds = (payload.matches ?? []).map((match) => match.id)
       if (matchIds.length) {
-        const { data: eventRows } = await supabase.from('match_events').select('match_id, team_id, player_id, event_type, points').in('match_id', matchIds)
-        setMatchEvents((eventRows ?? []) as MatchEvent[])
-      } else setMatchEvents([])
+        const { data: eventRows } = await supabase
+          .from('match_events')
+          .select(
+            'id, match_id, team_id, player_id, event_type, points, match_second, '
+            + 'created_at, is_corrected, correction_reason, corrected_at'
+          )
+          .in('match_id', matchIds)
+        setMatchEvents((eventRows ?? []) as unknown as MatchEvent[])
+        const { data: correctionRows } = await supabase
+          .from('match_event_corrections')
+          .select(
+            'id, match_event_id, match_id, event_type, points_removed, reason, created_at'
+          )
+          .in('match_id', matchIds)
+          .order('created_at', { ascending: false })
+        setMatchEventCorrections((correctionRows ?? []) as MatchEventCorrection[])
+      } else {
+        setMatchEvents([])
+        setMatchEventCorrections([])
+      }
       const teamIds = (payload.teams ?? []).map((team) => team.id)
       if (teamIds.length) {
         const { data: links } = await supabase.from('team_players').select('team_id, division_id, player_id, is_substitute').in('team_id', teamIds)
@@ -343,6 +418,19 @@ export default function PublicTournamentPage() {
   }
 
   useEffect(() => { void loadTournament() }, [params.id])
+
+  // Limpia modales y operaciones temporales al cambiar de torneo o abrir la ruta.
+  useEffect(() => {
+    setMessage('')
+    setPendingChanges(null)
+    setPendingDivisionNames(null)
+    setPendingOperations([])
+    setShowOperationSave(false)
+    setDirtySection(null)
+    setPendingSection(null)
+    setSaveDestination(null)
+    setNumberRequest(null)
+  }, [params.id])
 
   useEffect(() => {
     const refreshTournament = () => void loadTournament()
@@ -466,11 +554,11 @@ export default function PublicTournamentPage() {
     setMessage('')
   }
 
-  function requestGenerateFixture(teamIds: string[] = uniqueTeams.map((team) => team.id), mode: 'automatic' | 'manual' = 'automatic', pairings: ManualPairing[] = [], divisionConfigs: AutomaticDivisionConfig[] = [], numberOfDates = 1) {
+  function requestGenerateFixture(teamIds: string[] = uniqueTeams.map((team) => team.id), mode: 'automatic' | 'manual' = 'automatic', pairings: ManualPairing[] = [], divisionConfigs: AutomaticDivisionConfig[] = [], numberOfDates = 1, firstMatchTime = '08:00') {
     const configurationLabel = divisionConfigs.length
       ? `${numberOfDates} fecha${numberOfDates === 1 ? '' : 's'} · ${divisionConfigs.map((config) => `${config.matchesPerTeam ?? config.matchesPerDate} partidos por equipo en ${data.divisions.find((division) => division.id === config.divisionId)?.name || 'división'}`).join(' · ')}`
       : `${teamIds.length} equipos seleccionados`
-    queueOperation({ title: mode === 'automatic' ? 'Generar fixture automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs), numberOfDates: String(numberOfDates) }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
+    queueOperation({ title: mode === 'automatic' ? 'Generar fixture automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs), numberOfDates: String(numberOfDates), firstMatchTime }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Horario', before: 'Sin cambios', after: `${firstMatchTime} · intervalos de 10 minutos`, beforeValue: null, afterValue: firstMatchTime }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
   }
 
   function requestUpdateFixture(dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches: FixtureNewMatch[] = [], deletedMatchIds: string[] = []) {
@@ -519,6 +607,8 @@ export default function PublicTournamentPage() {
     if (uniqueTeams.length < 2) return 'Agrega al menos dos equipos antes de generar un fixture.'
     const selectedTeamIds = operation.payload.teamIds ? operation.payload.teamIds.split(',').filter(Boolean) : teams.map((team) => team.id)
     const mode = operation.payload.mode || 'automatic'
+    const firstMatchTime = operation.payload.firstMatchTime || '08:00'
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(firstMatchTime)) return 'La hora inicial no es válida.'
     const requestedDateCount = mode === 'manual' ? 1 : Number(operation.payload.numberOfDates || 1)
     if (!Number.isInteger(requestedDateCount) || requestedDateCount < 1) return 'La cantidad de fechas no es válida.'
     const datePairings: ManualPairing[][] = Array.from({ length: requestedDateCount }, () => [])
@@ -548,6 +638,12 @@ export default function PublicTournamentPage() {
 
     const totalPairings = datePairings.reduce((total, pairings) => total + pairings.length, 0)
     if (!totalPairings) return 'No se generaron enfrentamientos con la configuración indicada.'
+    const { data: competitionSettings } = await supabase
+      .from('tournament_competition_settings')
+      .select('courts_count')
+      .eq('tournament_id', tournament.id)
+      .maybeSingle()
+    const courtsCount = Math.max(1, Number(competitionSettings?.courts_count || 1))
     const nextDate = (dates.at(-1) || 0) + 1
     const generatedAt = new Date().toISOString()
     const fixtureRows = datePairings.map((_, index) => ({ tournament_id: tournament.id, date_number: nextDate + index, calendar_date: addWeeksToDate(tournament.start_date, index), recesses: [{ id: `recess-${nextDate + index}-1`, time: null }], generated_at: generatedAt }))
@@ -555,7 +651,7 @@ export default function PublicTournamentPage() {
     if (fixtureError || !fixtures?.length) return fixtureError?.message || 'No se pudieron crear las fechas.'
 
     const fixtureByDate = new Map(fixtures.map((fixture) => [fixture.date_number, fixture.id]))
-    const pairs = datePairings.flatMap((pairings, index) => pairings.map((pairing, pairingIndex) => ({ fixture_id: fixtureByDate.get(nextDate + index), division_id: pairing.divisionId, fixture_order: pairingIndex, local_team_id: pairing.localTeamId, visitor_team_id: pairing.visitorTeamId })))
+    const pairs = datePairings.flatMap((pairings, index) => pairings.map((pairing, pairingIndex) => ({ fixture_id: fixtureByDate.get(nextDate + index), division_id: pairing.divisionId, fixture_order: pairingIndex, local_team_id: pairing.localTeamId, visitor_team_id: pairing.visitorTeamId, court_number: (pairingIndex % courtsCount) + 1, scheduled_time: addMinutesToTime(firstMatchTime, Math.floor(pairingIndex / courtsCount) * 10) })))
     const { error: matchesError } = await supabase.from('matches').insert(pairs)
     if (matchesError) {
       await supabase.from('fixtures').delete().in('id', fixtures.map((fixture) => fixture.id))
@@ -746,10 +842,10 @@ export default function PublicTournamentPage() {
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
     {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
-  </div>{pendingChanges && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
+  </div>{pendingChanges && Object.keys(pendingChanges).length > 0 && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && pendingOperations.length > 0 && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
 }
 
 function PendingOperationsPanel({ operations, onRemove, onSave }: { operations: PendingOperation[]; onRemove: (operationId: string) => void; onSave: () => void }) {
@@ -780,10 +876,10 @@ function PendingOperationsPanel({ operations, onRemove, onSave }: { operations: 
   )
 }
 
-function SummarySection({ tournament, divisions, teams, matches, events, onOpenFixtures, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; onOpenFixtures: () => void; canManage: boolean }) {
+function SummarySection({ tournament, divisions, teams, matches, events, corrections, onOpenFixtures, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; corrections: MatchEventCorrection[]; onOpenFixtures: () => void; canManage: boolean }) {
   const featuredMatch = getFeaturedMatch(matches)
   const uniqueTeamCount = new Set(teams.map((team) => team.id)).size
-  return <div className="space-y-8 pt-6"><div className="grid gap-6 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Resumen del torneo</p><h2 className="mt-2 font-display text-3xl uppercase">Actividad competitiva</h2><p className="mt-3 text-sm leading-6 text-slate-400">Consulta la estructura, el partido prioritario y la actividad registrada de esta competencia.</p><div className="mt-6 space-y-3"><InfoRow label="Tipo de torneo" value={tournament.is_quick ? 'Torneo rápido · No oficial' : 'Torneo normal · Oficial'} /><InfoRow label="Organización responsable" value={tournament.organization?.name || 'Torneo independiente'} /><InfoRow label="Equipo organizador" value={tournament.organizer_team?.name || 'No especificado'} /></div></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración deportiva</p><div className="mt-3 space-y-3"><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Divisiones" value={divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'} /><InfoRow label="Equipos inscritos" value={`${uniqueTeamCount} equipos · ${matches.length} partidos`} /></div></div></div><div><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Estado competitivo</p><h2 className="mt-2 font-display text-3xl uppercase">Partido destacado</h2></div>{featuredMatch && <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{featuredMatch.status === 'live' ? 'En vivo' : featuredMatch.status === 'finished' ? 'Último partido' : 'Próximo partido'}</span>}</div>{featuredMatch ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} /> : <div className="mt-5 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm leading-6 text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}</div></div>
+  return <div className="space-y-8 pt-6"><div className="grid gap-6 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Resumen del torneo</p><h2 className="mt-2 font-display text-3xl uppercase">Actividad competitiva</h2><p className="mt-3 text-sm leading-6 text-slate-400">Consulta la estructura, el partido prioritario y la actividad registrada de esta competencia.</p><div className="mt-6 space-y-3"><InfoRow label="Tipo de torneo" value={tournament.is_quick ? 'Torneo rápido · No oficial' : 'Torneo normal · Oficial'} /><InfoRow label="Organización responsable" value={tournament.organization?.name || 'Torneo independiente'} /><InfoRow label="Equipo organizador" value={tournament.organizer_team?.name || 'No especificado'} /></div></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración deportiva</p><div className="mt-3 space-y-3"><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Divisiones" value={divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'} /><InfoRow label="Equipos inscritos" value={`${uniqueTeamCount} equipos · ${matches.length} partidos`} /></div></div></div><div><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Estado competitivo</p><h2 className="mt-2 font-display text-3xl uppercase">Partido destacado</h2></div>{featuredMatch && <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{featuredMatch.status === 'live' ? 'En vivo' : featuredMatch.status === 'finished' ? 'Último partido' : 'Próximo partido'}</span>}</div>{featuredMatch ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} /> : <div className="mt-5 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm leading-6 text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}</div></div>
 }
 
 function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches: Match[] }) {
@@ -798,6 +894,10 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [standingPrintMenu, setStandingPrintMenu] = useState(false)
+  const [isFootball, setIsFootball] = useState(false)
+  const [tiebreakers, setTiebreakers] = useState<string[]>([])
+  const [qualifyingTeams, setQualifyingTeams] = useState(4)
   const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
 
   useEffect(() => {
@@ -815,6 +915,19 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
         supabase.from('tournaments').select('created_by').eq('id', currentTournamentId).maybeSingle(),
         supabase.auth.getUser(),
       ])
+      const { data: tournament } = await supabase.from('tournaments').select('discipline_id, modality_id').eq('id', currentTournamentId).maybeSingle()
+      const { data: competitionSettings } = await supabase.from('tournament_competition_settings').select('qualifying_teams_per_group').eq('tournament_id', currentTournamentId).maybeSingle()
+      if (active && competitionSettings?.qualifying_teams_per_group) setQualifyingTeams(competitionSettings.qualifying_teams_per_group)
+      if (tournament?.discipline_id && tournament.modality_id) {
+        const [{ data: discipline }, { data: rules }] = await Promise.all([
+          supabase.from('disciplines').select('code').eq('id', tournament.discipline_id).maybeSingle(),
+          supabase.from('sport_modality_rules').select('tiebreakers').eq('modality_id', tournament.modality_id).maybeSingle(),
+        ])
+        if (active) {
+          setIsFootball(discipline?.code === 'futbol')
+          setTiebreakers(Array.isArray(rules?.tiebreakers) ? rules.tiebreakers : [])
+        }
+      }
       if (active) {
         const ownerAccess = Boolean(owner?.created_by && owner.created_by === userData.user?.id)
         setIsOwner(ownerAccess)
@@ -827,12 +940,58 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
     return () => { active = false }
   }, [matches, routeParams.id])
 
+  function calculateStandings(divisionId: string) {
+    return teams.filter((team) => team.division_id === divisionId).map((team) => {
+      const adjustment = adjustments.find((item) => (
+        item.division_id === divisionId && item.team_id === team.id
+      ))?.points_adjustment || 0
+      const row = {
+        team,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+        points: 0,
+        adjustment,
+      }
+      matches.filter((match) => (
+        match.status === 'finished' &&
+        match.division_id === divisionId &&
+        (match.local_team_id === team.id || match.visitor_team_id === team.id)
+      )).forEach((match) => {
+        const local = match.local_team_id === team.id
+        const scored = local ? match.local_score : match.visitor_score
+        const conceded = local ? match.visitor_score : match.local_score
+        row.played += 1
+        row.pointsFor += scored
+        row.pointsAgainst += conceded
+        if (scored > conceded) {
+          row.wins += 1
+          row.points += isFootball ? 3 : 4
+        } else if (scored === conceded) {
+          row.draws += 1
+          row.points += isFootball ? 1 : 2
+        } else {
+          row.losses += 1
+        }
+      })
+      return { ...row, totalPoints: row.points + row.adjustment }
+    }).sort((a, b) => {
+      for (const criterion of tiebreakers) {
+        if (criterion === 'points' && b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
+        if (criterion === 'goal_difference' && b.pointsFor - b.pointsAgainst !== a.pointsFor - a.pointsAgainst) return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
+        if (criterion === 'goals_for' && b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor
+        if (criterion === 'wins' && b.wins !== a.wins) return b.wins - a.wins
+      }
+      return b.totalPoints - a.totalPoints || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
+    })
+  }
+
   const divisionTeams = teams.filter((team) => team.division_id === selectedDivisionId)
-  const standings = divisionTeams.map((team) => {
-    const row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0, adjustment: adjustments.find((item) => item.division_id === selectedDivisionId && item.team_id === team.id)?.points_adjustment || 0 }
-    matches.filter((match) => match.status === 'finished' && match.division_id === team.division_id && (match.local_team_id === team.id || match.visitor_team_id === team.id)).forEach((match) => { const local = match.local_team_id === team.id; const scored = local ? match.local_score : match.visitor_score; const conceded = local ? match.visitor_score : match.local_score; row.played += 1; row.pointsFor += scored; row.pointsAgainst += conceded; if (scored > conceded) { row.wins += 1; row.points += 4 } else if (scored === conceded) { row.draws += 1; row.points += 2 } else row.losses += 1 })
-    return { ...row, totalPoints: row.points + row.adjustment }
-  }).sort((a, b) => b.totalPoints - a.totalPoints || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst))
+  const standings = calculateStandings(selectedDivisionId)
+  const qualifiedTeams = standings.slice(0, Math.min(qualifyingTeams, standings.length))
 
   function beginEditing() {
     setDraftAdjustments(Object.fromEntries(standings.map((row) => [row.team.id, row.adjustment])))
@@ -862,7 +1021,250 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
     setSaving(false)
   }
 
-  return <div className="pt-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Selecciona una división. Los puntos de partidos no se modifican; los ajustes administrativos se suman al total.</p></div><div className="flex items-center gap-3"><Table2 className="text-[#b4ff45]" />{tournamentId && !editing && <button type="button" onClick={beginEditing} className="inline-flex items-center gap-2 rounded-[5px] border border-[#b4ff45] px-3 py-2 text-sm font-bold text-[#dfffba]"><Pencil size={15} />Editar tabla</button>}</div></div>{divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{divisions.map(([id, name]) => <button type="button" key={id} onClick={() => { setSelectedDivisionId(id); setEditing(false) }} className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{name}</button>)}</div>}{editing && <div className="mt-5 grid gap-4 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-4 sm:grid-cols-2"><label className="text-sm font-semibold">Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" /></label><label className="text-sm font-semibold">Motivo del ajuste<textarea value={reason} onChange={(event) => setReason(event.target.value)} className="mt-2 min-h-10 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" placeholder="Ejemplo: sanción disciplinaria" /></label></div>}{divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4">Ajustes administrativos</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={`${row.team.id}-${row.team.division_id}`} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 text-slate-300">{editing ? <input type="number" value={draftAdjustments[row.team.id] ?? row.adjustment} onChange={(event) => setDraftAdjustments((current) => ({ ...current, [row.team.id]: Number(event.target.value) }))} className="w-28 rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-1 text-center outline-none focus:border-[#b4ff45]" /> : <span className={row.adjustment < 0 ? 'text-[#ff9ca5]' : row.adjustment > 0 ? 'text-[#dfffba]' : ''}>{row.adjustment > 0 ? `+${row.adjustment}` : row.adjustment}</span>}</td><td className="p-4 font-bold text-[#b4ff45]">{editing ? row.points + Number(draftAdjustments[row.team.id] ?? row.adjustment) : row.totalPoints}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos en esta división.</p>}</div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Todavía no hay divisiones configuradas.</div>}{editing && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setEditing(false)} className="rounded-[5px] border border-[#31556b] px-4 py-2 text-sm font-bold text-slate-300">Cancelar</button><button type="button" disabled={saving} onClick={() => void saveAdjustments()} className="rounded-[5px] bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e]">{saving ? 'Guardando...' : 'Guardar cambios'}</button></div>}{message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}</div>
+  const selectedDivisionName = divisions.find(([id]) => id === selectedDivisionId)?.[1] || 'División'
+
+  // Escapa valores dinámicos antes de insertarlos en el documento de impresión.
+  function escapePrintValue(value: string) {
+    return value.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[character] || character))
+  }
+
+  // Genera un documento independiente con una tabla por cada división.
+  function printStandings(target: 'all' | 'individual') {
+    setStandingPrintMenu(false)
+    const divisionRows = target === 'all'
+      ? divisions
+      : divisions.filter(([divisionId]) => divisionId === selectedDivisionId)
+    const divisionMarkup = divisionRows.map(([divisionId, divisionName]) => {
+      const rows = calculateStandings(divisionId)
+      const rowsMarkup = rows.map((row, index) => `<tr>
+        <td>${index + 1}</td>
+        <td class="team">${escapePrintValue(row.team.name)}</td>
+        <td>${row.played}</td>
+        <td>${row.wins}</td>
+        <td>${row.draws}</td>
+        <td>${row.losses}</td>
+        <td>${row.pointsFor}</td>
+        <td>${row.pointsAgainst}</td>
+        <td class="points">${row.totalPoints}</td>
+      </tr>`).join('')
+      return `<section class="division">
+        <h2>${escapePrintValue(divisionName || 'División')}</h2>
+        <table>
+          <thead><tr>
+            <th>#</th><th class="team">Equipo</th><th>PJ</th><th>PG</th>
+            <th>PE</th><th>PP</th><th>PF</th><th>PC</th><th>PTS</th>
+          </tr></thead>
+          <tbody>${rowsMarkup || '<tr><td colspan="9">Sin equipos registrados</td></tr>'}</tbody>
+        </table>
+      </section>`
+    }).join('')
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      setMessage('Permite las ventanas emergentes para generar el PDF.')
+      return
+    }
+    const pageTitle = document.querySelector('main h1')?.textContent?.trim()
+    const title = escapePrintValue(pageTitle || 'Tabla de posiciones')
+    const tournamentTitle = escapePrintValue(pageTitle || 'Tabla de posiciones')
+    const modality = escapePrintValue('Tabla de posiciones')
+    printWindow.document.write(`<!doctype html><html lang="es"><head>
+      <meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #fff; color: #10151b; }
+        .page { width: 210mm; min-height: 297mm; padding: 16mm 15mm; }
+        .logos { display: flex; justify-content: space-between; align-items: flex-start; }
+        .logos img:first-child { width: 46mm; height: 18mm; object-fit: contain; }
+        .logos img:last-child { width: 38mm; height: 20mm; object-fit: contain; }
+        h1 { margin: 10mm 0 2mm; text-align: center; font: 700 24px Arial, sans-serif; }
+        .subtitle { margin: 0; text-align: center; font: 14px Arial, sans-serif; }
+        .division { margin-top: 12mm; break-inside: avoid; }
+        .division h2 { margin: 0; padding-bottom: 3mm; border-bottom: 2px solid #122436;
+          text-align: center; font: 700 15px Arial, sans-serif; text-transform: uppercase; }
+        table { width: 100%; margin-top: 4mm; border-collapse: collapse; font: 11px Arial, sans-serif; }
+        th { padding: 3mm 2mm; border-bottom: 2px solid #122436; text-align: left;
+          font-weight: 700; }
+        td { padding: 2.5mm 2mm; border-bottom: 1px solid #c5d3df; }
+        th:not(.team), td:not(.team) { text-align: center; }
+        .team { width: 42%; }
+        td.team { font-weight: 700; }
+        .points { font-weight: 700; color: #4c8500; }
+        tr { break-inside: avoid; }
+        @media print { .page { break-after: auto; } }
+      </style>
+    </head><body><main class="page">
+      <div class="logos">
+        <img src="${window.location.origin}/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
+        <img src="${window.location.origin}/upr.png" alt="Organización" />
+      </div>
+      <h1>${tournamentTitle}</h1>
+      <p class="subtitle">${modality} · ${target === 'all' ? 'Todas las divisiones' : escapePrintValue(selectedDivisionName)}</p>
+      ${divisionMarkup}
+    </main></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    window.setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 400)
+  }
+
+  return <>
+    <div className="pt-6 print:hidden">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">
+            Competencia
+          </p>
+          <h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Selecciona una división. Los ajustes administrativos se suman al total.
+          </p>
+        </div>
+        <div className="relative flex items-center gap-3">
+          <Table2 className="text-[#b4ff45]" />
+          {divisions.length > 0 && <button
+            type="button"
+            onClick={() => setStandingPrintMenu((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-sm font-bold text-slate-200 hover:border-[#b4ff45]"
+          >
+            <FileDown size={15} />PDF
+          </button>}
+          {standingPrintMenu && <div className="absolute right-0 top-12 z-20 w-44 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-2 shadow-xl">
+            <button
+              type="button"
+              onClick={() => printStandings('all')}
+              className="block w-full rounded-[5px] px-3 py-2 text-left text-sm font-bold text-slate-200 hover:bg-[#b4ff45]/10"
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => printStandings('individual')}
+              className="block w-full rounded-[5px] px-3 py-2 text-left text-sm font-bold text-slate-200 hover:bg-[#b4ff45]/10"
+            >
+              Individual
+            </button>
+          </div>}
+          {tournamentId && !editing && <button
+            type="button"
+            onClick={beginEditing}
+            className="inline-flex items-center gap-2 rounded-[5px] border border-[#b4ff45] px-3 py-2 text-sm font-bold text-[#dfffba]"
+          >
+            <Pencil size={15} />Editar tabla
+          </button>}
+        </div>
+      </div>
+      {divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">
+        {divisions.map(([id, name]) => <button
+          type="button"
+          key={id}
+          onClick={() => {
+            setSelectedDivisionId(id)
+            setEditing(false)
+          }}
+          className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}
+        >
+          {name}
+        </button>)}
+      </div>}
+      {editing && <div className="mt-5 grid gap-4 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-4 sm:grid-cols-2">
+        <label className="text-sm font-semibold">
+          Contraseña
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]"
+          />
+        </label>
+        <label className="text-sm font-semibold">
+          Motivo del ajuste
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="mt-2 min-h-10 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]"
+            placeholder="Ejemplo: sanción disciplinaria"
+          />
+        </label>
+      </div>}
+      {divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]">
+        <table className="w-full min-w-[900px] text-left text-sm">
+          <thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400">
+            <tr>
+              <th className="p-4">Equipo</th><th className="p-4">PJ</th>
+              <th className="p-4">PG</th><th className="p-4">PE</th>
+              <th className="p-4">PP</th><th className="p-4">PF</th>
+              <th className="p-4">PC</th><th className="p-4">Ajustes administrativos</th>
+              <th className="p-4 text-[#b4ff45]">PTS</th>
+            </tr>
+          </thead>
+          <tbody>{standings.map((row, index) => <tr
+            key={`${row.team.id}-${row.team.division_id}`}
+            className="border-t border-[#29485d]"
+          >
+            <td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td>
+            <td className="p-4 text-slate-300">{row.played}</td>
+            <td className="p-4 text-slate-300">{row.wins}</td>
+            <td className="p-4 text-slate-300">{row.draws}</td>
+            <td className="p-4 text-slate-300">{row.losses}</td>
+            <td className="p-4 text-slate-300">{row.pointsFor}</td>
+            <td className="p-4 text-slate-300">{row.pointsAgainst}</td>
+            <td className="p-4 text-slate-300">{editing ? <input
+              type="number"
+              value={draftAdjustments[row.team.id] ?? row.adjustment}
+              onChange={(event) => setDraftAdjustments((current) => ({
+                ...current,
+                [row.team.id]: Number(event.target.value),
+              }))}
+              className="w-28 rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-1 text-center outline-none focus:border-[#b4ff45]"
+            /> : <span className={row.adjustment < 0 ? 'text-[#ff9ca5]' : row.adjustment > 0 ? 'text-[#dfffba]' : ''}>
+              {row.adjustment > 0 ? `+${row.adjustment}` : row.adjustment}
+            </span>}</td>
+            <td className="p-4 font-bold text-[#b4ff45]">
+              {editing ? row.points + Number(draftAdjustments[row.team.id] ?? row.adjustment) : row.totalPoints}
+            </td>
+          </tr>)}</tbody>
+        </table>
+        {!standings.length && <p className="p-6 text-sm text-slate-400">
+          Todavía no hay equipos en esta división.
+        </p>}
+      </div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">
+        Todavía no hay divisiones configuradas.
+      </div>}
+      {editing && <div className="mt-5 flex flex-wrap justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded-[5px] border border-[#31556b] px-4 py-2 text-sm font-bold text-slate-300"
+        >Cancelar</button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void saveAdjustments()}
+          className="rounded-[5px] bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e]"
+        >{saving ? 'Guardando...' : 'Guardar cambios'}</button>
+      </div>}
+      {message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">
+        {message}
+      </p>}
+    </div>
+  </>
+
+  /*
+
+  return <div className="pt-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencia</p><h2 className="mt-2 font-display text-3xl uppercase">Tabla de puntuación</h2><p className="mt-2 text-sm text-slate-400">Selecciona una división. Los puntos de partidos no se modifican; los ajustes administrativos se suman al total.</p></div><div className="flex items-center gap-3"><Table2 className="text-[#b4ff45]" />{divisions.length > 0 && <button type="button" onClick={printStandings} className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-sm font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />PDF</button>}{tournamentId && !editing && <button type="button" onClick={beginEditing} className="inline-flex items-center gap-2 rounded-[5px] border border-[#b4ff45] px-3 py-2 text-sm font-bold text-[#dfffba]"><Pencil size={15} />Editar tabla</button>}</div></div>{divisions.length > 0 && <div className="mt-6 flex flex-wrap gap-2">{divisions.map(([id, name]) => <button type="button" key={id} onClick={() => { setSelectedDivisionId(id); setEditing(false) }} className={`rounded-[5px] border px-4 py-2.5 text-sm font-bold transition ${selectedDivisionId === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#07131e]' : 'border-[#31556b] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{name}</button>)}</div>}{divisions.length > 0 && <p className="mt-3 text-xs text-slate-500">PDF de la división seleccionada: {selectedDivisionName}</p>}{editing && <div className="mt-5 grid gap-4 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-4 sm:grid-cols-2"><label className="text-sm font-semibold">Contraseña<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" /></label><label className="text-sm font-semibold">Motivo del ajuste<textarea value={reason} onChange={(event) => setReason(event.target.value)} className="mt-2 min-h-10 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 outline-none focus:border-[#b4ff45]" placeholder="Ejemplo: sanción disciplinaria" /></label></div>}{divisions.length > 0 ? <div className="mt-6 overflow-x-auto rounded-[5px] border border-[#29485d]"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#102a3d] text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-4">Equipo</th><th className="p-4">PJ</th><th className="p-4">PG</th><th className="p-4">PE</th><th className="p-4">PP</th><th className="p-4">PF</th><th className="p-4">PC</th><th className="p-4">Ajustes administrativos</th><th className="p-4 text-[#b4ff45]">PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={`${row.team.id}-${row.team.division_id}`} className="border-t border-[#29485d]"><td className="p-4 font-bold"><span className="mr-3 text-[#b4ff45]">{index + 1}</span>{row.team.name}</td><td className="p-4 text-slate-300">{row.played}</td><td className="p-4 text-slate-300">{row.wins}</td><td className="p-4 text-slate-300">{row.draws}</td><td className="p-4 text-slate-300">{row.losses}</td><td className="p-4 text-slate-300">{row.pointsFor}</td><td className="p-4 text-slate-300">{row.pointsAgainst}</td><td className="p-4 text-slate-300">{editing ? <input type="number" value={draftAdjustments[row.team.id] ?? row.adjustment} onChange={(event) => setDraftAdjustments((current) => ({ ...current, [row.team.id]: Number(event.target.value) }))} className="w-28 rounded-[5px] border border-[#31556b] bg-[#07131e] px-2 py-1 text-center outline-none focus:border-[#b4ff45]" /> : <span className={row.adjustment < 0 ? 'text-[#ff9ca5]' : row.adjustment > 0 ? 'text-[#dfffba]' : ''}>{row.adjustment > 0 ? `+${row.adjustment}` : row.adjustment}</span>}</td><td className="p-4 font-bold text-[#b4ff45]">{editing ? row.points + Number(draftAdjustments[row.team.id] ?? row.adjustment) : row.totalPoints}</td></tr>)}</tbody></table>{!standings.length && <p className="p-6 text-sm text-slate-400">Todavía no hay equipos en esta división.</p>}</div> : <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Todavía no hay divisiones configuradas.</div>}{editing && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setEditing(false)} className="rounded-[5px] border border-[#31556b] px-4 py-2 text-sm font-bold text-slate-300">Cancelar</button><button type="button" disabled={saving} onClick={() => void saveAdjustments()} className="rounded-[5px] bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e]">{saving ? 'Guardando...' : 'Guardar cambios'}</button></div>}{message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}</div>
+}
+
+  */
 }
 
 function formatTournamentFixtureDateLabel(fixture: TournamentFixtureDate) {
@@ -1012,6 +1414,8 @@ function LegacyFixtureListSection({ tournament, teams, dates, matches }: { tourn
   const [editingDate, setEditingDate] = useState<number | null>(null)
   const [draftDates, setDraftDates] = useState<Record<string, string>>({})
   const [draftTimes, setDraftTimes] = useState<Record<string, string>>({})
+  const [draftCourts, setDraftCourts] = useState<Record<string, string>>({})
+  const [courtsCount, setCourtsCount] = useState(1)
   const [draftPairs, setDraftPairs] = useState<Record<string, { localTeamId: string; visitorTeamId: string }>>({})
   const [deletedMatchIds, setDeletedMatchIds] = useState<string[]>([])
   const [message, setMessage] = useState('')
@@ -1090,12 +1494,18 @@ function LegacyFixtureListSection({ tournament, teams, dates, matches }: { tourn
   return <section className="pt-6 print:hidden"><div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Consulta</p><h2 className="mt-2 font-display text-3xl uppercase">Fixtures</h2><p className="mt-2 max-w-2xl text-sm text-slate-400">Edita equipos, horarios y fechas. Los cambios se guardan directamente en Supabase.</p></div></div>{!matches.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}<div className="mt-6 space-y-5">{fixtureGroups.map((fixture) => { const isEditing = editingDate === fixture.date; const visibleMatches = fixture.matches.filter((match) => !deletedMatchIds.includes(match.id)); const calendarDate = draftDates[String(fixture.date)] || fixture.matches[0]?.calendar_date || tournament.start_date || ''; return <article key={fixture.date} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{isEditing ? <input type="date" value={calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-slate-200" /> : <p className="mt-2 text-sm capitalize text-slate-300">{calendarDate ? new Date(`${calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div>{canManage && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setEditingDate(isEditing ? null : fixture.date); setDeletedMatchIds([]) }} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba]">{isEditing ? 'Cancelar' : 'Editar'}</button>{isEditing && <><button type="button" onClick={() => void saveDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Check size={15} />Guardar</button><button type="button" onClick={() => void deleteDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] border border-[#ff7d88]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7]"><Trash2 size={15} />Eliminar fecha</button></>}</div>}</div><div className="mt-3 divide-y divide-white/10">{visibleMatches.map((match) => { const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }; const divisionId = teams.find((team) => team.id === pair.localTeamId)?.division_id || teams.find((team) => team.id === pair.visitorTeamId)?.division_id; const options = teams.filter((team) => team.division_id === divisionId); return <div key={match.id} className="grid gap-3 py-4 sm:grid-cols-[120px_1fr_140px] sm:items-center"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{match.division_name || 'General'}</span>{isEditing ? <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><select value={pair.localTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, localTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200"><option value="">Local</option>{options.map((team) => <option key={`local-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={pair.visitorTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, visitorTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200"><option value="">Visitante</option>{options.filter((team) => team.id !== pair.localTeamId).map((team) => <option key={`visitor-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={() => void deleteMatch(match.id)} className="rounded-[5px] border border-[#ff7d88]/50 px-2 py-2 text-[#ffb0b7]"><Trash2 size={15} /></button><input type="time" value={draftTimes[match.id] || ''} onChange={(event) => setDraftTimes((current) => ({ ...current, [match.id]: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200 sm:col-span-3" /></div> : <><div className="font-semibold text-slate-100"><span>{match.local_team_name}</span><span className="px-2 text-slate-500">vs.</span><span>{match.visitor_team_name}</span></div><span className="text-sm text-slate-400">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></>}</div> })}</div></article> })}</div>{message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}</section>
 }
 
+function CourtEditor({ matches, courtsCount, draftCourts, onChange }: { matches: Match[]; courtsCount: number; draftCourts: Record<string, string>; onChange: (matchId: string, value: string) => void }) {
+  return <section className="mb-4 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 print:hidden"><p className="text-xs font-bold uppercase tracking-wider text-[#b4ff45]">Asignación de canchas</p><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{matches.map((match) => <label key={match.id} className="text-xs font-semibold text-slate-400">{match.local_team_name} vs. {match.visitor_team_name}<select value={draftCourts[match.id] || ''} onChange={(event) => onChange(match.id, event.target.value)} className="mt-1 w-full rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm font-normal text-slate-200"><option value="">Sin cancha</option>{Array.from({ length: courtsCount }, (_, index) => <option key={index + 1} value={index + 1}>Cancha {index + 1}</option>)}</select></label>)}</div></section>
+}
+
 function FixtureListSection({ tournament, teams, dates, matches }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; matches: Match[] }) {
   const [fixtureRecords, setFixtureRecords] = useState<FixtureRecord[]>([])
   const [canManage, setCanManage] = useState(false)
   const [editingDate, setEditingDate] = useState<number | null>(null)
   const [draftDates, setDraftDates] = useState<Record<string, string>>({})
   const [draftTimes, setDraftTimes] = useState<Record<string, string>>({})
+  const [draftCourts, setDraftCourts] = useState<Record<string, string>>({})
+  const [courtsCount, setCourtsCount] = useState(1)
   const [draftPairs, setDraftPairs] = useState<Record<string, { localTeamId: string; visitorTeamId: string }>>({})
   const [draftRecesses, setDraftRecesses] = useState<Record<string, FixtureRecess[]>>({})
   const [deletedMatchIds, setDeletedMatchIds] = useState<string[]>([])
@@ -1108,14 +1518,16 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     let active = true
     void (async () => {
       if (!supabase) return
-      const [{ data: userData }, { data: tournamentRow }, { data: rows }] = await Promise.all([
+      const [{ data: userData }, { data: tournamentRow }, { data: rows }, { data: settings }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('tournaments').select('created_by').eq('id', tournament.id).maybeSingle(),
         supabase.from('fixtures').select('id, date_number, calendar_date, recesses').eq('tournament_id', tournament.id).order('date_number'),
+        supabase.from('tournament_competition_settings').select('courts_count').eq('tournament_id', tournament.id).maybeSingle(),
       ])
       if (!active) return
       setCanManage(tournamentRow?.created_by === userData.user?.id)
       setFixtureRecords((rows ?? []) as FixtureRecord[])
+      setCourtsCount(Math.max(1, Number(settings?.courts_count || 1)))
     })()
     return () => { active = false }
   }, [tournament.id])
@@ -1123,6 +1535,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
   useEffect(() => {
     setDraftDates(Object.fromEntries(dates.map((date) => [String(date), matches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || ''])))
     setDraftTimes(Object.fromEntries(matches.map((match) => [match.id, match.scheduled_time || ''])))
+    setDraftCourts(Object.fromEntries(matches.map((match) => [match.id, String(match.court_number || '')])))
     setDraftPairs(Object.fromEntries(matches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }])))
     setDraftRecesses(Object.fromEntries(dates.map((date) => {
       const fixture = fixtureRecords.find((item) => item.date_number === date)
@@ -1185,12 +1598,23 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     const recesses = draftRecesses[String(date)]?.length ? draftRecesses[String(date)] : normalizeFixtureRecesses([], sourceFixture.id)
     const { error: fixtureError } = await supabase.from('fixtures').update({ calendar_date: draftDates[String(date)] || null, recesses }).eq('id', sourceFixture.id)
     if (fixtureError) return setMessage(fixtureError.message)
+    const occupiedSlots = new Set<string>()
     for (const match of dateMatches) {
       const nextPair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
       if (!nextPair.localTeamId || !nextPair.visitorTeamId || nextPair.localTeamId === nextPair.visitorTeamId) return setMessage('Cada enfrentamiento debe tener dos equipos diferentes.')
       const nextTime = draftTimes[match.id] || null
-      if (nextTime !== match.scheduled_time || nextPair.localTeamId !== match.local_team_id || nextPair.visitorTeamId !== match.visitor_team_id) {
-        const { error } = await supabase.from('matches').update({ scheduled_time: nextTime, local_team_id: nextPair.localTeamId, visitor_team_id: nextPair.visitorTeamId }).eq('id', match.id)
+      const rawCourt = draftCourts[match.id] || ''
+      const nextCourt = rawCourt ? Number(rawCourt) : null
+      if (nextCourt !== null && (!Number.isInteger(nextCourt) || nextCourt < 1 || nextCourt > courtsCount)) {
+        return setMessage(`La cancha debe estar entre 1 y ${courtsCount}.`)
+      }
+      const slotKey = `${nextTime || 'sin-hora'}:${nextCourt || 'sin-cancha'}`
+      if (nextTime && nextCourt && occupiedSlots.has(slotKey)) {
+        return setMessage(`La cancha ${nextCourt} tiene dos partidos a las ${nextTime.slice(0, 5)}.`)
+      }
+      if (nextTime && nextCourt) occupiedSlots.add(slotKey)
+      if (nextTime !== match.scheduled_time || nextCourt !== (match.court_number || null) || nextPair.localTeamId !== match.local_team_id || nextPair.visitorTeamId !== match.visitor_team_id) {
+        const { error } = await supabase.from('matches').update({ scheduled_time: nextTime, court_number: nextCourt, local_team_id: nextPair.localTeamId, visitor_team_id: nextPair.visitorTeamId }).eq('id', match.id)
         if (error) return setMessage(error.message)
       }
     }
@@ -1221,14 +1645,109 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     setDeletedMatchIds((current) => [...current, matchId])
   }
 
+  // Escapa valores dinámicos antes de insertarlos en el documento de impresión.
+  function escapePrintValue(value: string) {
+    return value.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[character] || character))
+  }
+
+  // Genera el fixture en una ventana independiente para excluir el layout del torneo.
   function printFixture(date: number) {
-    setPrintTarget(date)
-    window.setTimeout(() => window.print(), 0)
+    const fixture = fixtureGroups.find((item) => item.date === date)
+    if (!fixture) return
+    const fixtureRecord = fixtureRecords.find((item) => item.date_number === date)
+    const recesses = normalizeFixtureRecesses(
+      fixtureRecord?.recesses,
+      fixtureRecord?.id || `date-${date}`
+    ).filter((recess) => recess.time)
+    const divisionGroups = Array.from(new Map(
+      fixture.matches.map((match) => [match.division_id, match.division_name || 'General'])
+    ).entries())
+    const divisionMarkup = divisionGroups.map(([divisionId, divisionName]) => {
+      const divisionTeams = teams.filter((team) => (
+        team.division_id === divisionId &&
+        fixture.matches.some((match) => (
+          match.local_team_id === team.id || match.visitor_team_id === team.id
+        ))
+      ))
+      const teamMarkup = divisionTeams.map((team) => (
+        `<div class="team">${escapePrintValue(team.name)}</div>`
+      )).join('')
+      return `<div class="division"><h2>${escapePrintValue(divisionName)}</h2>${teamMarkup}</div>`
+    }).join('')
+    const matchMarkup = fixture.matches.map((match, index) => `<tr>
+      <td>Partido ${index + 1}</td>
+      <td>${escapePrintValue(match.scheduled_time?.slice(0, 5) || 'Hora por definir')}</td>
+      <td>${match.court_number ? `Cancha ${match.court_number}` : 'Sin cancha'}</td>
+      <td>${escapePrintValue(match.division_name || 'General')}</td>
+      <td class="bold">${escapePrintValue(match.local_team_name)} vs. ${escapePrintValue(match.visitor_team_name)}</td>
+    </tr>`).join('')
+    const recessMarkup = recesses.map((recess) => (
+      `<p class="recess">RECESO · ${escapePrintValue(recess.time || '')}</p>`
+    )).join('')
+    const calendarDate = fixture.matches[0]?.calendar_date
+      ? new Date(`${fixture.matches[0].calendar_date}T00:00:00`).toLocaleDateString('es-PA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+      : 'Fecha por definir'
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      setMessage('Permite las ventanas emergentes para generar el PDF.')
+      return
+    }
+    printWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8" />
+      <title>Fixture ${escapePrintValue(tournament.name)}</title>
+      <style>
+        @page { size: letter; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #fff; color: #111827; font-family: Arial, sans-serif; }
+        .page { width: 8.5in; min-height: 11in; padding: 0.42in 0.45in; }
+        .logos { display: flex; justify-content: space-between; align-items: flex-start; }
+        .logos img:first-child { width: 1.35in; height: 0.6in; object-fit: contain; object-position: left; }
+        .logos img:last-child { width: 1.1in; height: 0.6in; object-fit: contain; object-position: right; }
+        h1 { margin: 0.32in 0 0.08in; text-align: center; color: #111827; font-size: 22px; font-weight: 900; text-transform: uppercase; }
+        .subtitle { margin: 0; text-align: center; color: #111827; font-size: 14px; }
+        .divisions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.16in; margin-top: 0.48in; }
+        .division h2 { margin: 0 0 8px; text-align: center; color: #111827; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+        .team { border: 1px solid #b8c9dc; padding: 6px 4px; text-align: center; color: #111827; font-size: 12px; }
+        .schedule-title { margin: 0.42in 0 0; padding-bottom: 8px; border-bottom: 2px solid #111827; text-align: center; color: #111827; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+        table { width: 100%; margin-top: 0.18in; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+        th, td { padding: 7px 6px; border-bottom: 1px solid #b8c9dc; text-align: left; vertical-align: middle; }
+        th { border-bottom: 2px solid #111827; color: #111827; font-weight: 900; }
+        th:nth-child(1), td:nth-child(1) { width: 18%; }
+        th:nth-child(2), td:nth-child(2) { width: 18%; }
+        th:nth-child(3), td:nth-child(3) { width: 16%; }
+        th:nth-child(4), td:nth-child(4) { width: 16%; }
+        .bold { font-weight: 700; }
+        .recess { margin: 14px 0 0; text-align: center; color: #111827; font-size: 11px; font-weight: 900; }
+        @media print { .page { page-break-inside: avoid; } tr, .division { page-break-inside: avoid; } }
+      </style></head><body><main class="page">
+      <div class="logos"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
+      <img src="/upr.png" alt="Organización" /></div>
+      <h1>Fixture ${escapePrintValue(tournament.name)}</h1>
+      <p class="subtitle">${escapePrintValue(tournament.modality?.name || 'Competencia')} · Fecha ${date} · ${escapePrintValue(calendarDate)}</p>
+      <div class="divisions">${divisionMarkup}</div>
+      <h2 class="schedule-title">Cronograma de partidos</h2>
+      <table><thead><tr><th>Partido</th><th>Horario</th><th>Cancha</th><th>División</th><th>Enfrentamiento</th></tr></thead>
+      <tbody>${matchMarkup}</tbody></table>${recessMarkup}</main></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    window.setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 400)
   }
 
   const fixtureGroups = dates.map((date) => ({ date, matches: matches.filter((match) => match.date_number === date) }))
 
-  return <><section className="pt-6 print:hidden">
+  return <><CourtEditor matches={matches} courtsCount={courtsCount} draftCourts={draftCourts} onChange={(matchId, value) => setDraftCourts((current) => ({ ...current, [matchId]: value }))} /><section className="pt-6 print:hidden">
     <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Consulta</p><h2 className="mt-2 font-display text-3xl uppercase">Fixtures</h2><p className="mt-2 max-w-2xl text-sm text-slate-400">Edita partidos, horarios, fechas y recesos. Los cambios se guardan directamente en Supabase.</p></div></div>
     {!matches.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}
     <div className="mt-6 space-y-5">{fixtureGroups.map((fixture) => {
@@ -1242,7 +1761,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
         <div className="mt-5 rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Recesos</p><p className="mt-1 text-sm text-slate-400">Define la hora de cada descanso de esta fecha.</p></div>{isEditing && <button type="button" onClick={() => addRecess(fixture.date)} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba]">Añadir receso</button>}</div><div className="mt-3 space-y-2">{recesses.map((recess, index) => <div key={recess.id} className="flex flex-wrap items-center gap-3 rounded-[5px] border border-white/10 px-3 py-3"><span className="min-w-24 text-sm font-semibold text-white">Receso {index + 1}</span>{isEditing ? <input type="time" value={recess.time || ''} onChange={(event) => setDraftRecesses((current) => ({ ...current, [String(fixture.date)]: recesses.map((item) => item.id === recess.id ? { ...item, time: event.target.value || null } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200" /> : <span className="text-sm text-slate-400">{recess.time ? recess.time.slice(0, 5) : 'Hora por definir'}</span>}{isEditing && index > 0 && <button type="button" onClick={() => removeRecess(fixture.date, recess.id)} className="ml-auto text-xs font-bold text-[#ffb0b7]">Quitar</button>}</div>)}</div></div>
       </article>
     })}</div>{message && <p role="status" className="mt-4 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
-  </section>{printTarget !== null && <section className="hidden min-h-screen bg-white p-10 text-black print:block"><div className="flex items-start justify-between"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" className="h-16 w-48 object-contain object-left" /><img src="/upr.png" alt="Organización" className="h-20 w-36 object-contain object-right" /></div><h1 className="mt-8 text-center font-display text-3xl uppercase">Fixture del torneo</h1><p className="mt-2 text-center text-xl font-bold">{tournament.name}</p>{fixtureGroups.filter((fixture) => fixture.date === printTarget).map((fixture) => <div key={fixture.date} className="mt-8"><div className="flex items-baseline justify-between border-b-2 border-slate-800 pb-2"><h2 className="text-xl font-black uppercase">Fecha {fixture.date}</h2><p className="text-sm">{fixture.matches[0]?.calendar_date ? new Date(`${fixture.matches[0].calendar_date}T00:00:00`).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p></div><div className="mt-3 space-y-2">{fixture.matches.map((match) => <div key={match.id} className="grid grid-cols-[120px_1fr_120px] gap-3 border-b border-slate-300 py-3 text-sm"><span>{match.division_name || 'General'}</span><span className="font-bold">{match.local_team_name} vs. {match.visitor_team_name}</span><span className="text-right">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></div>)}</div></div>)}</section>}</>
+  </section>{printTarget !== null && <section className="fixture-print-document hidden bg-white p-8 text-black print:block"><div className="flex items-start justify-between"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" className="h-16 w-48 object-contain object-left" /><img src="/upr.png" alt="Organización" className="h-20 w-36 object-contain object-right" /></div><h1 className="mt-8 text-center font-display text-3xl uppercase">Fixture {tournament.name}</h1>{fixtureGroups.filter((fixture) => fixture.date === printTarget).map((fixture) => { const divisionGroups = Array.from(new Map(fixture.matches.map((match) => [match.division_id, match.division_name || 'General'])).entries()); const fixtureRecord = fixtureRecords.find((item) => item.date_number === fixture.date); const printRecesses = normalizeFixtureRecesses(fixtureRecord?.recesses, fixtureRecord?.id || `date-${fixture.date}`); return <div key={fixture.date} className="mt-8"><p className="text-center text-xl font-bold">{tournament.modality?.name || 'Competencia'} · Fecha {fixture.date}</p><p className="mt-1 text-center text-sm">{fixture.matches[0]?.calendar_date ? new Date(`${fixture.matches[0].calendar_date}T00:00:00`).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p><div className="mt-6 grid grid-cols-3 gap-4">{divisionGroups.map(([divisionId, divisionName]) => { const divisionTeams = teams.filter((team) => team.division_id === divisionId && fixture.matches.some((match) => match.local_team_id === team.id || match.visitor_team_id === team.id)); return <div key={divisionId} className="text-center"><h2 className="text-xs font-black uppercase">{divisionName}</h2><div className="mt-2 border border-slate-300">{divisionTeams.map((team) => <p key={team.id} className="border-b border-slate-300 p-2 text-sm last:border-b-0">{team.name}</p>)}</div></div>})}</div><h2 className="mt-6 border-b-2 border-slate-800 pb-2 text-center text-sm font-black uppercase">Cronograma de partidos</h2><table className="mt-4 w-full border-collapse text-sm"><thead><tr className="border-b-2 border-slate-800 text-left"><th className="p-2">Partido</th><th className="p-2">Horario</th><th className="p-2">División</th><th className="p-2">Enfrentamiento</th></tr></thead><tbody>{fixture.matches.map((match, index) => <tr key={match.id} className="border-b border-slate-300"><td className="p-2">Partido {index + 1}</td><td className="p-2">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</td><td className="p-2">{match.division_name || 'General'}</td><td className="p-2 font-bold">{match.local_team_name} vs. {match.visitor_team_name}</td></tr>)}</tbody></table>{printRecesses.filter((recess) => recess.time).map((recess) => <p key={recess.id} className="mt-4 text-center text-sm font-black uppercase">Receso · {recess.time}</p>)}</div>})}</section>}</>
 }
 
 function ReadOnlyFixtureListSection({ tournament, teams, dates, matches }: { tournament: Tournament; teams: TournamentTeam[]; dates: number[]; matches: Match[] }) {
@@ -1306,6 +1825,7 @@ function ReadOnlyFixtureListSection({ tournament, teams, dates, matches }: { tou
 <button type="button" onClick={() => printFixture(fixture.date)} data-viewer-fixture="true" className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>
               </div>
             </div>
+            <div className="mb-2 flex flex-wrap gap-2 text-xs text-slate-400">{Array.from(new Set(fixture.matches.map((match) => match.court_number).filter(Boolean))).map((court) => <span key={court} className="rounded border border-[#31556b] px-2 py-1">Cancha {court}</span>)}</div>
             <div className="mt-3 divide-y divide-white/10">{fixture.matches.map((match) => {
               const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
               const divisionId = teams.find((team) => team.id === match.local_team_id)?.division_id || teams.find((team) => team.id === match.visitor_team_id)?.division_id
@@ -1569,23 +2089,58 @@ function LegacyFixturesSection({ tournament, teams, dates, canManage, onGenerate
   )
 }
 
-function MatchesSection({ matches, dates, events, rosters, onOpenFixtures, canManage }: { matches: Match[]; dates: number[]; events: MatchEvent[]; rosters: RosterEntry[]; onOpenFixtures: () => void; canManage: boolean }) {
+function MatchesSection({ matches, dates, events, corrections, rosters, onOpenFixtures, canManage }: { matches: Match[]; dates: number[]; events: MatchEvent[]; corrections: MatchEventCorrection[]; rosters: RosterEntry[]; onOpenFixtures: () => void; canManage: boolean }) {
   const featuredMatch = getFeaturedMatch(matches)
   const [selectedMatchId, setSelectedMatchId] = useState(featuredMatch?.id || '')
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) || featuredMatch || null
   useEffect(() => { if (selectedMatch && !matches.some((match) => match.id === selectedMatch.id)) setSelectedMatchId(featuredMatch?.id || '') }, [featuredMatch, matches, selectedMatch])
-  return <div className="space-y-8 pt-6"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Seguimiento</p><h2 className="mt-2 font-display text-3xl uppercase">Partidos</h2><p className="mt-2 text-sm text-slate-400">Selecciona un enfrentamiento para ver su vista previa, cronómetro, estadísticas y acciones.</p></div>{selectedMatch ? <MatchHighlight match={selectedMatch} events={events.filter((event) => event.match_id === selectedMatch.id)} rosters={rosters} canManage={canManage} /> : <div className="rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}<div><div className="flex items-center gap-2 border-b border-white/10 pb-3"><CalendarDays className="text-[#b4ff45]" size={18} /><h3 className="font-heading text-xl uppercase">Cronograma por fecha</h3></div>{matches.length ? <div className="mt-5 space-y-6">{dates.map((date) => <details key={date} open={date === dates[0]} className="group"><summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-[.2em] text-slate-500">Fecha {date}</summary><div className="mt-3 grid gap-3 lg:grid-cols-2">{matches.filter((match) => match.date_number === date).map((match) => <MatchCard key={match.id} match={match} selected={match.id === selectedMatch?.id} onPreview={() => setSelectedMatchId(match.id)} />)}</div></details>)}</div> : <p className="mt-5 text-sm text-slate-500">Genera un fixture para ver el cronograma.</p>}</div></div>
+  return <div className="space-y-8 pt-6"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Seguimiento</p><h2 className="mt-2 font-display text-3xl uppercase">Partidos</h2><p className="mt-2 text-sm text-slate-400">Selecciona un enfrentamiento para ver su vista previa, cronómetro, estadísticas y acciones.</p></div>{selectedMatch ? <MatchHighlight match={selectedMatch} events={events.filter((event) => event.match_id === selectedMatch.id)} corrections={corrections.filter((correction) => correction.match_id === selectedMatch.id)} rosters={rosters} canManage={canManage} /> : <div className="rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}<div><div className="flex items-center gap-2 border-b border-white/10 pb-3"><CalendarDays className="text-[#b4ff45]" size={18} /><h3 className="font-heading text-xl uppercase">Cronograma por fecha</h3></div>{matches.length ? <div className="mt-5 space-y-6">{dates.map((date) => <details key={date} open={date === dates[0]} className="group"><summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-[.2em] text-slate-500">Fecha {date}</summary><div className="mt-3 grid gap-3 lg:grid-cols-2">{matches.filter((match) => match.date_number === date).map((match) => <MatchCard key={match.id} match={match} selected={match.id === selectedMatch?.id} onPreview={() => setSelectedMatchId(match.id)} />)}</div></details>)}</div> : <p className="mt-5 text-sm text-slate-500">Genera un fixture para ver el cronograma.</p>}</div></div>
 }
 
-function MatchHighlight({ match, events: initialEvents = [], rosters = [], canManage = false }: { match: Match; events?: MatchEvent[]; rosters?: RosterEntry[]; canManage?: boolean }) {
+function MatchHighlight({ match, events: initialEvents = [], corrections = [], rosters = [], canManage = false, rules = null }: { match: Match; events?: MatchEvent[]; corrections?: MatchEventCorrection[]; rosters?: RosterEntry[]; canManage?: boolean; rules?: MatchRules | null }) {
   const [seconds, setSeconds] = useState(match.elapsed_seconds || 0)
-  const periodLimit = 7 * 60
+  const [loadedRules, setLoadedRules] = useState<MatchRules | null>(rules)
+  const regularPeriodLimit = (loadedRules?.half_duration_minutes || 7) * 60
+  const extraPeriodLimit = (loadedRules?.extra_time_half_minutes || 5) * 60
+  const periodLimit = String(match.period).startsWith('extra_') ? extraPeriodLimit : regularPeriodLimit
   const [saving, setSaving] = useState(false)
   const [events, setEvents] = useState<MatchEvent[]>(initialEvents)
-  const [pendingScoreAction, setPendingScoreAction] = useState<{ teamId: string; label: 'Try' | 'Conversión'; points: number } | null>(null)
+  const [eventCorrections, setEventCorrections] = useState<MatchEventCorrection[]>(corrections)
+  const [pendingScoreAction, setPendingScoreAction] = useState<{ teamId: string; label: string; eventType: 'try' | 'conversion' | 'goal' | 'penalty_kick'; points: number } | null>(null)
+  const [correctionEvent, setCorrectionEvent] = useState<MatchEvent | null>(null)
+  const [correctionReason, setCorrectionReason] = useState('')
+  const [correctionMode, setCorrectionMode] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    if (!supabase || rules) return () => { active = false }
+    void (async () => {
+      const { data } = await supabase
+        .from('matches')
+        .select('fixtures!inner(tournament_id)')
+        .eq('id', match.id)
+        .maybeSingle()
+      const tournamentId = (data?.fixtures as { tournament_id?: string } | null)?.tournament_id
+      if (!tournamentId) return
+      const { data: tournament } = await supabase
+        .from('tournaments')
+        .select('modality_id')
+        .eq('id', tournamentId)
+        .maybeSingle()
+      if (!tournament?.modality_id) return
+      const { data: modalityRules } = await supabase
+        .from('sport_modality_rules')
+        .select('half_duration_minutes, extra_time_allowed, extra_time_half_minutes, penalty_shootout_allowed, draws_allowed')
+        .eq('modality_id', tournament.modality_id)
+        .maybeSingle()
+      if (active) setLoadedRules((modalityRules as MatchRules | null) || null)
+    })()
+    return () => { active = false }
+  }, [match.id, rules])
   const secondsRef = useRef(0)
   useEffect(() => { const initialSeconds = match.elapsed_seconds || 0; secondsRef.current = initialSeconds; setSeconds(initialSeconds) }, [match.id, match.elapsed_seconds])
   useEffect(() => { setEvents(initialEvents) }, [initialEvents, match.id])
+  useEffect(() => { setEventCorrections(corrections) }, [corrections, match.id])
   useEffect(() => {
     if (match.status !== 'live' || match.is_paused) return
     const startedAt = match.started_at ? new Date(match.started_at).getTime() : Date.now()
@@ -1609,18 +2164,30 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
   }
   async function transitionPeriod() {
     if (!supabase || !canManage || match.status !== 'live') return
-    const currentPeriod = match.period || 'first_half'
+    const currentPeriod = String(match.period || 'first_half')
     const isSecondHalf = currentPeriod === 'second_half'
+    const isExtraFirstHalf = currentPeriod === 'extra_first_half'
+    const isExtraSecondHalf = currentPeriod === 'extra_second_half'
     const isStartingSecond = Boolean(match.is_paused && isSecondHalf)
-    const scoredEvents = events.reduce((score, event) => {
+    const isStartingExtra = Boolean(match.is_paused && (isExtraFirstHalf || isExtraSecondHalf))
+    const scoredEvents = events.filter((event) => !event.is_corrected).reduce((score, event) => {
       if (event.team_id === match.local_team_id) score.local += event.points || 0
       if (event.team_id === match.visitor_team_id) score.visitor += event.points || 0
       return score
     }, { local: 0, visitor: 0 })
+    const isTied = scoredEvents.local === scoredEvents.visitor
     const next = isStartingSecond
         ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, second_half_seconds: 0, period: 'second_half' }
+      : isStartingExtra
+        ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, period: isExtraFirstHalf ? 'extra_first_half' : 'extra_second_half' }
       : !isSecondHalf
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, first_half_seconds: secondsRef.current, period: 'second_half' }
+      : isExtraFirstHalf
+        ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half' }
+      : isExtraSecondHalf
+        ? { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
+      : isTied && loadedRules?.extra_time_allowed
+        ? { is_paused: true, started_at: match.started_at, elapsed_seconds: 0, period: 'extra_first_half' }
         : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
     if (error) return window.alert(error.message)
@@ -1635,31 +2202,102 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
-  async function recordEvent(teamId: string, playerId: string | null, eventType: 'try' | 'conversion' | 'yellow_card' | 'red_card' | 'injured' | 'concussion', points: number) {
+
+  async function registerShootout() {
+    if (!supabase || !canManage || !loadedRules?.penalty_shootout_allowed) return
+    const local = Number(window.prompt('Penales anotados por el equipo local', '0'))
+    const visitor = Number(window.prompt('Penales anotados por el equipo visitante', '0'))
+    if (!Number.isInteger(local) || !Number.isInteger(visitor) || local < 0 || visitor < 0 || local === visitor) {
+      window.alert('La tanda debe tener marcadores enteros y un ganador.')
+      return
+    }
+    const { error } = await supabase.from('matches').update({
+      match_phase: 'penalty_shootout',
+      shootout_local_score: local,
+      shootout_visitor_score: visitor,
+      status: 'finished',
+      is_paused: true,
+    }).eq('id', match.id)
+    if (error) return window.alert(error.message)
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+    window.location.reload()
+  }
+  async function recordEvent(teamId: string, playerId: string | null, eventType: 'try' | 'conversion' | 'goal' | 'penalty_kick' | 'yellow_card' | 'red_card' | 'injured' | 'concussion', points: number) {
     if (!supabase || !canManage || match.status !== 'live') return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setSaving(true)
     const newEvent = { match_id: match.id, team_id: teamId, player_id: playerId, event_type: eventType, points }
-    const { error } = await supabase.from('match_events').insert({ ...newEvent, match_second: secondsRef.current, created_by: user.id })
+    const { data: savedEvent, error } = await supabase
+      .from('match_events')
+      .insert({ ...newEvent, match_second: secondsRef.current, created_by: user.id })
+      .select(
+        'id, match_id, team_id, player_id, event_type, points, match_second, '
+        + 'created_at, is_corrected, correction_reason, corrected_at'
+      )
+      .single()
     setSaving(false)
     if (error) return window.alert(error.message)
     if (eventType === 'try' || eventType === 'conversion') {
-      const nextLocalScore = events.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.local_team_id ? points : 0)
-      const nextVisitorScore = events.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.visitor_team_id ? points : 0)
+      const nextLocalScore = events.filter((event) => !event.is_corrected && event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.local_team_id ? points : 0)
+      const nextVisitorScore = events.filter((event) => !event.is_corrected && event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0) + (teamId === match.visitor_team_id ? points : 0)
       const { error: scoreError } = await supabase.from('matches').update({ local_score: nextLocalScore, visitor_score: nextVisitorScore }).eq('id', match.id)
       if (scoreError) return window.alert(scoreError.message)
     }
-    setEvents((current) => [...current, newEvent])
+    setEvents((current) => [...current, (savedEvent ?? newEvent) as MatchEvent])
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+  }
+
+  // Corrige un evento de puntuacion sin borrar su registro original.
+  async function correctScoringEvent() {
+    if (!supabase || !canManage || !correctionEvent) return
+    if (!correctionReason.trim()) return window.alert('Indica el motivo de la correccion.')
+
+    setSaving(true)
+    const { error } = await supabase.rpc('correct_match_scoring_event', {
+      p_event_id: correctionEvent.id,
+      p_reason: correctionReason.trim(),
+    })
+    setSaving(false)
+
+    if (error) return window.alert(error.message)
+
+    const correctedAt = new Date().toISOString()
+    setEvents((current) => current.map((event) => (
+      event.id === correctionEvent.id
+        ? {
+            ...event,
+            is_corrected: true,
+            correction_reason: correctionReason.trim(),
+            corrected_at: correctedAt,
+          }
+        : event
+    )))
+    setEventCorrections((current) => [
+      {
+        id: `local-${correctionEvent.id}`,
+        match_event_id: correctionEvent.id,
+        match_id: match.id,
+        event_type: correctionEvent.event_type,
+        points_removed: correctionEvent.points,
+        reason: correctionReason.trim(),
+        created_at: correctedAt,
+      },
+      ...current,
+    ])
+    setCorrectionEvent(null)
+    setCorrectionReason('')
+    setCorrectionMode(false)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   function confirmScoreAction() {
     if (!pendingScoreAction) return
-    void recordEvent(pendingScoreAction.teamId, null, pendingScoreAction.label === 'Try' ? 'try' : 'conversion', pendingScoreAction.points)
+    void recordEvent(pendingScoreAction.teamId, null, pendingScoreAction.eventType, pendingScoreAction.points)
     setPendingScoreAction(null)
   }
   const status = match.status === 'live' ? 'En vivo' : match.status === 'finished' ? 'Finalizado' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
-  const points = events.reduce((total, event) => total + (event.points || 0), 0)
+  const activeEvents = events.filter((event) => !event.is_corrected)
+  const points = activeEvents.reduce((total, event) => total + (event.points || 0), 0)
   const regularSeconds = Math.min(seconds, periodLimit)
   const stoppageSeconds = Math.max(0, seconds - periodLimit)
   const timer = `${String(Math.floor(regularSeconds / 60)).padStart(2, '0')}:${String(regularSeconds % 60).padStart(2, '0')}`
@@ -1673,17 +2311,388 @@ function MatchHighlight({ match, events: initialEvents = [], rosters = [], canMa
   const secondHalfStoppage = `+${String(Math.floor(Math.max(0, secondHalfSummary - periodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, secondHalfSummary - periodLimit) % 60).padStart(2, '0')}`
   const secondHalfLabel = match.period !== 'second_half' ? 'Pendiente' : match.status === 'finished' ? `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}` : match.is_paused ? 'Pendiente' : `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}`
   const periodActionClass = match.is_paused && match.period === 'second_half' ? 'rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]' : 'rounded-[5px] border border-[#ff7d88] px-4 py-3 text-sm font-bold text-[#ffb0b7]'
+
+  // Filtra únicamente los eventos de puntuación que todavía afectan el marcador.
+  const scoringEvents = events.filter((event) => (
+    !event.is_corrected &&
+    (event.event_type === 'try' || event.event_type === 'conversion')
+  ))
+
+  // Identifica el equipo asociado a cada evento para mostrarlo en la corrección.
+  function getEventTeamName(teamId: string) {
+    return teamId === match.local_team_id
+      ? match.local_team_name
+      : match.visitor_team_name
+  }
+
+  // Permite corregir un evento sin eliminar su registro original.
+  function renderCorrectionPanel() {
+    return <section className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">
+            Correcciones del marcador
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Los eventos corregidos no se eliminan y quedan registrados.
+          </p>
+        </div>
+        <span className="text-xs text-slate-500">{scoringEvents.length} eventos activos</span>
+      </div>
+      {canManage && scoringEvents.length > 0 && <div className="mt-4 space-y-2">
+        {scoringEvents.map((event) => <div
+          key={event.id || `${event.event_type}-${event.match_second}`}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[5px] border border-white/10 p-3"
+        >
+          <div className="text-sm">
+            <span className="font-semibold text-white">{getEventTeamName(event.team_id)}</span>
+            <span className="ml-2 text-slate-400">
+              {event.event_type === 'try' ? 'Try' : 'Conversión'} · {event.points} pts
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={saving || !event.id}
+            onClick={() => {
+              setCorrectionEvent(event)
+              setCorrectionReason('')
+            }}
+            className="rounded-[5px] border border-[#ff9ca5]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7]"
+          >
+            Corregir
+          </button>
+        </div>)}
+      </div>}
+      {correctionEvent && <div className="mt-4 rounded-[5px] border border-[#ff9ca5]/40 bg-[#ff9ca5]/5 p-4">
+        <p className="text-sm font-bold text-[#ffb0b7]">
+          Corregir {correctionEvent.event_type === 'try' ? 'try' : 'conversión'} de{' '}
+          {getEventTeamName(correctionEvent.team_id)}
+        </p>
+        <label className="mt-3 block text-sm font-semibold">
+          Motivo de la corrección
+          <textarea
+            value={correctionReason}
+            onChange={(event) => setCorrectionReason(event.target.value)}
+            placeholder="Ejemplo: conversión registrada por error"
+            className="mt-2 min-h-20 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 outline-none focus:border-[#b4ff45]"
+          />
+        </label>
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setCorrectionEvent(null)}
+            className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={saving || !correctionReason.trim()}
+            onClick={() => void correctScoringEvent()}
+            className="rounded-[5px] bg-[#ff9ca5] px-3 py-2 text-xs font-bold text-[#07131e]"
+          >
+            Confirmar corrección
+          </button>
+        </div>
+      </div>}
+      {eventCorrections.length > 0 && <div className="mt-4 border-t border-white/10 pt-4">
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-500">
+          Historial debajo del marcador
+        </p>
+        <div className="mt-3 space-y-2">
+          {eventCorrections.map((correction) => <div
+            key={correction.id}
+            className="rounded-[5px] border border-white/10 p-3 text-xs text-slate-400"
+          >
+            <p>
+              {correction.event_type === 'try' ? 'Try' : 'Conversión'} corregido · -
+              {correction.points_removed} pts ·{' '}
+              {new Date(correction.created_at).toLocaleString('es-PA')}
+            </p>
+            <p className="mt-1 text-slate-300">Motivo: {correction.reason}</p>
+          </div>)}
+        </div>
+      </div>}
+    </section>
+  }
+
+  // Muestra el control compacto para abrir y guardar correcciones del marcador.
+  function renderCompactCorrectionPanel() {
+    return <section className="mt-4">
+      <div className="flex items-center justify-end gap-3">
+        {canManage && <button
+          type="button"
+          title={correctionMode ? 'Cerrar correcciones' : 'Editar marcador'}
+          aria-label={correctionMode ? 'Cerrar correcciones' : 'Editar marcador'}
+          onClick={() => {
+            setCorrectionMode((current) => !current)
+            setCorrectionEvent(null)
+            setCorrectionReason('')
+          }}
+          className="rounded-[5px] border border-[#31556b] p-2 text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]"
+        >
+          <Pencil size={16} />
+        </button>}
+      </div>
+      {correctionMode && canManage && <div className="mt-3 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
+        <div className="space-y-2">
+          {scoringEvents.map((event) => <div
+            key={event.id || `${event.event_type}-${event.match_second}`}
+            className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 p-3"
+          >
+            <div className="text-sm">
+              <span className="font-semibold text-white">{getEventTeamName(event.team_id)}</span>
+              <span className="ml-2 text-slate-400">
+                {event.event_type === 'try' ? 'Try' : 'Conversión'} · {event.points} pts
+              </span>
+            </div>
+            <button
+              type="button"
+              disabled={saving || !event.id}
+              onClick={() => {
+                setCorrectionEvent(event)
+                setCorrectionReason('')
+              }}
+              className={`rounded-[5px] p-2 ${correctionEvent?.id === event.id
+                ? 'bg-[#ff9ca5] text-[#07131e]'
+                : 'border border-[#ff9ca5]/60 text-[#ffb0b7]'}`}
+              title={`Eliminar ${event.event_type === 'try' ? 'try' : 'conversión'}`}
+              aria-label={`Eliminar ${event.event_type === 'try' ? 'try' : 'conversión'}`}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>)}
+        </div>
+        {correctionEvent && <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="text-sm text-slate-300">
+            Se eliminará el {correctionEvent.event_type === 'try' ? 'try' : 'la conversión'} de{' '}
+            <span className="font-bold text-white">{getEventTeamName(correctionEvent.team_id)}</span>.
+          </p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="block flex-1 text-sm font-semibold">
+              Motivo de la corrección
+              <textarea
+                value={correctionReason}
+                onChange={(event) => setCorrectionReason(event.target.value)}
+                placeholder="Ejemplo: conversión registrada por error"
+                className="mt-2 min-h-16 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 outline-none focus:border-[#b4ff45]"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={saving || !correctionReason.trim()}
+              onClick={() => void correctScoringEvent()}
+              className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Guardar corrección
+            </button>
+          </div>
+        </div>}
+      </div>}
+      {eventCorrections.length > 0 && <div className="mt-3 border-t border-white/10 pt-3">
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-500">
+          Historial de correcciones
+        </p>
+        <div className="mt-2 space-y-2">
+          {eventCorrections.map((correction) => <div
+            key={correction.id}
+            className="rounded-[5px] border border-white/10 p-3 text-xs text-slate-400"
+          >
+            <p>
+              {correction.event_type === 'try' ? 'Try' : 'Conversión'} corregido · -
+              {correction.points_removed} pts ·{' '}
+              {new Date(correction.created_at).toLocaleString('es-PA')}
+            </p>
+            <p className="mt-1 text-slate-300">Motivo: {correction.reason}</p>
+          </div>)}
+        </div>
+      </div>}
+    </section>
+  }
+
+  const localScore = activeEvents
+    .filter((event) => event.team_id === match.local_team_id)
+    .reduce((total, event) => total + (event.points || 0), 0)
+  const visitorScore = activeEvents
+    .filter((event) => event.team_id === match.visitor_team_id)
+    .reduce((total, event) => total + (event.points || 0), 0)
+  const scoreLabel = match.status === 'scheduled' ? 'VS' : `${localScore} - ${visitorScore}`
+  const statRows = [
+    { label: 'Tries', type: 'try' },
+    { label: 'Conversiones', type: 'conversion' },
+    { label: 'Tarjetas amarillas', type: 'yellow_card' },
+    { label: 'Tarjetas rojas', type: 'red_card' },
+  ]
+
+  // Cuenta los eventos activos de un tipo y equipo específico.
+  function count(teamId: string | null, eventType: string) {
+    return activeEvents.filter(
+      (event) => event.team_id === teamId && event.event_type === eventType
+    ).length
+  }
+
+  return <article className="mt-5 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className={`rounded-[5px] px-3 py-1 text-xs font-bold uppercase ${match.status === 'live' ? 'bg-[#ff7d88] text-[#07131e]' : 'bg-[#b4ff45] text-[#07131e]'}`}>
+        {status}
+      </span>
+      <span className="text-xs text-slate-400">
+        Fecha {match.date_number}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}
+      </span>
+    </div>
+    <div className="mt-5 text-center">
+      <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Cronómetro</p>
+      <p className="mt-1 font-display text-4xl tracking-wider text-white">{timer}</p>
+      {stoppageSeconds > 0 && <p className="mt-1 text-xl font-bold text-[#ff7d88]">{stoppageTimer}</p>}
+    </div>
+    <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center">
+      <div>
+        <TeamMatchName name={match.local_team_name} logo={match.local_logo_url} />
+        {canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Try', eventType: 'try', points: 5 })}
+            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
+          >
+            Try
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Conversión', eventType: 'conversion', points: 2 })}
+            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
+          >
+            Conversión
+          </button>
+        </div>}
+      </div>
+      <div>
+        <p className="font-display text-3xl text-[#b4ff45]">{scoreLabel}</p>
+        <p className="mt-2 text-xs text-slate-400">
+          {activeEvents.length} eventos · {points} puntos registrados
+        </p>
+      </div>
+      <div>
+        <TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} />
+        {canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Try', eventType: 'try', points: 5 })}
+            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
+          >
+            Try
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Conversión', eventType: 'conversion', points: 2 })}
+            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
+          >
+            Conversión
+          </button>
+        </div>}
+      </div>
+    </div>
+    {renderCompactCorrectionPanel()}
+    {loadedRules && loadedRules.half_duration_minutes !== 7 && canManage && match.status === 'live' && <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Gol', eventType: 'goal', points: 1 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Gol local</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Gol', eventType: 'goal', points: 1 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Gol visitante</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Penal', eventType: 'penalty_kick', points: 1 })} className="rounded-[5px] border border-[#31556b] px-3 py-1.5 text-xs font-bold text-slate-300">Penal local</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Penal', eventType: 'penalty_kick', points: 1 })} className="rounded-[5px] border border-[#31556b] px-3 py-1.5 text-xs font-bold text-slate-300">Penal visitante</button></div>}
+    {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && (String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <button type="button" onClick={() => void registerShootout()} className="mt-4 rounded-[5px] border border-[#ffb45c] px-4 py-2 text-sm font-bold text-[#ffd09b]">Registrar tanda de penales</button>}
+    {pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">
+      Confirmar {pendingScoreAction.label}?
+      <button
+        type="button"
+        disabled={saving}
+        onClick={confirmScoreAction}
+        className="rounded-[5px] bg-[#b4ff45] px-3 py-1 font-bold text-[#07131e]"
+      >
+        Confirmar
+      </button>
+      <button
+        type="button"
+        onClick={() => setPendingScoreAction(null)}
+        className="rounded-[5px] border border-white/20 px-3 py-1"
+      >
+        Cancelar
+      </button>
+    </div>}
+    {canManage && <div className="mt-6 flex flex-wrap justify-center gap-3">
+      {match.status === 'scheduled' && <button
+        type="button"
+        disabled={saving}
+        onClick={() => void changeStatus('live')}
+        className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"
+      >
+        Iniciar primer tiempo
+      </button>}
+      {match.status === 'live' && <button
+        type="button"
+        disabled={saving}
+        onClick={() => void transitionPeriod()}
+        className={periodActionClass}
+      >
+        {match.is_paused && match.period === 'second_half'
+          ? 'Iniciar segundo tiempo'
+          : match.period === 'second_half'
+            ? 'Finalizar segundo tiempo'
+            : 'Finalizar primer tiempo'}
+      </button>}
+    </div>}
+    <div className="mt-8 overflow-hidden rounded-[5px] border border-white/10 bg-[#07131e]">
+      <div className="border-b border-white/10 px-4 py-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">
+        Estadísticas
+      </div>
+      <div className="grid grid-cols-[1fr_1.5fr_1fr] bg-[#0d2637] px-4 py-3 text-center text-xs font-bold uppercase">
+        <span>{match.local_team_name}</span>
+        <span></span>
+        <span>{match.visitor_team_name}</span>
+      </div>
+      {statRows.map((row) => <div
+        key={row.type}
+        className="grid grid-cols-[1fr_1.5fr_1fr] border-t border-white/10 px-4 py-3 text-center text-sm"
+      >
+        <span>{count(match.local_team_id, row.type)}</span>
+        <span className="text-slate-400">{row.label}</span>
+        <span>{count(match.visitor_team_id, row.type)}</span>
+      </div>)}
+    </div>
+    <div className="mt-8 grid gap-5 lg:grid-cols-2">
+      <MatchPlayersColumn
+        title={match.local_team_name}
+        players={rosters.filter((player) => player.team_id === match.local_team_id)}
+        teamId={match.local_team_id}
+        events={events}
+        canManage={canManage && match.status === 'live'}
+        saving={saving}
+        onRecord={recordEvent}
+      />
+      <MatchPlayersColumn
+        title={match.visitor_team_name}
+        players={rosters.filter((player) => player.team_id === match.visitor_team_id)}
+        teamId={match.visitor_team_id}
+        events={events}
+        canManage={canManage && match.status === 'live'}
+        saving={saving}
+        onRecord={recordEvent}
+      />
+    </div>
+  </article>
+
+  /*
   const homePlayers = rosters.filter((player) => player.team_id === match.local_team_id)
   const awayPlayers = rosters.filter((player) => player.team_id === match.visitor_team_id)
   const statRows = [{ label: 'Tries', type: 'try' }, { label: 'Conversiones', type: 'conversion' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
-  const count = (teamId: string | null, type: string) => events.filter((event) => event.team_id === teamId && event.event_type === type).length
-  const localScore = events.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0)
-  const visitorScore = events.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0)
+  const count = (teamId: string | null, type: string) => activeEvents.filter((event) => event.team_id === teamId && event.event_type === type).length
+  const localScore = activeEvents.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0)
+  const visitorScore = activeEvents.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0)
   const scoreLabel = match.status === 'scheduled' ? 'VS' : `${localScore} - ${visitorScore}`
   return <article className="mt-5 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><span className={`rounded-[5px] px-3 py-1 text-xs font-bold uppercase ${match.status === 'live' ? 'bg-[#ff7d88] text-[#07131e]' : 'bg-[#b4ff45] text-[#07131e]'}`}>{status}</span><span className="text-xs text-slate-400">Fecha {match.date_number}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}</span></div><div className="mt-5 text-center"><p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Cronómetro</p><p className="mt-1 font-display text-4xl tracking-wider text-white">{timer}</p>{stoppageSeconds > 0 && <p className="mt-1 text-xl font-bold text-[#ff7d88]">{stoppageTimer}</p>}</div><div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center"><div><TeamMatchName name={match.local_team_name} logo={match.local_logo_url} />{canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Try', points: 5 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Try</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Conversión', points: 2 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Conversión</button></div>}</div><div><p className="font-display text-3xl text-[#b4ff45]">{scoreLabel}</p><p className="mt-2 text-xs text-slate-400">{events.length} eventos · {points} puntos registrados</p><div className="mt-2 text-xs text-slate-400"><p>1er tiempo: <span className="text-white">{firstHalfTimer}</span> {firstHalfSummary > periodLimit && <span className="text-[#ff7d88]">{firstHalfStoppage}</span>}</p><p className="mt-1">2do tiempo: <span className="text-white">{secondHalfLabel}</span></p></div></div><div><TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} />{canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Try', points: 5 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Try</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Conversión', points: 2 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Conversión</button></div>}</div></div>{pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">Confirmar {pendingScoreAction.label}?<button type="button" disabled={saving} onClick={confirmScoreAction} className="rounded-[5px] bg-[#b4ff45] px-3 py-1 font-bold text-[#07131e]">Confirmar</button><button type="button" onClick={() => setPendingScoreAction(null)} className="rounded-[5px] border border-white/20 px-3 py-1">Cancelar</button></div>}{canManage && <div className="mt-6 flex flex-wrap justify-center gap-3">{match.status === 'scheduled' && <button type="button" disabled={saving} onClick={() => void changeStatus('live')} className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Iniciar primer tiempo</button>}{match.status === 'live' && <button type="button" disabled={saving} onClick={() => void transitionPeriod()} className={periodActionClass}>{match.is_paused && match.period === 'second_half' ? 'Iniciar segundo tiempo' : match.period === 'second_half' ? 'Finalizar segundo tiempo' : 'Finalizar primer tiempo'}</button>}</div>}<div className="mt-8 overflow-hidden rounded-[5px] border border-white/10 bg-[#07131e]"><div className="border-b border-white/10 px-4 py-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">Estadísticas</div><div className="grid grid-cols-[1fr_1.5fr_1fr] bg-[#0d2637] px-4 py-3 text-center text-xs font-bold uppercase"><span>{match.local_team_name}</span><span></span><span>{match.visitor_team_name}</span></div>{statRows.map((row) => <div key={row.type} className="grid grid-cols-[1fr_1.5fr_1fr] border-t border-white/10 px-4 py-3 text-center text-sm"><span>{count(match.local_team_id, row.type)}</span><span className="text-slate-400">{row.label}</span><span>{count(match.visitor_team_id, row.type)}</span></div>)}</div><div className="mt-8 grid gap-5 lg:grid-cols-2"><MatchPlayersColumn title={match.local_team_name} players={homePlayers} teamId={match.local_team_id} events={events} canManage={canManage && match.status === 'live'} saving={saving} onRecord={recordEvent} /><MatchPlayersColumn title={match.visitor_team_name} players={awayPlayers} teamId={match.visitor_team_id} events={events} canManage={canManage && match.status === 'live'} saving={saving} onRecord={recordEvent} /></div></article>
 }
 
-function MatchPlayersColumn({ title, players, teamId, events, canManage, saving, onRecord }: { title: string; players: RosterEntry[]; teamId: string | null; events: MatchEvent[]; canManage: boolean; saving: boolean; onRecord: (teamId: string, playerId: string | null, eventType: 'try' | 'conversion' | 'yellow_card' | 'red_card' | 'injured' | 'concussion', points: number) => void }) {
+  */
+}
+
+function MatchPlayersColumn({ title, players, teamId, events, canManage, saving, onRecord }: { title: string; players: RosterEntry[]; teamId: string | null; events: MatchEvent[]; canManage: boolean; saving: boolean; onRecord: (teamId: string, playerId: string | null, eventType: 'try' | 'conversion' | 'goal' | 'penalty_kick' | 'yellow_card' | 'red_card' | 'injured' | 'concussion', points: number) => void }) {
   const [open, setOpen] = useState(true)
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [pendingIndicator, setPendingIndicator] = useState<'yellow_card' | 'red_card' | 'injured' | 'concussion' | null>(null)

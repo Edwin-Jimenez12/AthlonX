@@ -3,9 +3,11 @@
 import { ChevronDown, Search, UserPlus, Users } from 'lucide-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { StyledSelect } from './styled-select'
+import { PlayerRoleIcon } from './player-role-icon'
 
 type Division = { id: string; name: string; sort_order: number }
 type Modality = { code: string; name: string }
+type ModalityRule = { max_roster_size: number; players_on_field: number }
 type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null; divisionNames?: string[] }
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
@@ -18,6 +20,7 @@ type Props = {
   availableTeams: TeamSummary[]
   availablePlayers: PlayerSummary[]
   modality: Modality | null
+  modalityRule?: ModalityRule | null
   officialPlayerId: string
   canManage: boolean
   editMode: boolean
@@ -61,8 +64,21 @@ const rugbyFifteenPositions = [
   'Zaguero',
 ]
 
+const footballPositions = [
+  'Portero',
+  'Defensa',
+  'Lateral',
+  'Mediocampista',
+  'Extremo',
+  'Delantero',
+]
+
 function getPositionOptions(modality: Modality | null) {
   const modalityKey = `${modality?.code || ''} ${modality?.name || ''}`.toLocaleLowerCase('es-PA')
+
+  if (modalityKey.includes('futbol') || modalityKey.includes('fútbol')) {
+    return footballPositions
+  }
 
   if (modalityKey.includes('seven') || modalityKey.includes('sevens')) {
     return rugbySevensPositions
@@ -75,7 +91,7 @@ function getPositionOptions(modality: Modality | null) {
   return ['Posición general']
 }
 
-export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
+export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, modalityRule, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
   const [expanded, setExpanded] = useState<string[]>([])
   const [teamMode, setTeamMode] = useState<'existing' | 'new' | null>(null)
   const [teamQuery, setTeamQuery] = useState('')
@@ -109,6 +125,18 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
   const filteredTeams = availableTeams.filter((team) => !selectedTeamIds.includes(team.id) && `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
   const filteredPlayers = availablePlayers.filter((player) => player.full_name.toLowerCase().includes(playerQuery.toLowerCase()))
   const positionOptions = getPositionOptions(modality)
+  const inferredRule = modalityRule || (() => {
+    const code = modality?.code || ''
+    const sizes: Record<string, number> = {
+      'futbol-5': 12,
+      'futbol-sala': 12,
+      'futbol-7': 16,
+      'futbol-8': 18,
+      'futbol-11': 23,
+    }
+    return sizes[code] ? { max_roster_size: sizes[code], players_on_field: 0 } : null
+  })()
+  const maxRosterSize = inferredRule?.max_roster_size || null
 
   function getCompatibleDivisions(team: TeamSummary) {
     return team.divisionNames?.length ? divisions.filter((division) => team.divisionNames?.some((name) => normalize(name) === normalize(division.name))) : divisions
@@ -168,6 +196,9 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
   function submitNewPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (maxRosterSize && rosters.filter((player) => player.team_id === playerTeamId).length >= maxRosterSize) {
+      return
+    }
     setPendingPlayerAction('new')
   }
 
@@ -182,6 +213,9 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
 
   function submitExistingPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (maxRosterSize && rosters.filter((player) => player.team_id === playerTeamId).length >= maxRosterSize) {
+      return
+    }
     setPendingPlayerAction('existing')
   }
 
@@ -274,7 +308,9 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
                 <div className="border-t border-white/10 p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Plantilla del equipo</p>
-                    {canManage && editMode && <button type="button" onClick={() => { setPlayerTeamId(playerFormOpen ? '' : team.id); setPlayerMode('new') }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><UserPlus size={15} />Añadir jugador</button>}
+                    {canManage && editMode && (!maxRosterSize || teamRoster.length < maxRosterSize) && <button type="button" onClick={() => { setPlayerTeamId(playerFormOpen ? '' : team.id); setPlayerMode('new') }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><UserPlus size={15} />Añadir jugador</button>}
+                    {maxRosterSize && <span className="text-xs text-slate-400">{teamRoster.length} / {maxRosterSize} jugadores</span>}
+                    {inferredRule?.players_on_field ? <span className="text-xs text-slate-400">En cancha: {inferredRule.players_on_field}</span> : null}
                   </div>
 
                   {playerFormOpen && (
@@ -314,7 +350,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
                       <div key={player.player_id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 px-3 py-2 text-sm">
                         <div className="min-w-0">
                           <p className="truncate font-semibold">{player.full_name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{player.position || 'Posición pendiente'} · {player.is_official ? 'Perfil registrado' : player.claimed_player_id ? 'Perfil reclamado' : 'Perfil temporal'}</p>
+                          <p className="mt-1 flex items-center gap-2 text-xs text-slate-500"><PlayerRoleIcon position={player.position} />{player.position || 'Posición pendiente'} · {player.is_official ? 'Perfil registrado' : player.claimed_player_id ? 'Perfil reclamado' : 'Perfil temporal'}</p>
                         </div>
                         <span className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
                           #{player.shirt_number ?? '--'}
