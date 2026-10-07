@@ -1,11 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/dashboard/busqueda/page": "app/dashboard/busqueda/page.js",
-  "/dashboard/configuracion/page": "app/dashboard/configuracion/page.js",
-  "/dashboard/entrenador/page": "app/dashboard/entrenador/page.js",
-  "/dashboard/equipo/page": "app/dashboard/equipo/page.js",
   "/dashboard/eventos/page": "app/dashboard/eventos/page.js",
   "/dashboard/torneos/ver/[id]/page": "app/dashboard/torneos/ver/[id]/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/page": "app/page.js"
+  "/icon.svg/route": "app/icon.svg/route.js"
 }

@@ -21,6 +21,8 @@ type Props = {
   availablePlayers: PlayerSummary[]
   modality: Modality | null
   modalityRule?: ModalityRule | null
+  maxTeams?: number | null
+  maxRoster?: number | null
   officialPlayerId: string
   canManage: boolean
   editMode: boolean
@@ -91,7 +93,7 @@ function getPositionOptions(modality: Modality | null) {
   return ['Posición general']
 }
 
-export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, modalityRule, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
+export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, modalityRule, maxTeams, maxRoster, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
   const [expanded, setExpanded] = useState<string[]>([])
   const [teamMode, setTeamMode] = useState<'existing' | 'new' | null>(null)
   const [teamQuery, setTeamQuery] = useState('')
@@ -136,7 +138,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
     }
     return sizes[code] ? { max_roster_size: sizes[code], players_on_field: 0 } : null
   })()
-  const maxRosterSize = inferredRule?.max_roster_size || null
+  const maxRosterSize = maxRoster || inferredRule?.max_roster_size || null
+  const hasTeamCapacity = !maxTeams || groupedTeams.length < maxTeams
 
   function getCompatibleDivisions(team: TeamSummary) {
     return team.divisionNames?.length ? divisions.filter((division) => team.divisionNames?.some((name) => normalize(name) === normalize(division.name))) : divisions
@@ -233,14 +236,14 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Combina equipos registrados con equipos temporales. Los perfiles temporales solo pertenecen a este torneo y pueden ser reclamados después.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{groupedTeams.length} equipos</span>
+          <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{maxTeams ? `${groupedTeams.length}/${maxTeams} equipos` : `${groupedTeams.length} equipos`}</span>
           {canManage && editMode && (
             <>
-              <button type="button" onClick={() => setTeamMode(teamMode === 'existing' ? null : 'existing')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200">
+              <button type="button" disabled={!hasTeamCapacity} onClick={() => setTeamMode(teamMode === 'existing' ? null : 'existing')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
                 <Users size={15} />
                 Invitar equipo
               </button>
-              <button type="button" onClick={() => setTeamMode(teamMode === 'new' ? null : 'new')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">
+              <button type="button" disabled={!hasTeamCapacity} onClick={() => setTeamMode(teamMode === 'new' ? null : 'new')} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">
                 <Users size={15} />
                 Añadir equipo no registrado
               </button>
@@ -280,7 +283,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
           <label className="text-sm font-semibold">Teléfono<input value={teamPhone} onChange={(event) => setTeamPhone(event.target.value)} placeholder="Opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
           <label className="text-sm font-semibold">Imagen del equipo<input type="url" value={teamLogo} onChange={(event) => setTeamLogo(event.target.value)} placeholder="URL de imagen opcional" className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-3 py-3" /></label>
           <StyledSelect label="División" value={divisionId} onChange={setDivisionId} options={[{ value: '', label: 'Seleccionar división' }, ...divisions.map((division) => ({ value: division.id, label: division.name }))]} required />
-          <div className="flex items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-slate-400">Este equipo será temporal y no aparecerá como equipo oficial.</p><button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e]">Añadir equipo no registrado</button></div>
+          <div className="flex items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-slate-400">Este equipo será temporal y no aparecerá como equipo oficial.</p><button type="submit" disabled={!hasTeamCapacity} className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Añadir equipo no registrado</button></div>
         </form>
       )}
 

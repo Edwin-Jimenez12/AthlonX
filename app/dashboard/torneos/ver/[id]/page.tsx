@@ -249,6 +249,8 @@ export default function PublicTournamentPage() {
   const [saveDestination, setSaveDestination] = useState<typeof section | null>(null)
   const [availableTeams, setAvailableTeams] = useState<TeamSummary[]>([])
   const [tournamentInvitations, setTournamentInvitations] = useState<TournamentInvitation[]>([])
+  const [maxTeamsLimit, setMaxTeamsLimit] = useState<number | null>(null)
+  const [maxRosterLimit, setMaxRosterLimit] = useState<number | null>(null)
   const [numberRequest, setNumberRequest] = useState<{ teamId: string; playerId: string; playerName: string; currentNumber: number | null } | null>(null)
 
   async function loadTournament() {
@@ -309,6 +311,11 @@ export default function PublicTournamentPage() {
       teams: normalizedTeams,
     }
     const selectedModalityId = normalizedPayload.tournament?.modality?.id || ''
+    const { data: competitionSettings } = await supabase
+      .from('tournament_competition_settings')
+      .select('max_teams, max_roster_size')
+      .eq('tournament_id', params.id)
+      .maybeSingle()
     const { data: modalityRuleRow } = selectedModalityId
       ? await supabase
           .from('sport_modality_rules')
@@ -328,6 +335,8 @@ export default function PublicTournamentPage() {
       court_number: courtByMatch.get(match.id) ?? null,
     }))
     setData(normalizedPayload)
+    setMaxTeamsLimit(Number(competitionSettings?.max_teams) || null)
+    setMaxRosterLimit(Number(competitionSettings?.max_roster_size) || null)
     setModalityRule((modalityRuleRow as ModalityRule | null) || null)
     setHistory((historyRows ?? []) as EditHistory[])
     setStandingAdjustments((adjustmentRows ?? []) as StandingAdjustment[])
@@ -640,10 +649,37 @@ export default function PublicTournamentPage() {
     if (!totalPairings) return 'No se generaron enfrentamientos con la configuración indicada.'
     const { data: competitionSettings } = await supabase
       .from('tournament_competition_settings')
-      .select('courts_count')
+      .select('courts_count, max_teams, half_duration_minutes, halftime_duration_minutes, interval_between_matches_minutes')
       .eq('tournament_id', tournament.id)
       .maybeSingle()
     const courtsCount = Math.max(1, Number(competitionSettings?.courts_count || 1))
+    const { data: modalityRules } = tournament.modality?.id
+      ? await supabase
+          .from('sport_modality_rules')
+          .select('half_duration_minutes, halftime_duration_minutes')
+          .eq('modality_id', tournament.modality.id)
+          .maybeSingle()
+      : { data: null }
+    const maxTeams = Number(competitionSettings?.max_teams || 0)
+    if (maxTeams > 0 && selectedTeamIds.length > maxTeams) {
+      return `Este torneo permite un máximo de ${maxTeams} equipos.`
+    }
+    const halfDuration = Number(
+      competitionSettings?.half_duration_minutes
+      || modalityRules?.half_duration_minutes
+      || 0,
+    )
+    const halftimeDuration = Number(
+      competitionSettings?.halftime_duration_minutes
+      || modalityRules?.halftime_duration_minutes
+      || 0,
+    )
+    const intervalDuration = Number(
+      competitionSettings?.interval_between_matches_minutes || 10,
+    )
+    const matchInterval = halfDuration > 0
+      ? halfDuration * 2 + halftimeDuration + intervalDuration
+      : intervalDuration
     const nextDate = (dates.at(-1) || 0) + 1
     const generatedAt = new Date().toISOString()
     const fixtureRows = datePairings.map((_, index) => ({ tournament_id: tournament.id, date_number: nextDate + index, calendar_date: addWeeksToDate(tournament.start_date, index), recesses: [{ id: `recess-${nextDate + index}-1`, time: null }], generated_at: generatedAt }))
@@ -651,7 +687,18 @@ export default function PublicTournamentPage() {
     if (fixtureError || !fixtures?.length) return fixtureError?.message || 'No se pudieron crear las fechas.'
 
     const fixtureByDate = new Map(fixtures.map((fixture) => [fixture.date_number, fixture.id]))
-    const pairs = datePairings.flatMap((pairings, index) => pairings.map((pairing, pairingIndex) => ({ fixture_id: fixtureByDate.get(nextDate + index), division_id: pairing.divisionId, fixture_order: pairingIndex, local_team_id: pairing.localTeamId, visitor_team_id: pairing.visitorTeamId, court_number: (pairingIndex % courtsCount) + 1, scheduled_time: addMinutesToTime(firstMatchTime, Math.floor(pairingIndex / courtsCount) * 10) })))
+    const pairs = datePairings.flatMap((pairings, index) => pairings.map((pairing, pairingIndex) => ({
+      fixture_id: fixtureByDate.get(nextDate + index),
+      division_id: pairing.divisionId,
+      fixture_order: pairingIndex,
+      local_team_id: pairing.localTeamId,
+      visitor_team_id: pairing.visitorTeamId,
+      court_number: (pairingIndex % courtsCount) + 1,
+      scheduled_time: addMinutesToTime(
+        firstMatchTime,
+        Math.floor(pairingIndex / courtsCount) * matchInterval,
+      ),
+    })))
     const { error: matchesError } = await supabase.from('matches').insert(pairs)
     if (matchesError) {
       await supabase.from('fixtures').delete().in('id', fixtures.map((fixture) => fixture.id))
@@ -669,6 +716,12 @@ export default function PublicTournamentPage() {
     const division = data.divisions.find((item) => item.id === divisionId)
     if (tournament.status !== 'published') return setMessage('El torneo debe estar publicado para enviar invitaciones.')
     if (!team || !division) return setMessage('Selecciona un equipo y una división válidos.')
+    const pendingTeamAdds = pendingOperations.filter((operation) => (
+      operation.kind === 'invite-team' || operation.kind === 'add-quick-team'
+    )).length
+    if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds >= maxTeamsLimit) {
+      return setMessage(`El torneo ya alcanzó el máximo de ${maxTeamsLimit} equipos.`)
+    }
     if (teams.some((item) => item.id === teamId && item.division_id === divisionId)) return setMessage('Este equipo ya forma parte de esta división.')
     if (tournamentInvitations.some((invitation) => invitation.team_id === teamId && invitation.division_id === divisionId && invitation.status === 'pending')) return setMessage('Este equipo ya tiene una invitación pendiente para esta división.')
     if (team.divisionNames?.length && !team.divisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) {
@@ -685,6 +738,12 @@ export default function PublicTournamentPage() {
     const division = data.divisions.find((item) => item.id === values.divisionId)
     if (!tournament.is_quick) return setMessage('Los equipos temporales solo están disponibles en torneos rápidos.')
     if (!division || !values.name.trim()) return setMessage('Completa el nombre y la división del equipo.')
+    const pendingTeamAdds = pendingOperations.filter((operation) => (
+      operation.kind === 'invite-team' || operation.kind === 'add-quick-team'
+    )).length
+    if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds >= maxTeamsLimit) {
+      return setMessage(`El torneo ya alcanzó el máximo de ${maxTeamsLimit} equipos.`)
+    }
     queueOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
   }
 
@@ -794,6 +853,14 @@ export default function PublicTournamentPage() {
     if (!supabase || !pendingOperations.length || !tournament) return
 
     const operations = pendingOperations
+    const pendingTeamAdds = operations.filter((operation) => (
+      operation.kind === 'invite-team' || operation.kind === 'add-quick-team'
+    )).length
+    if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds > maxTeamsLimit) {
+      return setMessage(
+        `No se pueden guardar los cambios: el torneo permite máximo ${maxTeamsLimit} equipos.`,
+      )
+    }
     let remainingOperations = [...operations]
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user?.email) return setMessage('No se pudo identificar el correo de la cuenta.')
@@ -842,7 +909,7 @@ export default function PublicTournamentPage() {
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} maxTeams={maxTeamsLimit} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} maxTeams={maxTeamsLimit} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
     {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
   </div>{pendingChanges && Object.keys(pendingChanges).length > 0 && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && pendingOperations.length > 0 && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
@@ -1058,7 +1125,8 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
         <table>
           <thead><tr>
             <th>#</th><th class="team">Equipo</th><th>PJ</th><th>PG</th>
-            <th>PE</th><th>PP</th><th>PF</th><th>PC</th><th>PTS</th>
+            <th>PE</th><th>PP</th><th>${isFootball ? 'GF' : 'PF'}</th>
+            <th>${isFootball ? 'GC' : 'PC'}</th><th>PTS</th>
           </tr></thead>
           <tbody>${rowsMarkup || '<tr><td colspan="9">Sin equipos registrados</td></tr>'}</tbody>
         </table>
@@ -1106,7 +1174,7 @@ function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches
         <img src="${window.location.origin}/upr.png" alt="Organización" />
       </div>
       <h1>${tournamentTitle}</h1>
-      <p class="subtitle">${modality} · ${target === 'all' ? 'Todas las divisiones' : escapePrintValue(selectedDivisionName)}</p>
+      <p class="subtitle">${escapePrintValue(isFootball ? 'Fútbol' : modality)} · ${target === 'all' ? 'Todas las divisiones' : escapePrintValue(selectedDivisionName)}</p>
       ${divisionMarkup}
     </main></body></html>`)
     printWindow.document.close()
@@ -1272,7 +1340,7 @@ function formatTournamentFixtureDateLabel(fixture: TournamentFixtureDate) {
   return `Fecha ${fixture.dateNumber}${dateLabel ? ` · ${dateLabel}` : ''}`
 }
 
-function TeamsSection({ teams, rosters, fixtureDates, divisions: allDivisions, availableTeams, callups, callupPlayers, canManage, editMode, onAddTeam, onRemoveTeam }: { teams: TournamentTeam[]; rosters: RosterEntry[]; dates: number[]; fixtureDates: TournamentFixtureDate[]; divisions: Division[]; availableTeams: TeamSummary[]; callups: TournamentFixtureCallup[]; callupPlayers: TournamentFixtureCallupPlayer[]; canManage: boolean; editMode: boolean; currentUserId: string; onAddTeam: (teamId: string, divisionId: string) => void; onRemoveTeam: (team: TournamentTeam) => void; onNumberRequest: (request: { teamId: string; playerId: string; playerName: string; currentNumber: number | null }) => void }) {
+function TeamsSection({ teams, rosters, fixtureDates, divisions: allDivisions, availableTeams, maxTeams, callups, callupPlayers, canManage, editMode, onAddTeam, onRemoveTeam }: { teams: TournamentTeam[]; rosters: RosterEntry[]; dates: number[]; fixtureDates: TournamentFixtureDate[]; divisions: Division[]; availableTeams: TeamSummary[]; maxTeams?: number | null; callups: TournamentFixtureCallup[]; callupPlayers: TournamentFixtureCallupPlayer[]; canManage: boolean; editMode: boolean; currentUserId: string; onAddTeam: (teamId: string, divisionId: string) => void; onRemoveTeam: (team: TournamentTeam) => void; onNumberRequest: (request: { teamId: string; playerId: string; playerName: string; currentNumber: number | null }) => void }) {
   const [expandedTeams, setExpandedTeams] = useState<string[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [showRemove, setShowRemove] = useState(false)
@@ -1280,6 +1348,7 @@ function TeamsSection({ teams, rosters, fixtureDates, divisions: allDivisions, a
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<Record<string, string>>({})
   const [teamQuery, setTeamQuery] = useState('')
   const filteredTeams = availableTeams.filter((team) => !selectedTeamIds.includes(team.id) && `${team.name} ${team.handle || ''} ${team.athlonx_code || ''}`.toLowerCase().includes(teamQuery.toLowerCase()))
+  const hasTeamCapacity = !maxTeams || teams.length < maxTeams
   function getCompatibleDivisions(team: TeamSummary) {
     return team.divisionNames?.length ? allDivisions.filter((division) => team.divisionNames?.some((name) => normalizeDivisionName(name) === normalizeDivisionName(division.name))) : allDivisions
   }
@@ -2100,6 +2169,7 @@ function MatchesSection({ matches, dates, events, corrections, rosters, onOpenFi
 function MatchHighlight({ match, events: initialEvents = [], corrections = [], rosters = [], canManage = false, rules = null }: { match: Match; events?: MatchEvent[]; corrections?: MatchEventCorrection[]; rosters?: RosterEntry[]; canManage?: boolean; rules?: MatchRules | null }) {
   const [seconds, setSeconds] = useState(match.elapsed_seconds || 0)
   const [loadedRules, setLoadedRules] = useState<MatchRules | null>(rules)
+  const [isFootball, setIsFootball] = useState(false)
   const regularPeriodLimit = (loadedRules?.half_duration_minutes || 7) * 60
   const extraPeriodLimit = (loadedRules?.extra_time_half_minutes || 5) * 60
   const periodLimit = String(match.period).startsWith('extra_') ? extraPeriodLimit : regularPeriodLimit
@@ -2113,7 +2183,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
 
   useEffect(() => {
     let active = true
-    if (!supabase || rules) return () => { active = false }
+    if (!supabase) return () => { active = false }
     void (async () => {
       const { data } = await supabase
         .from('matches')
@@ -2124,9 +2194,14 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       if (!tournamentId) return
       const { data: tournament } = await supabase
         .from('tournaments')
-        .select('modality_id')
+        .select('modality_id, discipline_id')
         .eq('id', tournamentId)
         .maybeSingle()
+      if (tournament?.discipline_id) {
+        const { data: discipline } = await supabase.from('disciplines')
+          .select('code').eq('id', tournament.discipline_id).maybeSingle()
+        if (active) setIsFootball(discipline?.code === 'futbol')
+      }
       if (!tournament?.modality_id) return
       const { data: modalityRules } = await supabase
         .from('sport_modality_rules')
@@ -2186,7 +2261,9 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half' }
       : isExtraSecondHalf
         ? { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
-      : isTied && loadedRules?.extra_time_allowed
+      // Las ligas permiten empates; la prórroga solo aplica cuando el empate
+      // no está permitido, como ocurre en una fase eliminatoria.
+      : isTied && loadedRules?.extra_time_allowed && !loadedRules.draws_allowed
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: 0, period: 'extra_first_half' }
         : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
@@ -2545,25 +2622,28 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       <p className="mt-1 font-display text-4xl tracking-wider text-white">{timer}</p>
       {stoppageSeconds > 0 && <p className="mt-1 text-xl font-bold text-[#ff7d88]">{stoppageTimer}</p>}
     </div>
-    <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center">
+    <p className="mt-6 mb-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">
+      Registrar puntos
+    </p>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center">
       <div>
         <TeamMatchName name={match.local_team_name} logo={match.local_logo_url} />
-        {canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2">
+        {canManage && match.status === 'live' && <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={saving}
-            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Try', eventType: 'try', points: 5 })}
+            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: isFootball ? 'Gol' : 'Try', eventType: isFootball ? 'goal' : 'try', points: isFootball ? 1 : 5 })}
             className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
           >
-            Try
+            {isFootball ? 'Gol' : 'Try'}
           </button>
           <button
             type="button"
             disabled={saving}
-            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Conversión', eventType: 'conversion', points: 2 })}
+            onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: isFootball ? 'Penal' : 'Conversión', eventType: isFootball ? 'penalty_kick' : 'conversion', points: isFootball ? 1 : 2 })}
             className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
           >
-            Conversión
+            {isFootball ? 'Penal' : 'Conversión'}
           </button>
         </div>}
       </div>
@@ -2575,28 +2655,27 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       </div>
       <div>
         <TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} />
-        {canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2">
+        {canManage && match.status === 'live' && <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={saving}
-            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Try', eventType: 'try', points: 5 })}
+            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: isFootball ? 'Gol' : 'Try', eventType: isFootball ? 'goal' : 'try', points: isFootball ? 1 : 5 })}
             className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
           >
-            Try
+            {isFootball ? 'Gol' : 'Try'}
           </button>
           <button
             type="button"
             disabled={saving}
-            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Conversión', eventType: 'conversion', points: 2 })}
+            onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: isFootball ? 'Penal' : 'Conversión', eventType: isFootball ? 'penalty_kick' : 'conversion', points: isFootball ? 1 : 2 })}
             className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
           >
-            Conversión
+            {isFootball ? 'Penal' : 'Conversión'}
           </button>
         </div>}
       </div>
     </div>
     {renderCompactCorrectionPanel()}
-    {loadedRules && loadedRules.half_duration_minutes !== 7 && canManage && match.status === 'live' && <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Gol', eventType: 'goal', points: 1 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Gol local</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Gol', eventType: 'goal', points: 1 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Gol visitante</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Penal', eventType: 'penalty_kick', points: 1 })} className="rounded-[5px] border border-[#31556b] px-3 py-1.5 text-xs font-bold text-slate-300">Penal local</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Penal', eventType: 'penalty_kick', points: 1 })} className="rounded-[5px] border border-[#31556b] px-3 py-1.5 text-xs font-bold text-slate-300">Penal visitante</button></div>}
     {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && (String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <button type="button" onClick={() => void registerShootout()} className="mt-4 rounded-[5px] border border-[#ffb45c] px-4 py-2 text-sm font-bold text-[#ffd09b]">Registrar tanda de penales</button>}
     {pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">
       Confirmar {pendingScoreAction.label}?
@@ -2681,7 +2760,9 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   /*
   const homePlayers = rosters.filter((player) => player.team_id === match.local_team_id)
   const awayPlayers = rosters.filter((player) => player.team_id === match.visitor_team_id)
-  const statRows = [{ label: 'Tries', type: 'try' }, { label: 'Conversiones', type: 'conversion' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
+  const statRows = isFootball
+    ? [{ label: 'Goles', type: 'goal' }, { label: 'Penales', type: 'penalty_kick' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
+    : [{ label: 'Tries', type: 'try' }, { label: 'Conversiones', type: 'conversion' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
   const count = (teamId: string | null, type: string) => activeEvents.filter((event) => event.team_id === teamId && event.event_type === type).length
   const localScore = activeEvents.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0)
   const visitorScore = activeEvents.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0)
@@ -2732,13 +2813,170 @@ function TournamentDivisionsSummary({ divisions }: { divisions: Division[] }) {
   return <div className="mt-8 border-t border-white/10 pt-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Los equipos solo podrán inscribirse en una división compatible con su catálogo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{divisions.length} divisiones</span></div><div className="mt-5 flex flex-wrap gap-2">{divisions.map((division) => <span key={division.id} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{division.name}</span>)}{!divisions.length && <p className="text-sm text-slate-500">Todavía no hay divisiones configuradas.</p>}</div></div>
 }
 
+// Muestra y actualiza la configuración competitiva del torneo.
+function CourtCountSettings({ tournamentId }: { tournamentId: string }) {
+  const [count, setCount] = useState('1')
+  const [savedCount, setSavedCount] = useState('1')
+  const [maxTeams, setMaxTeams] = useState('14')
+  const [savedMaxTeams, setSavedMaxTeams] = useState('14')
+  const [halfDuration, setHalfDuration] = useState('20')
+  const [savedHalfDuration, setSavedHalfDuration] = useState('20')
+  const [halftimeDuration, setHalftimeDuration] = useState('5')
+  const [savedHalftimeDuration, setSavedHalftimeDuration] = useState('5')
+  const [editing, setEditing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function loadSettings() {
+      if (!supabase) return
+      const { data } = await supabase.from('tournament_competition_settings')
+        .select('courts_count, max_teams, half_duration_minutes, halftime_duration_minutes')
+        .eq('tournament_id', tournamentId)
+        .maybeSingle()
+      if (active && data) {
+        setCount(String(data.courts_count || 1))
+        setSavedCount(String(data.courts_count || 1))
+        setMaxTeams(String(data.max_teams || 14))
+        setSavedMaxTeams(String(data.max_teams || 14))
+        setHalfDuration(String(data.half_duration_minutes || 20))
+        setSavedHalfDuration(String(data.half_duration_minutes || 20))
+        setHalftimeDuration(String(data.halftime_duration_minutes || 5))
+        setSavedHalftimeDuration(String(data.halftime_duration_minutes || 5))
+      }
+    }
+    void loadSettings()
+    return () => { active = false }
+  }, [tournamentId])
+
+  async function saveSettings() {
+    if (!supabase) return
+    const parsedMaxTeams = Number(maxTeams)
+    const parsedHalfDuration = Number(halfDuration)
+    const parsedHalftimeDuration = Number(halftimeDuration)
+    if (!Number.isInteger(parsedMaxTeams) || parsedMaxTeams < 2) {
+      setMessage('El máximo de equipos debe ser un número entero mayor o igual a 2.')
+      return
+    }
+    if (!Number.isInteger(parsedHalfDuration) || parsedHalfDuration < 1 || parsedHalfDuration > 120) {
+      setMessage('La duración de cada tiempo debe estar entre 1 y 120 minutos.')
+      return
+    }
+    if (![5, 15].includes(parsedHalftimeDuration)) {
+      setMessage('El descanso solo puede ser de 5 o 15 minutos.')
+      return
+    }
+    setSaving(true)
+    const { data: current } = await supabase.from('tournament_competition_settings')
+      .select('competition_format, modality_rules_id')
+      .eq('tournament_id', tournamentId)
+      .maybeSingle()
+    const { error } = await supabase.from('tournament_competition_settings').upsert({
+      tournament_id: tournamentId,
+      competition_format: current?.competition_format || 'quick_league',
+      courts_count: Number(count),
+      modality_rules_id: current?.modality_rules_id || null,
+      max_teams: parsedMaxTeams,
+      half_duration_minutes: parsedHalfDuration,
+      halftime_duration_minutes: parsedHalftimeDuration,
+      interval_between_matches_minutes: 10,
+    }, { onConflict: 'tournament_id' })
+    if (!error) {
+      setSavedCount(count)
+      setSavedMaxTeams(maxTeams)
+      setSavedHalfDuration(halfDuration)
+      setSavedHalftimeDuration(halftimeDuration)
+      setEditing(false)
+      setConfirming(false)
+    }
+    setMessage(error ? error.message : 'Configuración del torneo guardada.')
+    setSaving(false)
+  }
+
+  const hasChanges = count !== savedCount
+    || maxTeams !== savedMaxTeams
+    || halfDuration !== savedHalfDuration
+    || halftimeDuration !== savedHalftimeDuration
+
+  return <div className="mt-5 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4">
+    <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">
+      Configuración de fútbol
+    </p>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <label className="block text-sm font-semibold">
+        Máximo de equipos
+        {editing ? <input type="number" min="2" value={maxTeams}
+          onChange={(event) => setMaxTeams(event.target.value)}
+          className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3" />
+          : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedMaxTeams}</span>}
+      </label>
+      <label className="block text-sm font-semibold">
+        Minutos por tiempo
+        {editing ? <input type="number" min="1" max="120" value={halfDuration}
+          onChange={(event) => setHalfDuration(event.target.value)}
+          className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3" />
+          : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedHalfDuration}</span>}
+      </label>
+      <label className="block text-sm font-semibold">
+        Descanso
+        {editing ? <select value={halftimeDuration}
+          onChange={(event) => setHalftimeDuration(event.target.value)}
+          className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">
+          <option value="5">5 minutos</option>
+          <option value="15">15 minutos</option>
+        </select> : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedHalftimeDuration} minutos</span>}
+      </label>
+      <label className="block text-sm font-semibold">
+        Número de canchas
+        {editing ? <select value={count} onChange={(event) => setCount(event.target.value)}
+          className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">
+          {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>
+            {value} {value === 1 ? 'cancha' : 'canchas'}
+          </option>)}
+        </select> : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedCount} {savedCount === '1' ? 'cancha' : 'canchas'}</span>}
+      </label>
+    </div>
+    <div className="mt-4 flex flex-wrap gap-3">
+      {!editing ? <button type="button" onClick={() => { setEditing(true); setMessage('') }}
+        className="rounded-[5px] border border-[#b4ff45] px-4 py-3 font-bold text-[#dfffba]">Editar</button> : <>
+        <button type="button" onClick={() => { setEditing(false); setCount(savedCount); setMaxTeams(savedMaxTeams); setHalfDuration(savedHalfDuration); setHalftimeDuration(savedHalftimeDuration) }}
+          className="rounded-[5px] border border-[#31556b] px-4 py-3 font-bold text-slate-300">Cancelar</button>
+        <button type="button" onClick={() => setConfirming(true)} disabled={saving || !hasChanges}
+          className="rounded-[5px] bg-[#b4ff45] px-4 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Guardar cambios</button>
+      </>}
+    </div>
+    <p className="mt-2 text-xs text-slate-400">
+      El fixture usa dos tiempos, el descanso y un intervalo fijo de 10 minutos entre bloques.
+    </p>
+    {message && <p className="mt-3 text-sm text-[#dfffba]">{message}</p>}
+    {confirming && <div className="mt-4 rounded-[5px] border border-[#b4ff45]/40 bg-[#07131e] p-4">
+      <p className="text-sm font-bold text-white">¿Confirmar la configuración del torneo?</p>
+      <p className="mt-2 text-xs text-slate-400">Se aplicará al próximo fixture generado.</p>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => setConfirming(false)}
+          className="rounded-[5px] border border-[#31556b] px-3 py-2 text-sm">Cancelar</button>
+        <button type="button" onClick={() => void saveSettings()}
+          className="rounded-[5px] bg-[#b4ff45] px-3 py-2 text-sm font-bold text-[#07131e]">Confirmar</button>
+      </div>
+    </div>}
+  </div>
+}
+
 function EditTournamentForm({ tournament, divisions, disciplines, modalities, onRequestSave, onDirtyChange, onCancel }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void }) {
   const [values, setValues] = useState<EditValues>({ name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' })
   const [divisionToAdd, setDivisionToAdd] = useState('')
   const [selectedDivisionNames, setSelectedDivisionNames] = useState(() => divisions.map((division) => division.name))
   const availableModalities = modalities.filter((modality) => !values.discipline_id || modality.discipline_id === values.discipline_id)
   const divisionOptions = Array.from(new Set([...defaultDivisionOptions, ...divisions.map((division) => division.name)]))
-  useEffect(() => { const original = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }; const fieldsChanged = Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues]); const originalDivisions = divisions.map((division) => division.name); const divisionsChanged = originalDivisions.length !== selectedDivisionNames.length || originalDivisions.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(selectedDivisionNames[index] || '')); onDirtyChange(fieldsChanged || divisionsChanged) }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
+  useEffect(() => {
+    const original = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }
+    const fieldsChanged = Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues])
+    const originalDivisions = divisions.map((division) => division.name)
+    const divisionsChanged = originalDivisions.length !== selectedDivisionNames.length || originalDivisions.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(selectedDivisionNames[index] || ''))
+    onDirtyChange(fieldsChanged || divisionsChanged)
+  }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
   function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
   return <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="mt-6"><div className="flex items-center gap-2 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]"><ShieldCheck size={17} />Los cambios se mostrarán antes de solicitar la contraseña.</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required /><StyledSelect label="Disciplina" value={values.discipline_id} onChange={(discipline_id) => setValues({ ...values, discipline_id, modality_id: '' })} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} required /><StyledSelect label="Modalidad" value={values.modality_id} onChange={(modality_id) => setValues({ ...values, modality_id })} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} disabled={!availableModalities.length} required /><LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" /><label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={values.start_date} onChange={(event) => setValues({ ...values, start_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Fecha final<input required type="date" value={values.end_date} onChange={(event) => setValues({ ...values, end_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><div className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-4 sm:col-span-2"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Selecciona las divisiones que podrán inscribirse en este torneo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedDivisionNames.length} divisiones</span></div><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={divisionToAdd} onChange={(event) => setDivisionToAdd(event.target.value)} className="min-w-0 flex-1 cursor-pointer rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="">Seleccionar división</option>{divisionOptions.filter((name) => !selectedDivisionNames.some((selected) => normalizeDivisionName(selected) === normalizeDivisionName(name))).map((name) => <option key={name} value={name}>{name}</option>)}</select><button type="button" onClick={addDivision} disabled={!divisionToAdd} className="cursor-pointer rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Agregar división</button></div><div className="mt-4 flex flex-wrap gap-2">{selectedDivisionNames.map((name) => <span key={name} className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{name}<button type="button" onClick={() => setSelectedDivisionNames(selectedDivisionNames.filter((current) => current !== name))} className="cursor-pointer text-[#ff9ca5]" aria-label={`Quitar división ${name}`}><X size={15} /></button></span>)}{!selectedDivisionNames.length && <p className="text-sm text-slate-500">No hay divisiones seleccionadas.</p>}</div></div></div><div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar edición</button><button type="submit" className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><Check size={17} />Guardar cambios</button></div></form>
 }

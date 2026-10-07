@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 
 type Team = { id: string; name: string; division_id: string; division_name: string }
 type Match = {
+  id: string
+  date_number: number
   division_id: string | null
   status: string
   local_team_id: string
@@ -58,6 +60,7 @@ export function TournamentKnockoutBracket({
   const [selectedDivision, setSelectedDivision] = useState(teams[0]?.division_id || '')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [resolvingId, setResolvingId] = useState('')
 
   const divisions = useMemo(() => (
     Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])))
@@ -95,6 +98,32 @@ export function TournamentKnockoutBracket({
     setStages(loadedStages)
     setBracketMatches((matchData || []) as BracketMatch[])
     setLoading(false)
+    await advanceByes(loadedStages, (matchData || []) as BracketMatch[])
+  }
+
+  // Propaga los cruces incompletos sin crear partidos ficticios.
+  async function advanceByes(loadedStages: Stage[], loadedMatches: BracketMatch[]) {
+    if (!supabase || !canManage) return
+    for (const stage of loadedStages) {
+      const nextStage = loadedStages.find(
+        (item) => item.round_number === stage.round_number + 1,
+      )
+      if (!nextStage) continue
+      const byes = loadedMatches.filter(
+        (item) => item.stage_id === stage.id && item.status === 'bye',
+      )
+      for (const bye of byes) {
+        const winner = bye.local_team_id || bye.visitor_team_id
+        if (!winner) continue
+        await supabase.from('tournament_knockout_matches').update({
+          winner_team_id: winner,
+          status: 'finished',
+        }).eq('id', bye.id)
+        await supabase.from('tournament_knockout_matches').update({
+          [bye.position % 2 ? 'local_team_id' : 'visitor_team_id']: winner,
+        }).eq('stage_id', nextStage.id).eq('position', Math.ceil(bye.position / 2))
+      }
+    }
   }
 
   useEffect(() => {
@@ -184,10 +213,112 @@ export function TournamentKnockoutBracket({
     }
   }
 
+  // Vincula el cruce con un partido real y mueve el ganador a la siguiente ronda.
+  async function resolveBracketMatch(bracketMatch: BracketMatch, sourceMatchId: string) {
+    if (!supabase || !canManage || !sourceMatchId) return
+    const source = matches.find((match) => match.id === sourceMatchId)
+    if (!source) return
+    const local = source.local_team_id
+    const visitor = source.visitor_team_id
+    let winner = source.local_score > source.visitor_score ? local : visitor
+    if (source.local_score === source.visitor_score) {
+      const penaltyLocal = Number(window.prompt('Penales del equipo local') || '')
+      const penaltyVisitor = Number(window.prompt('Penales del equipo visitante') || '')
+      if (!Number.isFinite(penaltyLocal) || !Number.isFinite(penaltyVisitor)
+        || penaltyLocal === penaltyVisitor) {
+        setMessage('El desempate por penales debe tener un ganador.')
+        return
+      }
+      winner = penaltyLocal > penaltyVisitor ? local : visitor
+    }
+    setResolvingId(bracketMatch.id)
+    const currentStage = stages.find((stage) => stage.id === bracketMatch.stage_id)
+    const nextStage = currentStage
+      ? stages.find((stage) => stage.round_number === currentStage.round_number + 1)
+      : null
+    const { error } = await supabase.from('tournament_knockout_matches')
+      .update({
+        local_team_id: local,
+        visitor_team_id: visitor,
+        winner_team_id: winner,
+        source_match_id: sourceMatchId,
+        status: 'finished',
+      })
+      .eq('id', bracketMatch.id)
+    if (error) {
+      setMessage(error.message)
+      setResolvingId('')
+      return
+    }
+    if (nextStage) {
+      const nextPosition = Math.ceil(bracketMatch.position / 2)
+      const isLocalSlot = bracketMatch.position % 2 === 1
+      const column = isLocalSlot ? 'local_team_id' : 'visitor_team_id'
+      await supabase.from('tournament_knockout_matches')
+        .update({ [column]: winner })
+        .eq('stage_id', nextStage.id)
+        .eq('position', nextPosition)
+    }
+    setMessage('Resultado guardado y ganador avanzado a la siguiente ronda.')
+    setResolvingId('')
+    await loadBracket()
+  }
+
+  // Genera el PDF de la llave visible y conserva sus rondas por división.
+  function printBracket() {
+    const printWindow = window.open('', '_blank', 'width=1000,height=900')
+    if (!printWindow) {
+      setMessage('Permite las ventanas emergentes para generar el PDF.')
+      return
+    }
+    const columns = stages.map((stage) => {
+      const cards = (matchesByStage.get(stage.id) || []).map((match) => {
+        const local = match.local_team_id
+          ? teamById.get(match.local_team_id)?.name
+          : match.local_source || 'Por definir'
+        const visitor = match.visitor_team_id
+          ? teamById.get(match.visitor_team_id)?.name
+          : match.visitor_source || 'Por definir'
+        return `<div class="match"><div>${local}</div><div>${visitor}</div></div>`
+      }).join('')
+      return `<section><h2>${stage.name}</h2>${cards}</section>`
+    }).join('')
+    printWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8" />
+      <title>Llave de eliminación</title><style>
+      @page { size: A4 landscape; margin: 12mm; } * { box-sizing: border-box; }
+      body { margin: 0; color: #102030; font-family: Arial, sans-serif; }
+      header { display: flex; justify-content: space-between; align-items: center; }
+      header img { width: 42mm; height: 18mm; object-fit: contain; }
+      h1 { margin: 8mm 0 2mm; text-align: center; font-size: 24px; }
+      .subtitle { text-align: center; color: #506070; }
+      .bracket { display: grid; grid-template-columns: repeat(${stages.length}, 1fr);
+        gap: 8mm; margin-top: 12mm; align-items: start; }
+      section h2 { border-bottom: 2px solid #102030; padding-bottom: 3mm;
+        text-align: center; font-size: 13px; text-transform: uppercase; }
+      .match { margin: 8mm 0; border: 1px solid #9db0c2; break-inside: avoid; }
+      .match div { padding: 3mm; border-bottom: 1px solid #d2dce5; font-size: 11px; }
+      .match div:last-child { border-bottom: 0; }
+      </style></head><body><header>
+      <img src="${window.location.origin}/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
+      <img src="${window.location.origin}/upr.png" alt="Organización" /></header>
+      <h1>Llave de eliminación directa</h1>
+      <p class="subtitle">División ${selectedDivision} · AthlonX</p>
+      <main class="bracket">${columns}</main></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    window.setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 400)
+  }
+
   const matchesByStage = new Map(stages.map((stage) => [
     stage.id,
     bracketMatches.filter((match) => match.stage_id === stage.id),
   ]))
+  const finalStage = stages[stages.length - 1]
+  const finalMatch = finalStage ? matchesByStage.get(finalStage.id)?.[0] : null
+  const champion = finalMatch?.winner_team_id ? teamById.get(finalMatch.winner_team_id) : null
 
   return (
     <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8">
@@ -199,10 +330,18 @@ export function TournamentKnockoutBracket({
           <h2 className="mt-2 text-2xl font-black text-white">Llaves por división</h2>
         </div>
         {canManage && (
-          <button type="button" onClick={generateBracket}
-            className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]">
-            Generar llave
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={printBracket}
+              disabled={!stages.length}
+              className="rounded-lg border border-[#31556b] px-4 py-2 font-bold text-white
+                disabled:cursor-not-allowed disabled:opacity-50">
+              PDF de la llave
+            </button>
+            <button type="button" onClick={generateBracket}
+              className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]">
+              Generar llave
+            </button>
+          </div>
         )}
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
@@ -215,6 +354,7 @@ export function TournamentKnockoutBracket({
         ))}
       </div>
       {message && <p className="mt-4 rounded-lg border border-[#b4ff45]/40 p-3 text-sm text-[#b4ff45]">{message}</p>}
+      {champion && <p className="mt-4 rounded-lg border border-[#b4ff45] bg-[#b4ff45]/10 p-4 font-bold text-[#b4ff45]">Campeón: {champion.name}</p>}
       {loading ? <p className="mt-8 text-slate-400">Cargando llave...</p> : stages.length === 0 ? (
         <p className="mt-8 text-slate-400">Todavía no hay una llave generada para esta división.</p>
       ) : (
@@ -230,7 +370,28 @@ export function TournamentKnockoutBracket({
                   const visitor = match.visitor_team_id ? teamById.get(match.visitor_team_id)?.name : match.visitor_source || 'Por definir'
                   return <article key={match.id} className="rounded-lg border border-[#31556b] bg-[#07131e] p-3 text-sm text-white">
                     <p>{local}</p><p className="my-1 border-t border-[#31556b] pt-1">{visitor}</p>
-                    <span className="mt-2 inline-block text-xs text-slate-500">{match.status === 'bye' ? 'Avance automático' : 'Pendiente'}</span>
+                    <span className="mt-2 inline-block text-xs text-slate-500">{match.status === 'bye' ? 'Avance automático' : match.status === 'finished' ? 'Resuelto' : 'Pendiente'}</span>
+                    {canManage && match.status !== 'finished' && match.local_team_id && match.visitor_team_id && (
+                      <select
+                        disabled={resolvingId === match.id}
+                        defaultValue=""
+                        onChange={(event) => {
+                          void resolveBracketMatch(match, event.target.value)
+                        }}
+                        className="mt-3 w-full rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-1 text-xs"
+                      >
+                        <option value="">Vincular partido real</option>
+                        {matches.filter((source) => (
+                          source.status === 'finished' &&
+                          [source.local_team_id, source.visitor_team_id].includes(match.local_team_id) &&
+                          [source.local_team_id, source.visitor_team_id].includes(match.visitor_team_id)
+                        )).map((source) => (
+                          <option key={source.id} value={source.id}>
+                            {source.local_score} - {source.visitor_score} · Fecha {source.date_number}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </article>
                 })}
               </div>
