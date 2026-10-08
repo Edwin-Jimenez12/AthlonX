@@ -90,10 +90,10 @@ cross join (values
   ('rugby', 'xv', 'Rugby 15s'),
   ('baloncesto', '5x5', 'Basketball 5x5'),
   ('baloncesto', '3x3', 'Basketball 3x3'),
-  ('futbol', 'futbol-11', 'Fútbol 11'),
-  ('futbol', 'futbol-sala', 'Fútbol sala (5 jugadores)'),
-  ('futbol', 'futbol-7', 'Fútbol 7'),
-  ('futbol', 'futbol-8', 'Fútbol 8')
+  ('futbol', 'futbol-11', 'Fútbol 11 vs 11'),
+  ('futbol', 'futbol-5', 'Fútbol 5 vs 5'),
+  ('futbol', 'futbol-7', 'Fútbol 7 vs 7'),
+  ('futbol', 'futbol-8', 'Fútbol 8 vs 8')
 ) as seed(discipline_code, code, name)
 where d.code = seed.discipline_code
 on conflict (discipline_id, code) do update set name = excluded.name;

@@ -39,8 +39,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [courtsCount, setCourtsCount] = useState('1')
   const [maxTeams, setMaxTeams] = useState('14')
   const [maxRosterSize, setMaxRosterSize] = useState('12')
-  const [halfDuration, setHalfDuration] = useState('20')
-  const [halftimeDuration, setHalftimeDuration] = useState('5')
+  const [halfDuration, setHalfDuration] = useState('')
+  const [halftimeDuration, setHalftimeDuration] = useState('')
+  const [intervalDuration, setIntervalDuration] = useState('')
   const [location, setLocation] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -68,20 +69,31 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   }, [])
 
   const availableModalities = modalities.filter((modality) => modality.discipline_id === disciplineId)
+  const selectableModalities = availableModalities.filter(
+    (modality) => !['futbol-7', 'futbol-11'].includes(modality.code),
+  )
   const selectedDiscipline = disciplines.find((discipline) => discipline.id === disciplineId)
+  const selectedModality = modalities.find((modality) => modality.id === modalityId)
   const selectedRule = modalityRules.find((rule) => rule.modality_id === modalityId)
   const isFootball = selectedDiscipline?.code === 'futbol'
+  const isFootball5 = selectedModality?.code === 'futbol-5'
 
-  // Aplica los tiempos recomendados cuando cambia la modalidad seleccionada.
+  // Mantiene la configuración de tiempos editable por torneo y modalidad.
   useEffect(() => {
-    if (!selectedRule) return
-    setMaxRosterSize(String(selectedRule.max_roster_size || 12))
-    setHalfDuration(String(selectedRule.half_duration_minutes || 20))
-    setHalftimeDuration(String(selectedRule.halftime_duration_minutes ?? 5))
-  }, [selectedRule])
+    if (selectedRule) setMaxRosterSize(String(selectedRule.max_roster_size || 12))
+    if (selectedModality?.code === 'futbol-5') setMaxTeams('10')
+    if (selectedModality?.code !== 'futbol-5') {
+      setMaxTeams((current) => current === '10' ? '14' : current)
+    }
+    setHalfDuration('')
+    setHalftimeDuration('')
+    setIntervalDuration('')
+  }, [modalityId, selectedModality, selectedRule])
 
   useEffect(() => {
-    setModalityId((current) => availableModalities.some((modality) => modality.id === current) ? current : availableModalities[0]?.id || '')
+    setModalityId((current) => selectableModalities.some((modality) => modality.id === current)
+      ? current
+      : selectableModalities[0]?.id || '')
   }, [disciplineId, modalities])
 
   async function createTournament(event: FormEvent<HTMLFormElement>) {
@@ -95,13 +107,14 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     const parsedMaxRosterSize = Number(maxRosterSize)
     const parsedHalfDuration = Number(halfDuration)
     const parsedHalftimeDuration = Number(halftimeDuration)
+    const parsedIntervalDuration = Number(intervalDuration)
     if (isFootball && (
       !selectedRule
       || !competitionFormat
       || !Number.isInteger(parsedCourts)
-      || parsedCourts < 1
+      || ![1, 2].includes(parsedCourts)
       || !Number.isInteger(parsedMaxTeams)
-      || parsedMaxTeams < 2
+      || (isFootball5 ? parsedMaxTeams !== 10 : parsedMaxTeams < 2)
       || !Number.isInteger(parsedMaxRosterSize)
       || parsedMaxRosterSize < 1
       || !Number.isInteger(parsedHalfDuration)
@@ -110,6 +123,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       || !Number.isInteger(parsedHalftimeDuration)
       || parsedHalftimeDuration < 0
       || parsedHalftimeDuration > 60
+      || !Number.isInteger(parsedIntervalDuration)
+      || parsedIntervalDuration < 0
+      || parsedIntervalDuration > 120
     )) return setMessage(rulesError || 'Completa correctamente la configuración de la modalidad de fútbol.')
     if (new Date(endDate) < new Date(startDate)) return setMessage('La fecha final no puede ser anterior a la fecha inicial.')
 
@@ -169,7 +185,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
         max_roster_size: parsedMaxRosterSize,
         half_duration_minutes: parsedHalfDuration,
         halftime_duration_minutes: parsedHalftimeDuration,
-        interval_between_matches_minutes: 10,
+        interval_between_matches_minutes: parsedIntervalDuration,
       })
       if (settingsError) {
         setLoading(false)
@@ -187,8 +203,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setCourtsCount('1')
     setMaxTeams('14')
     setMaxRosterSize('12')
-    setHalfDuration('20')
-    setHalftimeDuration('5')
+    setHalfDuration('')
+    setHalftimeDuration('')
+    setIntervalDuration('')
     setLocation('')
     setStartDate('')
     setEndDate('')
@@ -225,17 +242,30 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" placeholder="Copa AthlonX" /></label>
             <StyledSelect label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" required />
-            <StyledSelect label="Modalidad" value={modalityId} onChange={setModalityId} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'} disabled={!disciplineId || !availableModalities.length} required />
+              <StyledSelect
+                label="Modalidad"
+                value={modalityId}
+                onChange={setModalityId}
+                options={availableModalities.map((modality) => ({
+                  value: modality.id,
+                  label: modality.name,
+                  disabled: ['futbol-7', 'futbol-11'].includes(modality.code),
+                }))}
+                placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'}
+                disabled={!disciplineId || !availableModalities.length}
+                required
+              />
             {disciplineId && !availableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
             {isFootball && rulesError && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{rulesError}</p>}
             {isFootball && <>
-              <StyledSelect label="Formato del torneo" value={competitionFormat} onChange={setCompetitionFormat} options={[{ value: 'quick_league', label: 'Liga rápida' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'knockout', label: 'Eliminación directa' }]} required />
-              <label className="block text-sm font-semibold">Número de canchas<input required type="number" min="1" value={courtsCount} onChange={(event) => setCourtsCount(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
-              <label className="block text-sm font-semibold">Máximo de equipos<input required type="number" min="2" value={maxTeams} onChange={(event) => setMaxTeams(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              <StyledSelect label="Formato del torneo" value={competitionFormat} onChange={setCompetitionFormat} options={[{ value: 'quick_league', label: 'Todos contra todos' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'knockout', label: 'Eliminación directa' }]} required />
+              <label className="block text-sm font-semibold">Número de canchas<select required value={courtsCount} onChange={(event) => setCourtsCount(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="1">1 cancha</option><option value="2">2 canchas</option></select></label>
+              <label className="block text-sm font-semibold">Máximo de equipos<input required type="number" min={isFootball5 ? 10 : 2} max={isFootball5 ? 10 : undefined} value={maxTeams} readOnly={isFootball5} onChange={(event) => setMaxTeams(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45] read-only:cursor-not-allowed read-only:opacity-70" />{isFootball5 && <span className="mt-1 block text-xs text-slate-400">Fútbol 5 vs 5 requiere exactamente 10 equipos.</span>}</label>
               <label className="block text-sm font-semibold">Plantilla máxima<input required type="number" min="1" value={maxRosterSize} onChange={(event) => setMaxRosterSize(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
               <label className="block text-sm font-semibold">Minutos por tiempo<input required type="number" min="1" max="120" value={halfDuration} onChange={(event) => setHalfDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
               <label className="block text-sm font-semibold">Descanso entre tiempos<input required type="number" min="0" max="60" value={halftimeDuration} onChange={(event) => setHalftimeDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
-              {selectedRule && <div className="rounded-xl border border-[#b4ff45]/25 bg-[#b4ff45]/10 p-3 text-xs leading-5 text-[#d8ffad] sm:col-span-2">{selectedRule.players_on_field} jugadores en cancha · {selectedRule.substitutions_unlimited ? 'Cambios ilimitados' : `${selectedRule.substitutions_allowed} cambios`} · El intervalo entre partidos será de 10 minutos.</div>}
+              <label className="block text-sm font-semibold">Intervalo entre partidos<input required type="number" min="0" max="120" value={intervalDuration} onChange={(event) => setIntervalDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              {selectedRule && <div className="rounded-xl border border-[#b4ff45]/25 bg-[#b4ff45]/10 p-3 text-xs leading-5 text-[#d8ffad] sm:col-span-2">{selectedRule.players_on_field} jugadores en cancha · {selectedRule.substitutions_unlimited ? 'Cambios ilimitados' : `${selectedRule.substitutions_allowed} cambios`}.</div>}
             </>}
             <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />
             <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>

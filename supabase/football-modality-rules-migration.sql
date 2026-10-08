@@ -85,7 +85,6 @@ from public.sport_modalities modality
 join (
   values
     ('futbol-5', 5, 12, null::integer, true, 20, 5),
-    ('futbol-sala', 5, 12, null::integer, true, 20, 5),
     ('futbol-7', 7, 16, 7, false, 25, 5),
     ('futbol-8', 8, 18, 8, false, 30, 5),
     ('futbol-11', 11, 23, 5, false, 45, 15)

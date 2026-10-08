@@ -49,11 +49,10 @@ cross join (
     ('rugby', 'xv', 'Rugby 15s'),
     ('baloncesto', '5x5', 'Baloncesto 5x5'),
     ('baloncesto', '3x3', 'Baloncesto 3x3'),
-    ('futbol', 'futbol-5', 'Fútbol 5'),
-    ('futbol', 'futbol-sala', 'Fútbol sala'),
-    ('futbol', 'futbol-7', 'Fútbol 7'),
-    ('futbol', 'futbol-8', 'Fútbol 8'),
-    ('futbol', 'futbol-11', 'Fútbol 11')
+    ('futbol', 'futbol-5', 'Fútbol 5 vs 5'),
+    ('futbol', 'futbol-7', 'Fútbol 7 vs 7'),
+    ('futbol', 'futbol-8', 'Fútbol 8 vs 8'),
+    ('futbol', 'futbol-11', 'Fútbol 11 vs 11')
 ) as modality(discipline_code, code, name)
 where discipline.code = modality.discipline_code
 on conflict (discipline_id, code) do update

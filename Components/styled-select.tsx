@@ -3,7 +3,11 @@
 import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 
-export type StyledSelectOption = { value: string; label: string }
+export type StyledSelectOption = {
+  value: string
+  label: string
+  disabled?: boolean
+}
 
 type StyledSelectProps = {
   label: string
@@ -65,7 +69,7 @@ export function StyledSelect({ label, value, options, onChange, name, id, placeh
     </label>
     {(required || name) && <input type="text" name={name} tabIndex={-1} aria-hidden="true" required={required} readOnly value={value} className="pointer-events-none absolute h-px w-px opacity-0" />}
     {open && !disabled && <div id={listboxId} role="listbox" aria-label={label} className={`absolute left-0 right-0 z-[70] mt-2 max-h-64 overflow-y-auto rounded-[5px] border p-1 shadow-2xl backdrop-blur-xl ${dark ? 'border-[#31556b] bg-[#0a1722]/[.98]' : 'border-slate-300 bg-white'}`}>
-      {options.length ? options.map((option) => <button key={option.value} type="button" role="option" aria-selected={option.value === value} onClick={() => selectOption(option.value)} className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm transition ${option.value === value ? dark ? 'bg-[#b4ff45] font-bold text-[#07131e]' : 'bg-[#b4ff45] font-bold text-[#07131e]' : dark ? 'text-slate-200 hover:bg-white/10 hover:text-white' : 'text-[#17212b] hover:bg-slate-100'}`}>
+      {options.length ? options.map((option) => <button key={option.value} type="button" role="option" disabled={option.disabled} aria-disabled={option.disabled || undefined} aria-selected={option.value === value} onClick={() => selectOption(option.value)} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2.5 text-left text-sm transition ${option.disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} ${option.value === value ? dark ? 'bg-[#b4ff45] font-bold text-[#07131e]' : 'bg-[#b4ff45] font-bold text-[#07131e]' : dark ? 'text-slate-200 hover:bg-white/10 hover:text-white' : 'text-[#17212b] hover:bg-slate-100'}`}>
         <span>{option.label}</span>{option.value === value && <Check size={15} />}
       </button>) : <p className={`px-3 py-3 text-sm ${dark ? 'text-slate-500' : 'text-slate-400'}`}>No hay opciones disponibles</p>}
     </div>}
