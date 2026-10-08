@@ -42,6 +42,68 @@ alter table public.tournament_competition_settings
   add column if not exists interval_between_matches_minutes integer not null default 10
     check (interval_between_matches_minutes = 10);
 
+-- Permite definir el intervalo de cada torneo desde su formulario.
+alter table public.tournament_competition_settings
+  drop constraint if exists tournament_competition_settings_interval_between_matches_minutes_check;
+
+alter table public.tournament_competition_settings
+  add constraint tournament_competition_settings_interval_between_matches_minutes_check
+    check (interval_between_matches_minutes >= 0
+      and interval_between_matches_minutes <= 120);
+
+-- Limita la configuración de canchas a las opciones disponibles en fútbol.
+update public.tournament_competition_settings
+  set courts_count = least(greatest(courts_count, 1), 2)
+  where courts_count not in (1, 2);
+
+alter table public.tournament_competition_settings
+  drop constraint if exists tournament_competition_settings_courts_count_check;
+
+alter table public.tournament_competition_settings
+  add constraint tournament_competition_settings_courts_count_check
+    check (courts_count in (1, 2));
+
+-- Fútbol 5 vs 5 debe tener exactamente 10 equipos.
+update public.tournament_competition_settings settings
+  set max_teams = 10
+  from public.sport_modality_rules rules
+  join public.sport_modalities modality on modality.id = rules.modality_id
+  where settings.modality_rules_id = rules.id
+    and modality.code = 'futbol-5'
+    and settings.max_teams <> 10;
+
+create or replace function public.validate_football_competition_settings()
+returns trigger
+language plpgsql
+as $$
+declare
+  modality_code text;
+begin
+  if new.courts_count not in (1, 2) then
+    raise exception 'El número de canchas debe ser 1 o 2.';
+  end if;
+
+  select modality.code
+    into modality_code
+    from public.sport_modality_rules rules
+    join public.sport_modalities modality on modality.id = rules.modality_id
+    where rules.id = new.modality_rules_id;
+
+  if modality_code = 'futbol-5' and new.max_teams <> 10 then
+    raise exception 'Fútbol 5 vs 5 requiere exactamente 10 equipos.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_football_competition_settings_trigger
+  on public.tournament_competition_settings;
+
+create trigger validate_football_competition_settings_trigger
+  before insert or update on public.tournament_competition_settings
+  for each row execute function public.validate_football_competition_settings();
+
 create index if not exists tournament_competition_settings_tournament_idx
   on public.tournament_competition_settings(tournament_id);
 

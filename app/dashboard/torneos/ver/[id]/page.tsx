@@ -114,7 +114,22 @@ function buildRoundRobinRounds(teamIds: string[]) {
   return shuffle(rounds)
 }
 
-function buildRandomDivisionSchedule(divisionId: string, teamIds: string[], matchesPerTeam: number, dateCount: number) {
+// Genera calendarios de fútbol sin repetir rivales entre las fechas.
+function buildFootballDivisionSchedule(divisionId: string, teamIds: string[], matchesPerTeam: number, dateCount: number) {
+  const dates: ManualPairing[][] = Array.from({ length: dateCount }, () => [])
+  if (matchesPerTeam === 0) return dates
+
+  // Genera cada ronda una sola vez para evitar rivales repetidos entre fechas.
+  const rounds = buildRoundRobinRounds(teamIds).slice(0, matchesPerTeam * dateCount)
+  rounds.forEach((round, roundIndex) => {
+    const dateIndex = roundIndex % dateCount
+    dates[dateIndex].push(...round.map((pairing) => ({ divisionId, ...pairing })))
+  })
+  return dates
+}
+
+// Conserva la distribución histórica utilizada por los torneos de rugby.
+function buildRugbyDivisionSchedule(divisionId: string, teamIds: string[], matchesPerTeam: number, dateCount: number) {
   const dates: ManualPairing[][] = Array.from({ length: dateCount }, () => [])
   if (matchesPerTeam === 0) return dates
 
@@ -133,10 +148,14 @@ function buildRandomDivisionSchedule(divisionId: string, teamIds: string[], matc
       for (let index = 0; index < orderedTeams.length; index += 1) {
         const opponentIndex = (index + offset) % orderedTeams.length
         const ids = [orderedTeams[index], orderedTeams[opponentIndex]].sort()
-        edges.set(ids.join(':'), Math.random() < 0.5 ? { localTeamId: ids[0], visitorTeamId: ids[1] } : { localTeamId: ids[1], visitorTeamId: ids[0] })
+        edges.set(ids.join(':'), Math.random() < 0.5
+          ? { localTeamId: ids[0], visitorTeamId: ids[1] }
+          : { localTeamId: ids[1], visitorTeamId: ids[0] })
       }
     }
-    dates[dateIndex].push(...shuffle(Array.from(edges.values())).map((edge) => ({ divisionId, ...edge })))
+    dates[dateIndex].push(
+      ...shuffle(Array.from(edges.values())).map((edge) => ({ divisionId, ...edge })),
+    )
   }
   return dates
 }
@@ -244,6 +263,7 @@ export default function PublicTournamentPage() {
   const [pendingDivisionNames, setPendingDivisionNames] = useState<string[] | null>(null)
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([])
   const [showOperationSave, setShowOperationSave] = useState(false)
+  const [savingOperations, setSavingOperations] = useState(false)
   const [dirtySection, setDirtySection] = useState<string | null>(null)
   const [pendingSection, setPendingSection] = useState<typeof section | null>(null)
   const [saveDestination, setSaveDestination] = useState<typeof section | null>(null)
@@ -251,6 +271,8 @@ export default function PublicTournamentPage() {
   const [tournamentInvitations, setTournamentInvitations] = useState<TournamentInvitation[]>([])
   const [maxTeamsLimit, setMaxTeamsLimit] = useState<number | null>(null)
   const [maxRosterLimit, setMaxRosterLimit] = useState<number | null>(null)
+  const [competitionFormat, setCompetitionFormat] = useState('')
+  const [storedFixtureDates, setStoredFixtureDates] = useState<number[]>([])
   const [numberRequest, setNumberRequest] = useState<{ teamId: string; playerId: string; playerName: string; currentNumber: number | null } | null>(null)
 
   async function loadTournament() {
@@ -260,7 +282,7 @@ export default function PublicTournamentPage() {
       return
     }
     setLoading(true)
-    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }, { data: adjustmentRows }] = await Promise.all([
+    const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }, { data: adjustmentRows }, { data: fixtureRows }] = await Promise.all([
       supabase.rpc('get_public_tournament_profile', { p_tournament_id: params.id }),
       supabase.from('tournament_edit_history').select('id, edited_by, changes, created_at').eq('tournament_id', params.id).order('created_at', { ascending: false }),
       supabase.from('tournaments').select('created_by, is_quick').eq('id', params.id).maybeSingle(),
@@ -271,6 +293,7 @@ export default function PublicTournamentPage() {
       supabase.from('team_division_catalog').select('id, team_id, name').order('name'),
       supabase.from('players').select('id, full_name, shirt_number, position, user_id').eq('is_official', true).order('full_name'),
       supabase.from('tournament_standing_adjustments').select('tournament_id, division_id, team_id, points_adjustment, reason').eq('tournament_id', params.id),
+      supabase.from('fixtures').select('date_number').eq('tournament_id', params.id).order('date_number'),
     ])
     if (tournamentError) {
       setError(tournamentError.message)
@@ -294,7 +317,16 @@ export default function PublicTournamentPage() {
         },
       ]),
     )
-    const normalizedTeams = (payload.teams ?? []).map((team) => ({
+    // Evita mostrar varias veces el mismo equipo temporal creado por reintentos anteriores.
+    const temporaryTeamKeys = new Set<string>()
+    const deduplicatedTeams = (payload.teams ?? []).filter((team) => {
+      if (team.is_official) return true
+      const key = `${normalizeDivisionName(team.name)}|${team.division_id}`
+      if (temporaryTeamKeys.has(key)) return false
+      temporaryTeamKeys.add(key)
+      return true
+    })
+    const normalizedTeams = deduplicatedTeams.map((team) => ({
       ...team,
       is_official: teamMetadataById.get(team.id)?.is_official ?? team.is_official ?? true,
       contact_phone: teamMetadataById.get(team.id)?.contact_phone ?? team.contact_phone ?? null,
@@ -313,7 +345,7 @@ export default function PublicTournamentPage() {
     const selectedModalityId = normalizedPayload.tournament?.modality?.id || ''
     const { data: competitionSettings } = await supabase
       .from('tournament_competition_settings')
-      .select('max_teams, max_roster_size')
+        .select('competition_format, max_teams, max_roster_size')
       .eq('tournament_id', params.id)
       .maybeSingle()
     const { data: modalityRuleRow } = selectedModalityId
@@ -337,6 +369,10 @@ export default function PublicTournamentPage() {
     setData(normalizedPayload)
     setMaxTeamsLimit(Number(competitionSettings?.max_teams) || null)
     setMaxRosterLimit(Number(competitionSettings?.max_roster_size) || null)
+    setCompetitionFormat(competitionSettings?.competition_format || '')
+    setStoredFixtureDates(Array.from(new Set(
+      (fixtureRows ?? []).map((fixture) => Number(fixture.date_number)),
+    )).filter(Number.isFinite).sort((left, right) => left - right))
     setModalityRule((modalityRuleRow as ModalityRule | null) || null)
     setHistory((historyRows ?? []) as EditHistory[])
     setStandingAdjustments((adjustmentRows ?? []) as StandingAdjustment[])
@@ -457,6 +493,16 @@ export default function PublicTournamentPage() {
     if (section === 'generador' && (!currentUserId || currentUserId !== ownerId)) setSection('resumen')
   }, [currentUserId, ownerId, section])
 
+  // Redirige a las tablas cuando el formato no utiliza eliminación directa.
+  useEffect(() => {
+    if (competitionFormat === 'quick_league' && section === 'llaves') {
+      setSection('tablas')
+    }
+    if (data?.tournament?.is_quick && section === 'convocatorias') {
+      setSection('resumen')
+    }
+  }, [competitionFormat, data?.tournament?.is_quick, section])
+
   useEffect(() => {
     if (!currentUserId || currentUserId !== ownerId) setEditMode(false)
   }, [currentUserId, ownerId])
@@ -468,8 +514,12 @@ export default function PublicTournamentPage() {
   const teams = data.teams ?? []
   const uniqueTeams = Array.from(new Map(teams.map((team) => [team.id, team])).values())
   const matches = data.matches ?? []
-  const dates = Array.from(new Set(matches.map((match) => match.date_number))).sort((a, b) => a - b)
+  const dates = Array.from(new Set([
+    ...matches.map((match) => match.date_number),
+    ...storedFixtureDates,
+  ])).sort((left, right) => left - right)
   const fixtureDates = Array.from(new Map(matches.map((match) => [match.fixture_id, { fixtureId: match.fixture_id, dateNumber: match.date_number, calendarDate: match.calendar_date }])).values()).sort((left, right) => left.dateNumber - right.dateNumber)
+  const showKnockout = competitionFormat !== 'quick_league'
   const canManage = Boolean(currentUserId && currentUserId === ownerId)
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
@@ -567,7 +617,7 @@ export default function PublicTournamentPage() {
     const configurationLabel = divisionConfigs.length
       ? `${numberOfDates} fecha${numberOfDates === 1 ? '' : 's'} · ${divisionConfigs.map((config) => `${config.matchesPerTeam ?? config.matchesPerDate} partidos por equipo en ${data.divisions.find((division) => division.id === config.divisionId)?.name || 'división'}`).join(' · ')}`
       : `${teamIds.length} equipos seleccionados`
-    queueOperation({ title: mode === 'automatic' ? 'Generar fixture automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs), numberOfDates: String(numberOfDates), firstMatchTime }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Horario', before: 'Sin cambios', after: `${firstMatchTime} · intervalos de 10 minutos`, beforeValue: null, afterValue: firstMatchTime }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
+    queueOperation({ title: mode === 'automatic' ? 'Generar fixture automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs), numberOfDates: String(numberOfDates), firstMatchTime }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Horario', before: 'Sin cambios', after: `${firstMatchTime} · intervalos configurados`, beforeValue: null, afterValue: firstMatchTime }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
   }
 
   function requestUpdateFixture(dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches: FixtureNewMatch[] = [], deletedMatchIds: string[] = []) {
@@ -592,7 +642,17 @@ export default function PublicTournamentPage() {
       setMessage('No tienes permisos para eliminar fixtures.')
       return
     }
-    const fixtureIds = Array.from(new Set(matches.filter((match) => match.date_number === dateNumber).map((match) => match.fixture_id)))
+    // Consulta la fecha directamente para incluir fixtures sin partidos asociados.
+    const { data: fixtureRows, error: fixtureLookupError } = await supabase
+      .from('fixtures')
+      .select('id')
+      .eq('tournament_id', tournament.id)
+      .eq('date_number', dateNumber)
+    if (fixtureLookupError) {
+      setMessage(fixtureLookupError.message)
+      return
+    }
+    const fixtureIds = (fixtureRows ?? []).map((fixture) => fixture.id)
     if (!fixtureIds.length) {
       setMessage('No se encontró el fixture seleccionado.')
       return
@@ -624,6 +684,33 @@ export default function PublicTournamentPage() {
 
     if (mode === 'manual') {
       const manualPairings = JSON.parse(operation.payload.pairings || '[]') as ManualPairing[]
+      const pairsInDate = new Set<string>()
+      const teamsInDate = new Set<string>()
+      for (const pairing of manualPairings) {
+        const localTeam = teams.find((team) => team.id === pairing.localTeamId)
+        const visitorTeam = teams.find((team) => team.id === pairing.visitorTeamId)
+        if (!localTeam || !visitorTeam || localTeam.id === visitorTeam.id) {
+          return 'Todos los enfrentamientos manuales deben tener dos equipos válidos.'
+        }
+        if (localTeam.division_id !== pairing.divisionId
+          || visitorTeam.division_id !== pairing.divisionId) {
+          return 'Los equipos de un enfrentamiento deben pertenecer a la misma división.'
+        }
+        if (teamsInDate.has(localTeam.id) || teamsInDate.has(visitorTeam.id)) {
+          return 'Un equipo no puede jugar dos veces en la misma fecha.'
+        }
+        const pairKey = [localTeam.id, visitorTeam.id].sort().join(':')
+        if (pairsInDate.has(pairKey)) return 'Ese enfrentamiento está repetido en la fecha.'
+        if (competitionFormat === 'quick_league' && matches.some((match) => {
+          const existingKey = [match.local_team_id, match.visitor_team_id].sort().join(':')
+          return match.division_id === pairing.divisionId && existingKey === pairKey
+        })) {
+          return 'Ese enfrentamiento ya existe en otra fecha del todos contra todos.'
+        }
+        pairsInDate.add(pairKey)
+        teamsInDate.add(localTeam.id)
+        teamsInDate.add(visitorTeam.id)
+      }
       datePairings[0].push(...manualPairings)
     } else {
       const configuredDivision = JSON.parse(operation.payload.divisionConfigs || '[]') as AutomaticDivisionConfig[]
@@ -634,9 +721,21 @@ export default function PublicTournamentPage() {
         const requestedMatches = config?.matchesPerTeam ?? config?.matchesPerDate ?? Math.max(divisionTeams.length - 1, 0)
         if (!Number.isInteger(requestedMatches) || requestedMatches < 0 || requestedMatches > Math.max(divisionTeams.length - 1, 0)) return `${division.name} tiene una cantidad inválida de partidos por equipo.`
         if ((divisionTeams.length * requestedMatches) % 2 !== 0) return `${division.name} necesita una cantidad par de participaciones.`
+        if (competitionFormat === 'quick_league'
+          && requestedMatches * requestedDateCount > Math.max(divisionTeams.length - 1, 0)) {
+          return `${division.name} no puede completar todos los enfrentamientos en esas fechas.`
+        }
         const minimumDates = requestedMatches > 0 ? 1 : 0
         if (requestedDateCount < minimumDates) return `${division.name} necesita al menos ${minimumDates} fechas.`
-        const schedule = buildRandomDivisionSchedule(division.id, divisionTeams.map((team) => team.id), requestedMatches, requestedDateCount)
+        const scheduleBuilder = data.tournament?.discipline?.code === 'futbol'
+          ? buildFootballDivisionSchedule
+          : buildRugbyDivisionSchedule
+        const schedule = scheduleBuilder(
+          division.id,
+          divisionTeams.map((team) => team.id),
+          requestedMatches,
+          requestedDateCount,
+        )
         if (!schedule) return `No se pudo distribuir aleatoriamente los partidos de ${division.name} en las fechas indicadas.`
         divisionSchedules.push(schedule)
       }
@@ -666,21 +765,32 @@ export default function PublicTournamentPage() {
     }
     const halfDuration = Number(
       competitionSettings?.half_duration_minutes
-      || modalityRules?.half_duration_minutes
-      || 0,
+      ?? modalityRules?.half_duration_minutes
+      ?? 0,
     )
     const halftimeDuration = Number(
       competitionSettings?.halftime_duration_minutes
-      || modalityRules?.halftime_duration_minutes
-      || 0,
+      ?? modalityRules?.halftime_duration_minutes
+      ?? 0,
     )
     const intervalDuration = Number(
-      competitionSettings?.interval_between_matches_minutes || 10,
+      competitionSettings?.interval_between_matches_minutes ?? 10,
     )
     const matchInterval = halfDuration > 0
       ? halfDuration * 2 + halftimeDuration + intervalDuration
       : intervalDuration
-    const nextDate = (dates.at(-1) || 0) + 1
+    // Consulta las fechas reales para evitar colisiones con fechas vacías o pendientes.
+    const { data: existingFixtureRows, error: existingFixturesError } = await supabase
+      .from('fixtures')
+      .select('date_number')
+      .eq('tournament_id', tournament.id)
+      .order('date_number', { ascending: false })
+    if (existingFixturesError) return existingFixturesError.message
+    const lastFixtureDate = Math.max(
+      0,
+      ...(existingFixtureRows ?? []).map((fixture) => Number(fixture.date_number) || 0),
+    )
+    const nextDate = lastFixtureDate + 1
     const generatedAt = new Date().toISOString()
     const fixtureRows = datePairings.map((_, index) => ({ tournament_id: tournament.id, date_number: nextDate + index, calendar_date: addWeeksToDate(tournament.start_date, index), recesses: [{ id: `recess-${nextDate + index}-1`, time: null }], generated_at: generatedAt }))
     const { data: fixtures, error: fixtureError } = await supabase.from('fixtures').insert(fixtureRows).select('id, date_number')
@@ -738,13 +848,27 @@ export default function PublicTournamentPage() {
     const division = data.divisions.find((item) => item.id === values.divisionId)
     if (!tournament.is_quick) return setMessage('Los equipos temporales solo están disponibles en torneos rápidos.')
     if (!division || !values.name.trim()) return setMessage('Completa el nombre y la división del equipo.')
+    const normalizedName = normalizeDivisionName(values.name)
+    const alreadyExists = uniqueTeams.some((team) => (
+      !team.is_official
+      && normalizeDivisionName(team.name) === normalizedName
+      && team.division_id === values.divisionId
+    ))
+    const alreadyPending = pendingOperations.some((operation) => (
+      operation.kind === 'add-quick-team'
+      && normalizeDivisionName(operation.payload.name) === normalizedName
+      && operation.payload.divisionId === values.divisionId
+    ))
+    if (alreadyExists || alreadyPending) {
+      return setMessage('Ya existe un equipo temporal con ese nombre en esta división.')
+    }
     const pendingTeamAdds = pendingOperations.filter((operation) => (
       operation.kind === 'invite-team' || operation.kind === 'add-quick-team'
     )).length
     if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds >= maxTeamsLimit) {
       return setMessage(`El torneo ya alcanzó el máximo de ${maxTeamsLimit} equipos.`)
     }
-    queueOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: 'Equipo temporal', before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
+    queueOperation({ title: 'Agregar equipo temporal', kind: 'add-quick-team', payload: { name: values.name.trim(), logoUrl: values.logoUrl.trim(), phone: values.phone.trim(), divisionId: values.divisionId }, changes: [{ label: `Equipo temporal: ${values.name.trim()}`, before: 'No registrado', after: `${values.name.trim()} · ${division.name}`, beforeValue: null, afterValue: values.name.trim() }] })
   }
 
   async function requestAddQuickPlayer(teamId: string, values: { name: string; shirtNumber: string; position: string }) {
@@ -850,47 +974,59 @@ export default function PublicTournamentPage() {
   }
 
   async function confirmOperations(password: string) {
-    if (!supabase || !pendingOperations.length || !tournament) return
+    if (savingOperations || !supabase || !pendingOperations.length || !tournament) return
 
+    setSavingOperations(true)
     const operations = pendingOperations
     const pendingTeamAdds = operations.filter((operation) => (
       operation.kind === 'invite-team' || operation.kind === 'add-quick-team'
     )).length
-    if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds > maxTeamsLimit) {
-      return setMessage(
-        `No se pueden guardar los cambios: el torneo permite máximo ${maxTeamsLimit} equipos.`,
-      )
-    }
-    let remainingOperations = [...operations]
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user?.email) return setMessage('No se pudo identificar el correo de la cuenta.')
-    const { error: reauthError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
-    if (reauthError) return setMessage('La contraseña no es correcta. No se guardaron cambios.')
+    try {
+      if (maxTeamsLimit && uniqueTeams.length + pendingTeamAdds > maxTeamsLimit) {
+        setMessage(`No se pueden guardar los cambios: el torneo permite máximo ${maxTeamsLimit} equipos.`)
+        return
+      }
+      let remainingOperations = [...operations]
+      const { data: userData } = await supabase.auth.getUser()
+      if (!userData.user?.email) {
+        setMessage('No se pudo identificar el correo de la cuenta.')
+        return
+      }
+      const { error: reauthError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
+      if (reauthError) {
+        setMessage('La contraseña no es correcta. No se guardaron cambios.')
+        return
+      }
 
-    for (const operation of operations) {
-      const operationError = await applyOperation(operation, userData.user.id)
-      if (operationError) {
+      for (const operation of operations) {
+        const operationError = await applyOperation(operation, userData.user.id)
+        if (operationError) {
+          setPendingOperations(remainingOperations)
+          setMessage(`No se pudo guardar "${operation.title}": ${operationError}`)
+          return
+        }
+
+        const { error: auditError } = await supabase.rpc('record_tournament_edit', {
+          p_tournament_id: tournament.id,
+          p_changes: Object.fromEntries(operation.changes.map((change, index) => [`${operation.kind}_${index}`, { before: change.before, after: change.after }])),
+        })
+        if (auditError) {
+          setPendingOperations(remainingOperations.slice(1))
+          setMessage(auditError.message)
+          return
+        }
+        remainingOperations = remainingOperations.slice(1)
         setPendingOperations(remainingOperations)
-        return setMessage(`No se pudo guardar "${operation.title}": ${operationError}`)
       }
 
-      const { error: auditError } = await supabase.rpc('record_tournament_edit', {
-        p_tournament_id: tournament.id,
-        p_changes: Object.fromEntries(operation.changes.map((change, index) => [`${operation.kind}_${index}`, { before: change.before, after: change.after }])),
-      })
-      if (auditError) {
-        setPendingOperations(remainingOperations.slice(1))
-        return setMessage(auditError.message)
-      }
-      remainingOperations = remainingOperations.slice(1)
-      setPendingOperations(remainingOperations)
+      setPendingOperations([])
+      setShowOperationSave(false)
+      setDirtySection(null)
+      setMessage(`${operations.length} cambio${operations.length === 1 ? '' : 's'} guardado${operations.length === 1 ? '' : 's'} correctamente.`)
+      await loadTournament()
+    } finally {
+      setSavingOperations(false)
     }
-
-    setPendingOperations([])
-    setShowOperationSave(false)
-    setDirtySection(null)
-    setMessage(`${operations.length} cambio${operations.length === 1 ? '' : 's'} guardado${operations.length === 1 ? '' : 's'} correctamente.`)
-    await loadTournament()
   }
 
   async function requestPlayerNumber(teamId: string, playerId: string, playerName: string, currentNumber: number | null, requestedNumber: number) {
@@ -905,11 +1041,11 @@ export default function PublicTournamentPage() {
   return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl space-y-6">
     <button type="button" onClick={() => router.back()} className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-[#b4ff45]"><ArrowLeft size={18} />Volver</button>
 
-    <section className="overflow-hidden rounded-[5px] border border-[#29485d] bg-[#0b1d2c]"><div className="grid gap-0 lg:grid-cols-[.8fr_1.2fr]"><div className="flex min-h-64 items-center justify-center bg-[#102a3d] p-6">{tournament.cover_url ? <img src={tournament.cover_url} alt={`Portada de ${tournament.name}`} className="max-h-72 w-full rounded-[5px] object-contain" /> : <Trophy className="text-[#b4ff45]" size={92} />}</div><div className="p-6 sm:p-8"><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] bg-[#b4ff45] px-3 py-1 text-xs font-bold uppercase text-[#07131e]">{statusNames[tournament.status] || tournament.status}</span>{tournament.discipline && <span className="rounded-[5px] border border-[#b4ff45]/40 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.discipline.name}</span>}{tournament.modality && <span className="rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/10 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.modality.name}</span>}</div><p className="mt-5 text-xs font-bold uppercase tracking-[.24em] text-[#b4ff45]">Información pública del torneo</p><h1 className="mt-2 font-display text-4xl uppercase sm:text-5xl">{tournament.name}</h1><p className="mt-3 text-lg text-slate-400">Temporada {tournament.season || 'pendiente'}</p><div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-300"><span className="inline-flex items-center gap-2"><CalendarDays size={17} className="text-[#b4ff45]" />{formatDateRange(tournament.start_date, tournament.end_date)}</span>{tournament.location && <span className="inline-flex items-center gap-2"><MapPin size={17} className="text-[#b4ff45]" />{tournament.location}</span>}</div><p className="mt-5 font-mono text-xs text-[#b4ff45]">{tournament.athlonx_code || 'Código pendiente'}</p></div></div></section>
+    <section className="overflow-hidden rounded-[5px] border border-[#29485d] bg-[#0b1d2c]"><div className="grid gap-0 lg:grid-cols-[.8fr_1.2fr]"><div className="flex min-h-64 items-center justify-center bg-[#102a3d] p-6">{tournament.cover_url ? <img src={tournament.cover_url} alt={`Portada de ${tournament.name}`} className="max-h-72 w-full rounded-[5px] object-contain" /> : <Trophy className="text-[#b4ff45]" size={92} />}</div><div className="p-6 sm:p-8"><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] bg-[#b4ff45] px-3 py-1 text-xs font-bold uppercase text-[#07131e]">{statusNames[tournament.status] || tournament.status}</span>{tournament.is_quick && <span className="rounded-[5px] border border-[#f5c542]/60 bg-[#f5c542]/10 px-3 py-1 text-xs font-bold uppercase text-[#f5c542]">Torneo rápido</span>}{tournament.discipline && <span className="rounded-[5px] border border-[#b4ff45]/40 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.discipline.name}</span>}{tournament.modality && <span className="rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/10 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.modality.name}</span>}</div><p className="mt-5 text-xs font-bold uppercase tracking-[.24em] text-[#b4ff45]">Información pública del torneo</p><h1 className="mt-2 font-display text-4xl uppercase sm:text-5xl">{tournament.name}</h1><p className="mt-3 text-lg text-slate-400">Temporada {tournament.season || 'pendiente'}</p><div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-300"><span className="inline-flex items-center gap-2"><CalendarDays size={17} className="text-[#b4ff45]" />{formatDateRange(tournament.start_date, tournament.end_date)}</span>{tournament.location && <span className="inline-flex items-center gap-2"><MapPin size={17} className="text-[#b4ff45]" />{tournament.location}</span>}</div><p className="mt-5 font-mono text-xs text-[#b4ff45]">{tournament.athlonx_code || 'Código pendiente'}</p></div></div></section>
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => value !== 'generador' || canManage).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} maxTeams={maxTeamsLimit} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} maxTeams={maxTeamsLimit} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => (value !== 'generador' || canManage) && (value !== 'llaves' || showKnockout) && (value !== 'convocatorias' || !tournament.is_quick)).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && showKnockout && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} maxTeams={maxTeamsLimit} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} maxTeams={maxTeamsLimit} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && !tournament.is_quick && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} competitionFormat={competitionFormat} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
     {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
   </div>{pendingChanges && Object.keys(pendingChanges).length > 0 && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && pendingOperations.length > 0 && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
@@ -1582,6 +1718,11 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
   const [newMatch, setNewMatch] = useState<DraftNewFixtureMatch>({ divisionId: '', localTeamId: '', visitorTeamId: '', scheduledTime: '' })
   const [message, setMessage] = useState('')
   const [printTarget, setPrintTarget] = useState<number | null>(null)
+  const [pdfMenuDate, setPdfMenuDate] = useState<number | null>(null)
+  const fixtureDateNumbers = Array.from(new Set([
+    ...dates,
+    ...fixtureRecords.map((fixture) => fixture.date_number),
+  ])).sort((left, right) => left - right)
 
   useEffect(() => {
     let active = true
@@ -1602,15 +1743,21 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
   }, [tournament.id])
 
   useEffect(() => {
-    setDraftDates(Object.fromEntries(dates.map((date) => [String(date), matches.find((match) => match.date_number === date)?.calendar_date || tournament.start_date || ''])))
+    setDraftDates(Object.fromEntries(fixtureDateNumbers.map((date) => [
+      String(date),
+      matches.find((match) => match.date_number === date)?.calendar_date
+        || fixtureRecords.find((fixture) => fixture.date_number === date)?.calendar_date
+        || tournament.start_date
+        || '',
+    ])))
     setDraftTimes(Object.fromEntries(matches.map((match) => [match.id, match.scheduled_time || ''])))
     setDraftCourts(Object.fromEntries(matches.map((match) => [match.id, String(match.court_number || '')])))
     setDraftPairs(Object.fromEntries(matches.map((match) => [match.id, { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }])))
-    setDraftRecesses(Object.fromEntries(dates.map((date) => {
+    setDraftRecesses(Object.fromEntries(fixtureDateNumbers.map((date) => {
       const fixture = fixtureRecords.find((item) => item.date_number === date)
       return [String(date), normalizeFixtureRecesses(fixture?.recesses, fixture?.id || `date-${date}`)]
     })))
-  }, [dates.join(','), matches.map((match) => `${match.id}:${match.calendar_date || ''}:${match.scheduled_time || ''}:${match.local_team_id}:${match.visitor_team_id}`).join('|'), fixtureRecords.map((fixture) => `${fixture.id}:${fixture.date_number}:${JSON.stringify(fixture.recesses)}`).join('|'), tournament.start_date])
+  }, [fixtureDateNumbers.join(','), matches.map((match) => `${match.id}:${match.calendar_date || ''}:${match.scheduled_time || ''}:${match.local_team_id}:${match.visitor_team_id}`).join('|'), fixtureRecords.map((fixture) => `${fixture.id}:${fixture.date_number}:${JSON.stringify(fixture.recesses)}`).join('|'), tournament.start_date])
 
   function addRecess(date: number) {
     setDraftRecesses((current) => ({
@@ -1661,8 +1808,9 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     if (!supabase) return setMessage('Supabase no está disponible.')
     const dateMatches = matches.filter((match) => match.date_number === date && !deletedMatchIds.includes(match.id))
     const source = matches.find((match) => match.date_number === date)
-    const sourceFixture = fixtureRecords.find((fixture) => fixture.date_number === date) || (source ? { id: source.fixture_id } : null)
-    if (!source || !sourceFixture) return setMessage('No se encontró la fecha para guardar.')
+    const sourceFixture = fixtureRecords.find((fixture) => fixture.date_number === date)
+      || (source ? { id: source.fixture_id } : null)
+    if (!sourceFixture) return setMessage('No se encontró la fecha para guardar.')
     setMessage('')
     const recesses = draftRecesses[String(date)]?.length ? draftRecesses[String(date)] : normalizeFixtureRecesses([], sourceFixture.id)
     const { error: fixtureError } = await supabase.from('fixtures').update({ calendar_date: draftDates[String(date)] || null, recesses }).eq('id', sourceFixture.id)
@@ -1700,18 +1848,37 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
 
   async function deleteDate(date: number) {
     if (!supabase || !window.confirm(`¿Seguro que deseas eliminar la Fecha ${date} completa?`)) return
-    const fixtureIds = Array.from(new Set(matches.filter((match) => match.date_number === date).map((match) => match.fixture_id)))
-    if (!fixtureIds.length) return
+    // Usa la tabla de fixtures como fuente de verdad, aunque la fecha esté vacía.
+    const { data: fixtureRows, error: fixtureLookupError } = await supabase
+      .from('fixtures')
+      .select('id')
+      .eq('tournament_id', tournament.id)
+      .eq('date_number', date)
+    if (fixtureLookupError) return setMessage(fixtureLookupError.message)
+    const fixtureIds = (fixtureRows ?? []).map((fixture) => fixture.id)
+    if (!fixtureIds.length) {
+      setMessage('No se encontró la fecha seleccionada en Supabase.')
+      return
+    }
     const { error: matchesError } = await supabase.from('matches').delete().in('fixture_id', fixtureIds)
     if (matchesError) return setMessage(matchesError.message)
     const { error } = await supabase.from('fixtures').delete().in('id', fixtureIds)
     if (error) return setMessage(error.message)
+    setMessage(`Fecha ${date} eliminada correctamente.`)
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
 
-  function deleteMatch(matchId: string) {
-    if (!window.confirm('¿Seguro que deseas eliminar este enfrentamiento?')) return
-    setDeletedMatchIds((current) => [...current, matchId])
+  async function deleteMatch(matchId: string) {
+    if (!supabase || !window.confirm('¿Seguro que deseas eliminar este enfrentamiento?')) return
+    const { error } = await supabase.from('matches').delete().eq('id', matchId)
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setMessage('Enfrentamiento eliminado correctamente.')
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+    window.setTimeout(() => window.location.reload(), 250)
   }
 
   // Escapa valores dinámicos antes de insertarlos en el documento de impresión.
@@ -1726,7 +1893,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
   }
 
   // Genera el fixture en una ventana independiente para excluir el layout del torneo.
-  function printFixture(date: number) {
+  function printFixture(date: number, showListings: boolean) {
     const fixture = fixtureGroups.find((item) => item.date === date)
     if (!fixture) return
     const fixtureRecord = fixtureRecords.find((item) => item.date_number === date)
@@ -1737,7 +1904,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     const divisionGroups = Array.from(new Map(
       fixture.matches.map((match) => [match.division_id, match.division_name || 'General'])
     ).entries())
-    const divisionMarkup = divisionGroups.map(([divisionId, divisionName]) => {
+    const divisionMarkup = showListings ? divisionGroups.map(([divisionId, divisionName]) => {
       const divisionTeams = teams.filter((team) => (
         team.division_id === divisionId &&
         fixture.matches.some((match) => (
@@ -1748,7 +1915,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
         `<div class="team">${escapePrintValue(team.name)}</div>`
       )).join('')
       return `<div class="division"><h2>${escapePrintValue(divisionName)}</h2>${teamMarkup}</div>`
-    }).join('')
+    }).join('') : ''
     const matchMarkup = fixture.matches.map((match, index) => `<tr>
       <td>Partido ${index + 1}</td>
       <td>${escapePrintValue(match.scheduled_time?.slice(0, 5) || 'Hora por definir')}</td>
@@ -1759,6 +1926,11 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     const recessMarkup = recesses.map((recess) => (
       `<p class="recess">RECESO · ${escapePrintValue(recess.time || '')}</p>`
     )).join('')
+    const isFootballFixture = tournament.discipline?.code === 'futbol'
+    const headerLogoMarkup = isFootballFixture
+      ? '<div class="logos football-logo"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" /></div>'
+      : '<div class="logos"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />'
+        + '<img src="/upr.png" alt="Organización" /></div>'
     const calendarDate = fixture.matches[0]?.calendar_date
       ? new Date(`${fixture.matches[0].calendar_date}T00:00:00`).toLocaleDateString('es-PA', {
         day: 'numeric',
@@ -1779,7 +1951,9 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
         body { margin: 0; background: #fff; color: #111827; font-family: Arial, sans-serif; }
         .page { width: 8.5in; min-height: 11in; padding: 0.42in 0.45in; }
         .logos { display: flex; justify-content: space-between; align-items: flex-start; }
+        .football-logo { justify-content: center; }
         .logos img:first-child { width: 1.35in; height: 0.6in; object-fit: contain; object-position: left; }
+        .football-logo img:first-child { object-position: center; }
         .logos img:last-child { width: 1.1in; height: 0.6in; object-fit: contain; object-position: right; }
         h1 { margin: 0.32in 0 0.08in; text-align: center; color: #111827; font-size: 22px; font-weight: 900; text-transform: uppercase; }
         .subtitle { margin: 0; text-align: center; color: #111827; font-size: 14px; }
@@ -1798,11 +1972,10 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
         .recess { margin: 14px 0 0; text-align: center; color: #111827; font-size: 11px; font-weight: 900; }
         @media print { .page { page-break-inside: avoid; } tr, .division { page-break-inside: avoid; } }
       </style></head><body><main class="page">
-      <div class="logos"><img src="/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
-      <img src="/upr.png" alt="Organización" /></div>
+      ${headerLogoMarkup}
       <h1>Fixture ${escapePrintValue(tournament.name)}</h1>
       <p class="subtitle">${escapePrintValue(tournament.modality?.name || 'Competencia')} · Fecha ${date} · ${escapePrintValue(calendarDate)}</p>
-      <div class="divisions">${divisionMarkup}</div>
+      ${showListings ? `<div class="divisions">${divisionMarkup}</div>` : ''}
       <h2 class="schedule-title">Cronograma de partidos</h2>
       <table><thead><tr><th>Partido</th><th>Horario</th><th>Cancha</th><th>División</th><th>Enfrentamiento</th></tr></thead>
       <tbody>${matchMarkup}</tbody></table>${recessMarkup}</main></body></html>`)
@@ -1814,17 +1987,25 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     }, 400)
   }
 
-  const fixtureGroups = dates.map((date) => ({ date, matches: matches.filter((match) => match.date_number === date) }))
+  const fixtureGroups = fixtureDateNumbers.map((date) => ({
+    date,
+    matches: matches.filter((match) => match.date_number === date),
+  }))
 
   return <><CourtEditor matches={matches} courtsCount={courtsCount} draftCourts={draftCourts} onChange={(matchId, value) => setDraftCourts((current) => ({ ...current, [matchId]: value }))} /><section className="pt-6 print:hidden">
     <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Consulta</p><h2 className="mt-2 font-display text-3xl uppercase">Fixtures</h2><p className="mt-2 max-w-2xl text-sm text-slate-400">Edita partidos, horarios, fechas y recesos. Los cambios se guardan directamente en Supabase.</p></div></div>
-    {!matches.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}
+    {!fixtureDateNumbers.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}
     <div className="mt-6 space-y-5">{fixtureGroups.map((fixture) => {
       const isEditing = editingDate === fixture.date
       const visibleMatches = fixture.matches.filter((match) => !deletedMatchIds.includes(match.id))
-      const calendarDate = draftDates[String(fixture.date)] || fixture.matches[0]?.calendar_date || tournament.start_date || ''
+      const fixtureRecord = fixtureRecords.find((item) => item.date_number === fixture.date)
+      const calendarDate = draftDates[String(fixture.date)]
+        || fixture.matches[0]?.calendar_date
+        || fixtureRecord?.calendar_date
+        || tournament.start_date
+        || ''
       const recesses = draftRecesses[String(fixture.date)] || normalizeFixtureRecesses([], `date-${fixture.date}`)
-      return <article key={fixture.date} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{isEditing ? <input type="date" value={calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-slate-200" /> : <p className="mt-2 text-sm capitalize text-slate-300">{calendarDate ? new Date(`${calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => printFixture(fixture.date)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>{canManage && <><button type="button" onClick={() => { setEditingDate(isEditing ? null : fixture.date); setDeletedMatchIds([]) }} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba]">{isEditing ? 'Cancelar' : 'Editar'}</button>{isEditing && <><button type="button" onClick={() => void saveDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Check size={15} />Guardar</button><button type="button" onClick={() => void deleteDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] border border-[#ff7d88]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7]"><Trash2 size={15} />Eliminar fecha</button></>}</>}</div></div>
+      return <article key={fixture.date} className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4 sm:p-5"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Fecha {fixture.date}</p>{isEditing ? <input type="date" value={calendarDate} onChange={(event) => setDraftDates((current) => ({ ...current, [String(fixture.date)]: event.target.value }))} className="mt-2 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-slate-200" /> : <p className="mt-2 text-sm capitalize text-slate-300">{calendarDate ? new Date(`${calendarDate}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Fecha por definir'}</p>}</div><div className="flex flex-wrap gap-2"><div className="relative"><button type="button" onClick={() => setPdfMenuDate((current) => current === fixture.date ? null : fixture.date)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>{pdfMenuDate === fixture.date && <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-2 shadow-xl"><button type="button" onClick={() => { setPdfMenuDate(null); printFixture(fixture.date, true) }} className="block w-full rounded-[5px] px-3 py-2 text-left text-xs font-bold text-slate-200 hover:bg-[#b4ff45]/10">Con listados</button><button type="button" onClick={() => { setPdfMenuDate(null); printFixture(fixture.date, false) }} className="mt-1 block w-full rounded-[5px] px-3 py-2 text-left text-xs font-bold text-slate-200 hover:bg-[#b4ff45]/10">Solo cronograma</button></div>}</div>{canManage && <><button type="button" onClick={() => { setEditingDate(isEditing ? null : fixture.date); setDeletedMatchIds([]) }} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba]">{isEditing ? 'Cancelar' : 'Editar'}</button>{isEditing && <><button type="button" onClick={() => void saveDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]"><Check size={15} />Guardar</button><button type="button" onClick={() => void deleteDate(fixture.date)} className="inline-flex items-center gap-2 rounded-[5px] border border-[#ff7d88]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7]"><Trash2 size={15} />Eliminar fecha</button></>}</>}</div></div>
         <div className="mt-3 divide-y divide-white/10">{visibleMatches.map((match) => { const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }; const divisionId = teams.find((team) => team.id === pair.localTeamId)?.division_id || teams.find((team) => team.id === pair.visitorTeamId)?.division_id; const options = teams.filter((team) => team.division_id === divisionId); return <div key={match.id} className="grid gap-3 py-4 sm:grid-cols-[120px_1fr_140px] sm:items-center"><span className="text-xs font-bold uppercase tracking-wide text-slate-500">{match.division_name || 'General'}</span>{isEditing ? <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><select value={pair.localTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, localTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200"><option value="">Local</option>{options.map((team) => <option key={`local-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={pair.visitorTeamId} onChange={(event) => setDraftPairs((current) => ({ ...current, [match.id]: { ...pair, visitorTeamId: event.target.value } }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200"><option value="">Visitante</option>{options.filter((team) => team.id !== pair.localTeamId).map((team) => <option key={`visitor-${match.id}-${team.id}`} value={team.id}>{team.name}</option>)}</select><button type="button" onClick={() => deleteMatch(match.id)} className="rounded-[5px] border border-[#ff7d88]/50 px-2 py-2 text-[#ffb0b7]"><Trash2 size={15} /></button><input type="time" value={draftTimes[match.id] || ''} onChange={(event) => setDraftTimes((current) => ({ ...current, [match.id]: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm text-slate-200 sm:col-span-3" /></div> : <><div className="font-semibold text-slate-100"><span>{match.local_team_name}</span><span className="px-2 text-slate-500">vs.</span><span>{match.visitor_team_name}</span></div><span className="text-sm text-slate-400">{match.scheduled_time ? match.scheduled_time.slice(0, 5) : 'Hora por definir'}</span></>}</div> })}</div>
         {canManage && <div className="mt-5 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Nuevo enfrentamiento</p><p className="mt-1 text-sm text-slate-400">Añade otro partido a esta fecha y quedará guardado en Supabase.</p></div>{addingDate !== fixture.date && <button type="button" onClick={() => startAddingMatch(fixture.date)} className="rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">Añadir enfrentamiento</button>}</div>{addingDate === fixture.date && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><select value={newMatch.divisionId} onChange={(event) => setNewMatch({ divisionId: event.target.value, localTeamId: '', visitorTeamId: '', scheduledTime: newMatch.scheduledTime })} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200"><option value="">División</option>{Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select><select value={newMatch.localTeamId} onChange={(event) => setNewMatch((current) => ({ ...current, localTeamId: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200"><option value="">Local</option>{teams.filter((team) => team.division_id === newMatch.divisionId).map((team) => <option key={`new-local-${team.id}`} value={team.id}>{team.name}</option>)}</select><select value={newMatch.visitorTeamId} onChange={(event) => setNewMatch((current) => ({ ...current, visitorTeamId: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200"><option value="">Visitante</option>{teams.filter((team) => team.division_id === newMatch.divisionId && team.id !== newMatch.localTeamId).map((team) => <option key={`new-visitor-${team.id}`} value={team.id}>{team.name}</option>)}</select><input type="time" value={newMatch.scheduledTime} onChange={(event) => setNewMatch((current) => ({ ...current, scheduledTime: event.target.value }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200" /><div className="flex gap-2"><button type="button" onClick={() => void saveNewMatch(fixture.date)} className="rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">Guardar</button><button type="button" onClick={() => setAddingDate(null)} className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">Cancelar</button></div></div>}</div>}
         <div className="mt-5 rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Recesos</p><p className="mt-1 text-sm text-slate-400">Define la hora de cada descanso de esta fecha.</p></div>{isEditing && <button type="button" onClick={() => addRecess(fixture.date)} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba]">Añadir receso</button>}</div><div className="mt-3 space-y-2">{recesses.map((recess, index) => <div key={recess.id} className="flex flex-wrap items-center gap-3 rounded-[5px] border border-white/10 px-3 py-3"><span className="min-w-24 text-sm font-semibold text-white">Receso {index + 1}</span>{isEditing ? <input type="time" value={recess.time || ''} onChange={(event) => setDraftRecesses((current) => ({ ...current, [String(fixture.date)]: recesses.map((item) => item.id === recess.id ? { ...item, time: event.target.value || null } : item) }))} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200" /> : <span className="text-sm text-slate-400">{recess.time ? recess.time.slice(0, 5) : 'Hora por definir'}</span>}{isEditing && index > 0 && <button type="button" onClick={() => removeRecess(fixture.date, recess.id)} className="ml-auto text-xs font-bold text-[#ffb0b7]">Quitar</button>}</div>)}</div></div>
