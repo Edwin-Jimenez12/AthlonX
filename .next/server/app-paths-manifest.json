@@ -1,5 +1,4 @@
 {
-  "/dashboard/eventos/page": "app/dashboard/eventos/page.js",
-  "/dashboard/torneos/ver/[id]/page": "app/dashboard/torneos/ver/[id]/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js"
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/page": "app/page.js"
 }
