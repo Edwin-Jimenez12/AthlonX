@@ -11,6 +11,7 @@ import { TournamentCallupsPanel } from '../../../../../Components/tournament-cal
 import { TournamentFixtureGenerator } from '../../../../../Components/tournament-fixture-generator'
 import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
 import { supabase } from '../../../../../lib/supabase'
+import { footballEightNextPhase } from '../../../../../lib/football-eight'
 
 type Discipline = { id: string; code: string; name: string }
 type Modality = { id: string; code: string; name: string; discipline_id?: string }
@@ -357,15 +358,16 @@ export default function PublicTournamentPage() {
       : { data: null }
     const matchIds = (normalizedPayload.matches ?? []).map((match) => match.id)
     const { data: courtRows } = matchIds.length
-      ? await supabase.from('matches').select('id, court_number').in('id', matchIds)
+      ? await supabase.from('matches').select('id, court_number, period, elapsed_seconds, first_half_seconds, second_half_seconds, started_at, is_paused').in('id', matchIds)
       : { data: [] }
     const courtByMatch = new Map(
       (courtRows ?? []).map((row) => [row.id, row.court_number]),
     )
     normalizedPayload.matches = normalizedPayload.matches.map((match) => ({
       ...match,
+      ...(courtRows ?? []).find((row) => row.id === match.id),
       court_number: courtByMatch.get(match.id) ?? null,
-    }))
+    })) as Match[]
     setData(normalizedPayload)
     setMaxTeamsLimit(Number(competitionSettings?.max_teams) || null)
     setMaxRosterLimit(Number(competitionSettings?.max_roster_size) || null)
@@ -1045,7 +1047,7 @@ export default function PublicTournamentPage() {
 
     <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => (value !== 'generador' || canManage) && (value !== 'llaves' || showKnockout) && (value !== 'convocatorias' || !tournament.is_quick)).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && showKnockout && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} maxTeams={maxTeamsLimit} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} maxTeams={maxTeamsLimit} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && !tournament.is_quick && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} competitionFormat={competitionFormat} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
+    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">{([['resumen', 'Resumen'], ['tablas', 'Tablas'], ['llaves', 'Llaves'], ['equipos', 'Equipos y plantillas'], ['convocatorias', 'Convocatorias'], ['fixtures', 'Fixtures'], ['generador', 'Generador de fixtures'], ['partidos', 'Partidos'], ['general', 'Información general'], ['historial', 'Historial']] as const).filter(([value]) => (value !== 'generador' || canManage) && (value !== 'llaves' || showKnockout) && (value !== 'convocatorias' || !tournament.is_quick)).map(([value, label]) => <button key={value} type="button" onClick={() => requestSection(value)} className={`cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold transition ${section === value ? 'bg-[#b4ff45] text-[#07131e]' : 'border border-[#29485d] text-slate-300 hover:border-[#b4ff45] hover:text-white'}`}>{label}</button>)}</nav>{section === 'resumen' && <SummarySection tournament={tournament} divisions={data.divisions ?? []} teams={teams} matches={matches} events={matchEvents} corrections={matchEventCorrections} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'tablas' && <StandingsSection teams={teams} matches={matches} />}{section === 'llaves' && showKnockout && <TournamentKnockoutBracket tournamentId={tournament.id} teams={teams} matches={matches} canManage={canManage} footballEight={tournament.discipline?.code === 'futbol' && tournament.modality?.code === 'futbol-8'} />}{section === 'equipos' && (tournament.is_quick ? <QuickTournamentTeamsSection teams={teams} rosters={rosters} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} availablePlayers={availablePlayers} modality={tournament.modality} officialPlayerId={officialPlayerId} maxTeams={maxTeamsLimit} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onAddQuickTeam={requestAddQuickTeam} onRemoveTeam={requestRemoveTeam} onAddQuickPlayer={requestAddQuickPlayer} onAddExistingPlayer={requestAddExistingPlayer} onClaimGuestPlayer={requestClaimGuestPlayer} onNumberRequest={(request) => setNumberRequest(request)} /> : <TeamsSection teams={teams} rosters={rosters} dates={dates} fixtureDates={fixtureDates} divisions={data.divisions ?? []} availableTeams={availableTeams.filter((team) => !teams.some((current) => teamIdentityKey(current) === teamIdentityKey(team)))} maxTeams={maxTeamsLimit} callups={fixtureCallups} callupPlayers={fixtureCallupPlayers} canManage={canManage} editMode={editMode} currentUserId={currentUserId} onAddTeam={requestAddTeam} onRemoveTeam={requestRemoveTeam} onNumberRequest={(request) => setNumberRequest(request)} />)}{section === 'convocatorias' && !tournament.is_quick && <TournamentCallupsPanel tournamentId={tournament.id} divisions={data.divisions ?? []} teams={teams} matches={matches} rosters={rosters} isOwner={canManage} initialMatchId={searchParams.get('matchId') || undefined} initialTeamId={searchParams.get('teamId') || undefined} />}{section === 'fixtures' && <FixtureListSection tournament={tournament} teams={teams} dates={dates} matches={matches} />}{section === 'generador' && canManage && <TournamentFixtureGenerator tournamentName={tournament.name} tournamentStatus={tournament.status} competitionFormat={competitionFormat} footballEight={tournament.modality?.code === 'futbol-8'} divisions={data.divisions ?? []} teams={teams} dates={dates} matches={matches} canManage={canManage} onGenerate={requestGenerateFixture} />}{section === 'partidos' && <MatchesSection matches={matches} dates={dates} events={matchEvents} corrections={matchEventCorrections} rosters={rosters} onOpenFixtures={() => requestSection('fixtures')} canManage={canManage && editMode} />}{section === 'general' && <GeneralInfoSection tournament={tournament} divisions={data.divisions ?? []} disciplines={disciplines} modalities={modalities} canManage={canManage} editMode={editMode && canManage} onRequestSave={requestSave} onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)} onCancel={() => { setEditMode(false); setDirtySection(null); setMessage('') }} onEdit={() => { if (canManage) setEditMode(true) }} />}{section === 'historial' && <EditHistorySection history={history} />}</section>
     {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
     {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
   </div>{pendingChanges && Object.keys(pendingChanges).length > 0 && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && pendingOperations.length > 0 && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
@@ -2351,8 +2353,11 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const [seconds, setSeconds] = useState(match.elapsed_seconds || 0)
   const [loadedRules, setLoadedRules] = useState<MatchRules | null>(rules)
   const [isFootball, setIsFootball] = useState(false)
+  const [isFootball8, setIsFootball8] = useState(false)
+  const [matchPhase, setMatchPhase] = useState('regular')
+  const [shootoutScore, setShootoutScore] = useState<string | null>(null)
   const regularPeriodLimit = (loadedRules?.half_duration_minutes || 7) * 60
-  const extraPeriodLimit = (loadedRules?.extra_time_half_minutes || 5) * 60
+  const extraPeriodLimit = isFootball8 ? 600 : (loadedRules?.extra_time_half_minutes || 5) * 60
   const periodLimit = String(match.period).startsWith('extra_') ? extraPeriodLimit : regularPeriodLimit
   const [saving, setSaving] = useState(false)
   const [events, setEvents] = useState<MatchEvent[]>(initialEvents)
@@ -2366,12 +2371,20 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     let active = true
     if (!supabase) return () => { active = false }
     void (async () => {
+      setLoadedRules(null)
+      setIsFootball8(false)
+      setMatchPhase('regular')
+      setShootoutScore(null)
       const { data } = await supabase
         .from('matches')
-        .select('fixtures!inner(tournament_id)')
+        .select('match_phase, shootout_local_score, shootout_visitor_score, fixtures!inner(tournament_id)')
         .eq('id', match.id)
         .maybeSingle()
       const tournamentId = (data?.fixtures as { tournament_id?: string } | null)?.tournament_id
+      if (active && data) {
+        setMatchPhase(data.match_phase || 'regular')
+        if (data.shootout_local_score != null && data.shootout_visitor_score != null) setShootoutScore(`${data.shootout_local_score} - ${data.shootout_visitor_score}`)
+      }
       if (!tournamentId) return
       const { data: tournament } = await supabase
         .from('tournaments')
@@ -2384,12 +2397,19 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         if (active) setIsFootball(discipline?.code === 'futbol')
       }
       if (!tournament?.modality_id) return
-      const { data: modalityRules } = await supabase
+      const [{ data: modalityRules }, { data: modality }, { data: settings }] = await Promise.all([supabase
         .from('sport_modality_rules')
         .select('half_duration_minutes, extra_time_allowed, extra_time_half_minutes, penalty_shootout_allowed, draws_allowed')
         .eq('modality_id', tournament.modality_id)
-        .maybeSingle()
-      if (active) setLoadedRules((modalityRules as MatchRules | null) || null)
+        .maybeSingle(),
+        supabase.from('sport_modalities').select('code').eq('id', tournament.modality_id).maybeSingle(),
+        supabase.from('tournament_competition_settings').select('half_duration_minutes').eq('tournament_id', tournamentId).maybeSingle(),
+      ])
+      if (active) {
+        const football8 = modality?.code === 'futbol-8'
+        setIsFootball8(football8)
+        setLoadedRules(modalityRules ? { ...modalityRules, half_duration_minutes: football8 ? 20 : settings?.half_duration_minutes ?? modalityRules.half_duration_minutes, draws_allowed: football8 ? false : modalityRules.draws_allowed } as MatchRules : null)
+      }
     })()
     return () => { active = false }
   }, [match.id, rules])
@@ -2420,6 +2440,33 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   }
   async function transitionPeriod() {
     if (!supabase || !canManage || match.status !== 'live') return
+    if (isFootball8) {
+      if (!loadedRules || matchPhase === 'penalty_shootout') return
+      const period = String(match.period || 'first_half')
+      if (!match.is_paused && secondsRef.current < periodLimit) return window.alert('Todavía no se ha cumplido la duración de este tiempo.')
+      const { data: current, error: scoreError } = await supabase.from('matches').select('local_score, visitor_score').eq('id', match.id).single()
+      if (scoreError || !current) return window.alert(scoreError?.message || 'No se pudo consultar el marcador.')
+      const nextPhase = footballEightNextPhase(period, Boolean(match.is_paused), current.local_score === current.visitor_score)
+      const now = new Date().toISOString()
+      const next = nextPhase === 'halftime'
+        ? { period: 'second_half', is_paused: true, started_at: now, elapsed_seconds: 0, first_half_seconds: secondsRef.current }
+        : nextPhase === 'second_half'
+          ? { is_paused: false, started_at: now, elapsed_seconds: 0 }
+          : nextPhase === 'extra_time_ready'
+            ? { period: 'extra_first_half', match_phase: 'extra_time', is_paused: true, elapsed_seconds: 0, second_half_seconds: secondsRef.current }
+            : nextPhase === 'extra_time'
+              ? { is_paused: false, started_at: now, elapsed_seconds: 0 }
+              : nextPhase === 'penalty_shootout'
+                ? { match_phase: 'penalty_shootout', is_paused: true, extra_time_seconds: secondsRef.current, elapsed_seconds: secondsRef.current }
+                : { status: 'finished', is_paused: true, finished_at: now, elapsed_seconds: secondsRef.current, ...(period === 'second_half' ? { second_half_seconds: secondsRef.current } : { extra_time_seconds: secondsRef.current }) }
+      if (nextPhase === 'second_half' && match.started_at && Date.now() - new Date(match.started_at).getTime() < 300000) return window.alert('El descanso debe durar 5 minutos.')
+      setSaving(true)
+      const { error } = await supabase.from('matches').update(next).eq('id', match.id)
+      setSaving(false)
+      if (error) return window.alert(error.message)
+      window.location.reload()
+      return
+    }
     const currentPeriod = String(match.period || 'first_half')
     const isSecondHalf = currentPeriod === 'second_half'
     const isExtraFirstHalf = currentPeriod === 'extra_first_half'
@@ -2436,7 +2483,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, second_half_seconds: 0, period: 'second_half' }
       : isStartingExtra
         ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, period: isExtraFirstHalf ? 'extra_first_half' : 'extra_second_half' }
-      : !isSecondHalf
+      : currentPeriod === 'first_half'
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, first_half_seconds: secondsRef.current, period: 'second_half' }
       : isExtraFirstHalf
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half' }
@@ -2463,8 +2510,13 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
 
   async function registerShootout() {
     if (!supabase || !canManage || !loadedRules?.penalty_shootout_allowed) return
-    const local = Number(window.prompt('Penales anotados por el equipo local', '0'))
-    const visitor = Number(window.prompt('Penales anotados por el equipo visitante', '0'))
+    if (isFootball8 && (matchPhase !== 'penalty_shootout' || match.status !== 'live')) return
+    const localInput = window.prompt('Penales anotados por el equipo local', '0')
+    if (localInput === null || !localInput.trim()) return
+    const visitorInput = window.prompt('Penales anotados por el equipo visitante', '0')
+    if (visitorInput === null || !visitorInput.trim()) return
+    const local = Number(localInput)
+    const visitor = Number(visitorInput)
     if (!Number.isInteger(local) || !Number.isInteger(visitor) || local < 0 || visitor < 0 || local === visitor) {
       window.alert('La tanda debe tener marcadores enteros y un ganador.')
       return
@@ -2475,6 +2527,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       shootout_visitor_score: visitor,
       status: 'finished',
       is_paused: true,
+      finished_at: new Date().toISOString(),
     }).eq('id', match.id)
     if (error) return window.alert(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
@@ -2560,14 +2613,14 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const stoppageSeconds = Math.max(0, seconds - periodLimit)
   const timer = `${String(Math.floor(regularSeconds / 60)).padStart(2, '0')}:${String(regularSeconds % 60).padStart(2, '0')}`
   const stoppageTimer = `+${String(Math.floor(stoppageSeconds / 60)).padStart(2, '0')}:${String(stoppageSeconds % 60).padStart(2, '0')}`
-  const periodLabel = match.period === 'second_half' ? 'segundo tiempo' : 'primer tiempo'
+  const periodLabel = String(match.period).startsWith('extra_') ? 'tiempo extra' : match.period === 'second_half' ? 'segundo tiempo' : 'primer tiempo'
   const firstHalfSummary = match.period === 'first_half' ? seconds : (match.first_half_seconds ?? 0)
-  const firstHalfTimer = `${String(Math.floor(Math.min(firstHalfSummary, periodLimit) / 60)).padStart(2, '0')}:${String(Math.min(firstHalfSummary, periodLimit) % 60).padStart(2, '0')}`
-  const firstHalfStoppage = `+${String(Math.floor(Math.max(0, firstHalfSummary - periodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, firstHalfSummary - periodLimit) % 60).padStart(2, '0')}`
-  const secondHalfSummary = match.status === 'finished' ? (match.second_half_seconds ?? 0) : seconds
-  const secondHalfTimer = `${String(Math.floor(Math.min(secondHalfSummary, periodLimit) / 60)).padStart(2, '0')}:${String(Math.min(secondHalfSummary, periodLimit) % 60).padStart(2, '0')}`
-  const secondHalfStoppage = `+${String(Math.floor(Math.max(0, secondHalfSummary - periodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, secondHalfSummary - periodLimit) % 60).padStart(2, '0')}`
-  const secondHalfLabel = match.period !== 'second_half' ? 'Pendiente' : match.status === 'finished' ? `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}` : match.is_paused ? 'Pendiente' : `${secondHalfTimer}${secondHalfSummary > periodLimit ? ` ${secondHalfStoppage}` : ''}`
+  const firstHalfTimer = `${String(Math.floor(Math.min(firstHalfSummary, regularPeriodLimit) / 60)).padStart(2, '0')}:${String(Math.min(firstHalfSummary, regularPeriodLimit) % 60).padStart(2, '0')}`
+  const firstHalfStoppage = `+${String(Math.floor(Math.max(0, firstHalfSummary - regularPeriodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, firstHalfSummary - regularPeriodLimit) % 60).padStart(2, '0')}`
+  const secondHalfSummary = match.status === 'finished' || String(match.period).startsWith('extra_') ? (match.second_half_seconds ?? 0) : seconds
+  const secondHalfTimer = `${String(Math.floor(Math.min(secondHalfSummary, regularPeriodLimit) / 60)).padStart(2, '0')}:${String(Math.min(secondHalfSummary, regularPeriodLimit) % 60).padStart(2, '0')}`
+  const secondHalfStoppage = `+${String(Math.floor(Math.max(0, secondHalfSummary - regularPeriodLimit) / 60)).padStart(2, '0')}:${String(Math.max(0, secondHalfSummary - regularPeriodLimit) % 60).padStart(2, '0')}`
+  const secondHalfLabel = match.period !== 'second_half' && !String(match.period).startsWith('extra_') ? 'Pendiente' : match.is_paused && match.period === 'second_half' && match.status !== 'finished' ? 'Pendiente' : `${secondHalfTimer}${secondHalfSummary > regularPeriodLimit ? ` ${secondHalfStoppage}` : ''}`
   const periodActionClass = match.is_paused && match.period === 'second_half' ? 'rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]' : 'rounded-[5px] border border-[#ff7d88] px-4 py-3 text-sm font-bold text-[#ffb0b7]'
 
   // Filtra únicamente los eventos de puntuación que todavía afectan el marcador.
@@ -2857,7 +2910,8 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       </div>
     </div>
     {renderCompactCorrectionPanel()}
-    {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && (String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <button type="button" onClick={() => void registerShootout()} className="mt-4 rounded-[5px] border border-[#ffb45c] px-4 py-2 text-sm font-bold text-[#ffd09b]">Registrar tanda de penales</button>}
+    {isFootball8 && <p className="mt-4 text-sm text-[#d8ffad]">{matchPhase === 'penalty_shootout' ? 'Tanda de penales' : matchPhase === 'extra_time' ? 'Tiempo extra · 10 minutos' : match.is_paused && match.period === 'second_half' ? 'Descanso · 5 minutos' : 'Dos tiempos de 20 minutos'}{shootoutScore && ` · Penales: ${shootoutScore}`}</p>}
+    {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && (isFootball8 ? matchPhase === 'penalty_shootout' && match.status === 'live' : String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <button type="button" onClick={() => void registerShootout()} className="mt-4 rounded-[5px] border border-[#ffb45c] px-4 py-2 text-sm font-bold text-[#ffd09b]">Registrar tanda de penales</button>}
     {pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">
       Confirmar {pendingScoreAction.label}?
       <button
@@ -2885,13 +2939,13 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       >
         Iniciar primer tiempo
       </button>}
-      {match.status === 'live' && <button
+      {match.status === 'live' && !(isFootball8 && matchPhase === 'penalty_shootout') && <button
         type="button"
         disabled={saving}
         onClick={() => void transitionPeriod()}
         className={periodActionClass}
       >
-        {match.is_paused && match.period === 'second_half'
+        {isFootball8 && String(match.period).startsWith('extra_') ? (match.is_paused ? 'Iniciar tiempo extra' : 'Finalizar tiempo extra') : match.is_paused && match.period === 'second_half'
           ? 'Iniciar segundo tiempo'
           : match.period === 'second_half'
             ? 'Finalizar segundo tiempo'
@@ -2995,7 +3049,7 @@ function TournamentDivisionsSummary({ divisions }: { divisions: Division[] }) {
 }
 
 // Muestra y actualiza la configuración competitiva del torneo.
-function CourtCountSettings({ tournamentId }: { tournamentId: string }) {
+function CourtCountSettings({ tournamentId, footballEight = false }: { tournamentId: string; footballEight?: boolean }) {
   const [count, setCount] = useState('1')
   const [savedCount, setSavedCount] = useState('1')
   const [maxTeams, setMaxTeams] = useState('14')
@@ -3037,6 +3091,7 @@ function CourtCountSettings({ tournamentId }: { tournamentId: string }) {
     const parsedMaxTeams = Number(maxTeams)
     const parsedHalfDuration = Number(halfDuration)
     const parsedHalftimeDuration = Number(halftimeDuration)
+    if (footballEight && (parsedMaxTeams !== 16 || parsedHalfDuration !== 20 || parsedHalftimeDuration !== 5)) return setMessage('Fútbol 8 vs 8 requiere 16 equipos, tiempos de 20 minutos y descanso de 5 minutos.')
     if (!Number.isInteger(parsedMaxTeams) || parsedMaxTeams < 2) {
       setMessage('El máximo de equipos debe ser un número entero mayor o igual a 2.')
       return
@@ -3088,21 +3143,21 @@ function CourtCountSettings({ tournamentId }: { tournamentId: string }) {
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="block text-sm font-semibold">
         Máximo de equipos
-        {editing ? <input type="number" min="2" value={maxTeams}
+        {editing ? <input readOnly={footballEight} type="number" min="2" value={maxTeams}
           onChange={(event) => setMaxTeams(event.target.value)}
           className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3" />
           : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedMaxTeams}</span>}
       </label>
       <label className="block text-sm font-semibold">
         Minutos por tiempo
-        {editing ? <input type="number" min="1" max="120" value={halfDuration}
+        {editing ? <input readOnly={footballEight} type="number" min="1" max="120" value={halfDuration}
           onChange={(event) => setHalfDuration(event.target.value)}
           className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3" />
           : <span className="mt-2 block rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">{savedHalfDuration}</span>}
       </label>
       <label className="block text-sm font-semibold">
         Descanso
-        {editing ? <select value={halftimeDuration}
+        {editing ? <select disabled={footballEight} value={halftimeDuration}
           onChange={(event) => setHalftimeDuration(event.target.value)}
           className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3">
           <option value="5">5 minutos</option>

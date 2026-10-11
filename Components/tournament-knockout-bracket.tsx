@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { shootoutWinner } from '../lib/football-eight'
 
 type Team = { id: string; name: string; division_id: string; division_name: string }
 type Match = {
@@ -49,11 +50,13 @@ export function TournamentKnockoutBracket({
   teams,
   matches,
   canManage,
+  footballEight = false,
 }: {
   tournamentId: string
   teams: Team[]
   matches: Match[]
   canManage: boolean
+  footballEight?: boolean
 }) {
   const [stages, setStages] = useState<Stage[]>([])
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([])
@@ -157,6 +160,14 @@ export function TournamentKnockoutBracket({
     if (!supabase || !canManage || !selectedDivision) return
     setMessage('')
     const ranked = rankedTeams()
+    if (footballEight) {
+      if (ranked.length !== 16) return setMessage('Se necesitan exactamente 16 equipos en la división para generar los octavos de final.')
+      if (stages.length) return setMessage('La llave ya está generada. Los ganadores avanzan al finalizar cada partido.')
+      const { error } = await supabase.rpc('generate_football_eight_bracket', { p_tournament_id: tournamentId, p_division_id: selectedDivision })
+      if (error) return setMessage(error.message)
+      window.location.reload()
+      return
+    }
     if (ranked.length < 2) {
       setMessage('Se necesitan al menos dos equipos en la división.')
       return
@@ -222,14 +233,13 @@ export function TournamentKnockoutBracket({
     const visitor = source.visitor_team_id
     let winner = source.local_score > source.visitor_score ? local : visitor
     if (source.local_score === source.visitor_score) {
-      const penaltyLocal = Number(window.prompt('Penales del equipo local') || '')
-      const penaltyVisitor = Number(window.prompt('Penales del equipo visitante') || '')
-      if (!Number.isFinite(penaltyLocal) || !Number.isFinite(penaltyVisitor)
-        || penaltyLocal === penaltyVisitor) {
+      const { data: result, error } = await supabase.from('matches').select('shootout_local_score, shootout_visitor_score').eq('id', source.id).single()
+      const penaltyWinner = result && shootoutWinner(result.shootout_local_score, result.shootout_visitor_score)
+      if (error || !penaltyWinner) {
         setMessage('El desempate por penales debe tener un ganador.')
         return
       }
-      winner = penaltyLocal > penaltyVisitor ? local : visitor
+      winner = penaltyWinner === 'local' ? local : visitor
     }
     setResolvingId(bracketMatch.id)
     const currentStage = stages.find((stage) => stage.id === bracketMatch.stage_id)
@@ -328,6 +338,7 @@ export function TournamentKnockoutBracket({
             Eliminación directa
           </p>
           <h2 className="mt-2 text-2xl font-black text-white">Llaves por división</h2>
+          {footballEight && <p className="mt-2 text-sm text-slate-300">16 equipos · Octavos → cuartos → semifinales → final. Los partidos se crean y los ganadores avanzan automáticamente.</p>}
         </div>
         {canManage && (
           <div className="flex flex-wrap gap-2">
@@ -338,6 +349,7 @@ export function TournamentKnockoutBracket({
               PDF de la llave
             </button>
             <button type="button" onClick={generateBracket}
+              disabled={footballEight && stages.length > 0}
               className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]">
               Generar llave
             </button>

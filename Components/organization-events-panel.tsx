@@ -8,6 +8,7 @@ import { LocationFields } from './location-fields'
 import { StyledSelect } from './styled-select'
 import { PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
+import { footballEight } from '../lib/football-eight'
 
 type Discipline = { id: string; name: string; code: string }
 type Modality = { id: string; name: string; code: string; discipline_id: string }
@@ -77,18 +78,26 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const selectedRule = modalityRules.find((rule) => rule.modality_id === modalityId)
   const isFootball = selectedDiscipline?.code === 'futbol'
   const isFootball5 = selectedModality?.code === 'futbol-5'
+  const isFootball8 = isFootball && selectedModality?.code === 'futbol-8'
 
   // Mantiene la configuración de tiempos editable por torneo y modalidad.
   useEffect(() => {
     if (selectedRule) setMaxRosterSize(String(selectedRule.max_roster_size || 12))
     if (selectedModality?.code === 'futbol-5') setMaxTeams('10')
-    if (selectedModality?.code !== 'futbol-5') {
-      setMaxTeams((current) => current === '10' ? '14' : current)
+    if (isFootball8) {
+      setMaxTeams(String(footballEight.maxTeams))
+      setCompetitionFormat(footballEight.format)
+      setHalfDuration(String(footballEight.halfMinutes))
+      setHalftimeDuration(String(footballEight.halftimeMinutes))
+      setIntervalDuration('10')
+      return
     }
+    setMaxTeams((current) => ['10', '16'].includes(current) && !isFootball5 ? '14' : current)
+    setCompetitionFormat('quick_league')
     setHalfDuration('')
     setHalftimeDuration('')
     setIntervalDuration('')
-  }, [modalityId, selectedModality, selectedRule])
+  }, [modalityId, selectedModality, selectedRule, isFootball8, isFootball5])
 
   useEffect(() => {
     setModalityId((current) => selectableModalities.some((modality) => modality.id === current)
@@ -108,6 +117,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     const parsedHalfDuration = Number(halfDuration)
     const parsedHalftimeDuration = Number(halftimeDuration)
     const parsedIntervalDuration = Number(intervalDuration)
+    if (isFootball8 && (parsedMaxTeams !== 16 || competitionFormat !== 'knockout' || parsedHalfDuration !== 20 || parsedHalftimeDuration !== 5)) {
+      return setMessage('Fútbol 8 vs 8 requiere 16 equipos, eliminación directa, tiempos de 20 minutos y descanso de 5 minutos.')
+    }
     if (isFootball && (
       !selectedRule
       || !competitionFormat
@@ -258,12 +270,13 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
             {disciplineId && !availableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
             {isFootball && rulesError && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{rulesError}</p>}
             {isFootball && <>
-              <StyledSelect label="Formato del torneo" value={competitionFormat} onChange={setCompetitionFormat} options={[{ value: 'quick_league', label: 'Todos contra todos' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'knockout', label: 'Eliminación directa' }]} required />
+              <StyledSelect label="Formato del torneo" value={competitionFormat} onChange={setCompetitionFormat} options={isFootball8 ? [{ value: 'knockout', label: 'Eliminación directa · 16 equipos' }] : [{ value: 'quick_league', label: 'Todos contra todos' }, { value: 'group_stage', label: 'Fase de grupos' }, { value: 'knockout', label: 'Eliminación directa' }]} disabled={isFootball8} required />
               <label className="block text-sm font-semibold">Número de canchas<select required value={courtsCount} onChange={(event) => setCourtsCount(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="1">1 cancha</option><option value="2">2 canchas</option></select></label>
-              <label className="block text-sm font-semibold">Máximo de equipos<input required type="number" min={isFootball5 ? 10 : 2} max={isFootball5 ? 10 : undefined} value={maxTeams} readOnly={isFootball5} onChange={(event) => setMaxTeams(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45] read-only:cursor-not-allowed read-only:opacity-70" />{isFootball5 && <span className="mt-1 block text-xs text-slate-400">Fútbol 5 vs 5 requiere exactamente 10 equipos.</span>}</label>
+              <label className="block text-sm font-semibold">Máximo de equipos<input required type="number" min={isFootball8 ? 16 : isFootball5 ? 10 : 2} max={isFootball8 ? 16 : isFootball5 ? 10 : undefined} value={maxTeams} readOnly={isFootball5 || isFootball8} onChange={(event) => setMaxTeams(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45] read-only:cursor-not-allowed read-only:opacity-70" />{isFootball5 && <span className="mt-1 block text-xs text-slate-400">Fútbol 5 vs 5 requiere exactamente 10 equipos.</span>}</label>
               <label className="block text-sm font-semibold">Plantilla máxima<input required type="number" min="1" value={maxRosterSize} onChange={(event) => setMaxRosterSize(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
-              <label className="block text-sm font-semibold">Minutos por tiempo<input required type="number" min="1" max="120" value={halfDuration} onChange={(event) => setHalfDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
-              <label className="block text-sm font-semibold">Descanso entre tiempos<input required type="number" min="0" max="60" value={halftimeDuration} onChange={(event) => setHalftimeDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              <label className="block text-sm font-semibold">Minutos por tiempo<input required readOnly={isFootball8} type="number" min="1" max="120" value={halfDuration} onChange={(event) => setHalfDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              <label className="block text-sm font-semibold">Descanso entre tiempos<input required readOnly={isFootball8} type="number" min="0" max="60" value={halftimeDuration} onChange={(event) => setHalftimeDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+              {isFootball8 && <p className="text-sm text-[#d8ffad] sm:col-span-2">Octavos → cuartos → semifinales → final. Si hay empate: 10 minutos extra y, si persiste, penales directos.</p>}
               <label className="block text-sm font-semibold">Intervalo entre partidos<input required type="number" min="0" max="120" value={intervalDuration} onChange={(event) => setIntervalDuration(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
               {selectedRule && <div className="rounded-xl border border-[#b4ff45]/25 bg-[#b4ff45]/10 p-3 text-xs leading-5 text-[#d8ffad] sm:col-span-2">{selectedRule.players_on_field} jugadores en cancha · {selectedRule.substitutions_unlimited ? 'Cambios ilimitados' : `${selectedRule.substitutions_allowed} cambios`}.</div>}
             </>}
