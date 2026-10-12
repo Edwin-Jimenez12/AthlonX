@@ -15,7 +15,7 @@ function minimumDatesForDivision(teamCount: number, matchesPerTeam: number) {
   return matchesPerTeam > 0 ? 1 : 0
 }
 
-export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, competitionFormat, divisions, teams, dates, matches, canManage, onGenerate, onOpenCalendar }: { tournamentName: string; tournamentStatus: string; competitionFormat: string; divisions: Division[]; teams: Team[]; dates: number[]; matches: FixtureMatch[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[], numberOfDates?: number, firstMatchTime?: string) => void; onOpenCalendar?: () => void }) {
+export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, competitionFormat, footballEight = false, divisions, teams, dates, matches, canManage, onGenerate, onOpenCalendar }: { tournamentName: string; tournamentStatus: string; competitionFormat: string; footballEight?: boolean; divisions: Division[]; teams: Team[]; dates: number[]; matches: FixtureMatch[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[], numberOfDates?: number, firstMatchTime?: string) => void; onOpenCalendar?: () => void }) {
   const [mode, setMode] = useState<'automatic' | 'manual' | null>(null)
   const [matchesPerDivision, setMatchesPerDivision] = useState<Record<string, string>>({})
   const [numberOfDates, setNumberOfDates] = useState('1')
@@ -110,6 +110,8 @@ export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, c
     if (!automaticConfigs.some((config) => (config.matchesPerTeam || 0) > 0)) return setError('Configura al menos un partido por equipo para generar el fixture.')
     onGenerate(teamIds, mode, [], automaticConfigs, configuredDateCount, firstMatchTime)
   }
+
+  if (footballEight && competitionFormat === 'knockout') return <section className="pt-6"><h2 className="text-xl font-bold">Eliminación directa</h2><p className="mt-3 text-slate-300">Abre la pestaña Llaves para generar los cruces y sus partidos. Las siguientes rondas se programan al registrar los ganadores.</p></section>
 
   return <section className="pt-6 print:hidden">
     <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start">
