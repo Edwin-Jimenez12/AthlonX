@@ -111,7 +111,7 @@ export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, c
     onGenerate(teamIds, mode, [], automaticConfigs, configuredDateCount, firstMatchTime)
   }
 
-  if (footballEight && competitionFormat === 'knockout') return <section className="pt-6"><h2 className="text-xl font-bold">Eliminación directa</h2><p className="mt-3 text-slate-300">Abre la pestaña Llaves para generar los cruces y sus partidos. Las siguientes rondas se programan al registrar los ganadores.</p></section>
+  if (footballEight && competitionFormat === 'knockout') return <section className="pt-6"><h2 className="text-xl font-bold">Eliminación directa</h2><p className="mt-3 text-slate-300">Abre la pestaña Llaves para generar los cruces. Cada ronda recibe automáticamente su cancha y horario sin repetir equipos en el mismo bloque.</p></section>
 
   return <section className="pt-6 print:hidden">
     <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start">

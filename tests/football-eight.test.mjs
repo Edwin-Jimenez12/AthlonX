@@ -5,7 +5,12 @@ import ts from 'typescript'
 
 const source = readFileSync(new URL('../lib/football-eight.ts', import.meta.url), 'utf8')
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } })
-const { footballEight, footballEightNextPhase: next, shootoutWinner } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+const {
+  footballEight,
+  footballEightNextPhase: next,
+  footballEightScoreFromEvents: scoreFromEvents,
+  shootoutWinner,
+} = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 
 test('fútbol 8 termina sin prórroga cuando hay ganador al finalizar el segundo tiempo', () => {
   assert.equal(next('first_half', false, false), 'halftime')
@@ -13,12 +18,22 @@ test('fútbol 8 termina sin prórroga cuando hay ganador al finalizar el segundo
   assert.equal(next('second_half', false, false), 'finished')
 })
 
-test('un empate requiere un bloque de 10 minutos antes de los penales', () => {
+test('un empate requiere iniciar el tiempo extra antes de los penales', () => {
   assert.equal(footballEight.extraMinutes, 10)
   assert.equal(next('second_half', false, true), 'extra_time_ready')
   assert.equal(next('extra_first_half', true, true), 'extra_time')
   assert.equal(next('extra_first_half', false, true), 'penalty_shootout')
   assert.equal(next('extra_first_half', false, false), 'finished')
+})
+
+test('una ventaja al terminar el segundo tiempo finaliza sin prórroga', () => {
+  const score = scoreFromEvents([
+    { teamId: 'local', eventType: 'goal', points: 2 },
+    { teamId: 'visitor', eventType: 'goal', points: 1 },
+  ], 'local', 'visitor')
+
+  assert.deepEqual(score, { local: 2, visitor: 1 })
+  assert.equal(next('second_half', false, score.local === score.visitor), 'finished')
 })
 
 test('el ganador de penales requiere marcadores válidos y diferentes', () => {

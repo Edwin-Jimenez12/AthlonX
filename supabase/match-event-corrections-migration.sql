@@ -43,6 +43,7 @@ declare
   v_event public.match_events%rowtype;
   v_match public.matches%rowtype;
   v_tournament_id uuid;
+  v_discipline_code text;
 begin
   if nullif(trim(coalesce(p_reason, '')), '') is null then
     raise exception 'El motivo de la correccion es obligatorio';
@@ -57,10 +58,6 @@ begin
     raise exception 'El evento no existe';
   end if;
 
-  if v_event.event_type not in ('try', 'conversion') then
-    raise exception 'Solo se pueden corregir tries y conversiones';
-  end if;
-
   if v_event.is_corrected then
     raise exception 'Este evento ya fue corregido';
   end if;
@@ -70,10 +67,24 @@ begin
   from public.matches match_row
   where match_row.id = v_event.match_id;
 
-  select fixture.tournament_id
-    into v_tournament_id
+  select fixture.tournament_id, discipline.code
+    into v_tournament_id, v_discipline_code
   from public.fixtures fixture
+  join public.tournaments tournament_row
+    on tournament_row.id = fixture.tournament_id
+  join public.disciplines discipline
+    on discipline.id = tournament_row.discipline_id
   where fixture.id = v_match.fixture_id;
+
+  if v_discipline_code = 'futbol'
+    and v_event.event_type not in ('goal', 'penalty_kick') then
+    raise exception 'Este evento no pertenece a la puntuación de fútbol';
+  end if;
+
+  if v_discipline_code <> 'futbol'
+    and v_event.event_type not in ('try', 'conversion', 'penalty') then
+    raise exception 'Este evento no pertenece a la puntuación de la disciplina';
+  end if;
 
   if not exists (
     select 1
@@ -114,7 +125,12 @@ begin
         from public.match_events event_row
         where event_row.match_id = match_row.id
           and event_row.team_id = match_row.local_team_id
-          and event_row.event_type in ('try', 'conversion')
+          and (
+            (v_discipline_code = 'futbol'
+              and event_row.event_type in ('goal', 'penalty_kick'))
+            or (v_discipline_code <> 'futbol'
+              and event_row.event_type in ('try', 'conversion', 'penalty'))
+          )
           and not event_row.is_corrected
       ), 0),
       visitor_score = coalesce((
@@ -122,7 +138,12 @@ begin
         from public.match_events event_row
         where event_row.match_id = match_row.id
           and event_row.team_id = match_row.visitor_team_id
-          and event_row.event_type in ('try', 'conversion')
+          and (
+            (v_discipline_code = 'futbol'
+              and event_row.event_type in ('goal', 'penalty_kick'))
+            or (v_discipline_code <> 'futbol'
+              and event_row.event_type in ('try', 'conversion', 'penalty'))
+          )
           and not event_row.is_corrected
       ), 0)
   where match_row.id = v_match.id;

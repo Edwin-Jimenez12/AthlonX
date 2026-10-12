@@ -1,10 +1,44 @@
 export const footballEight = {
   maxTeams: 16,
+  maxRosterSize: 15,
+  playersOnField: 8,
+  substitutionsUnlimited: true,
   halfMinutes: 20,
   halftimeMinutes: 5,
   extraMinutes: 10,
   format: 'knockout',
 } as const
+
+type FootballEightScoringEvent = {
+  teamId?: string | null
+  eventType: string
+  points?: number | null
+  isCorrected?: boolean
+}
+
+// Calcula el marcador oficial usando únicamente los eventos de fútbol.
+export function footballEightScoreFromEvents(
+  events: FootballEightScoringEvent[],
+  localTeamId: string,
+  visitorTeamId: string,
+) {
+  return events.reduce(
+    (score, event) => {
+      if (
+        event.isCorrected
+        || !['goal', 'penalty_kick'].includes(event.eventType)
+      ) {
+        return score
+      }
+
+      const points = event.points || 0
+      if (event.teamId === localTeamId) score.local += points
+      if (event.teamId === visitorTeamId) score.visitor += points
+      return score
+    },
+    { local: 0, visitor: 0 },
+  )
+}
 
 export function footballEightNextPhase(period: string, paused: boolean, tied: boolean) {
   if (period === 'first_half') return 'halftime'

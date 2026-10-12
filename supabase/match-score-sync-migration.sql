@@ -11,7 +11,7 @@ from (
     coalesce(sum(points) filter (where team_id = visitor_team_id), 0) as visitor_score
   from public.match_events
   join public.matches source_match on source_match.id = match_events.match_id
-  where event_type in ('try', 'conversion')
+  where event_type in ('try', 'conversion', 'penalty', 'goal', 'penalty_kick')
     and not is_corrected
   group by match_id
 ) as scores
@@ -24,6 +24,6 @@ where not exists (
   select 1
   from public.match_events event
     where event.match_id = m.id
-      and event.event_type in ('try', 'conversion')
+      and event.event_type in ('try', 'conversion', 'penalty', 'goal', 'penalty_kick')
       and not event.is_corrected
 );

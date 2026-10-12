@@ -15,6 +15,8 @@ alter table public.match_events
       'try',
       'conversion',
       'penalty',
+      'goal',
+      'penalty_kick',
       'yellow_card',
       'red_card',
       'injured',

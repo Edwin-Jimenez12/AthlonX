@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { shootoutWinner } from '../lib/football-eight'
 
 type Team = { id: string; name: string; division_id: string; division_name: string }
 type Match = {
@@ -14,6 +13,17 @@ type Match = {
   visitor_team_id: string
   local_score: number
   visitor_score: number
+  shootout_local_score?: number | null
+  shootout_visitor_score?: number | null
+  scheduled_time?: string | null
+  court_number?: number | null
+}
+type MatchEvent = {
+  match_id: string
+  team_id?: string | null
+  event_type: string
+  points: number
+  is_corrected?: boolean
 }
 type Stage = {
   id: string
@@ -31,7 +41,15 @@ type BracketMatch = {
   winner_team_id: string | null
   local_source: string | null
   visitor_source: string | null
+  source_match_id: string | null
   status: string
+}
+
+type ManualPairing = {
+  localTeamId: string
+  visitorTeamId: string
+  scheduledTime: string
+  courtNumber: string
 }
 
 const roundNames = ['Final', 'Semifinales', 'Cuartos de final', 'Octavos de final']
@@ -45,16 +63,27 @@ function stageName(bracketSize: number) {
   return roundNames[index - 1] || `Ronda de ${bracketSize}`
 }
 
+function createManualPairings(): ManualPairing[] {
+  return Array.from({ length: 8 }, () => ({
+    localTeamId: '',
+    visitorTeamId: '',
+    scheduledTime: '',
+    courtNumber: '',
+  }))
+}
+
 export function TournamentKnockoutBracket({
   tournamentId,
   teams,
   matches,
+  events,
   canManage,
   footballEight = false,
 }: {
   tournamentId: string
   teams: Team[]
   matches: Match[]
+  events: MatchEvent[]
   canManage: boolean
   footballEight?: boolean
 }) {
@@ -63,7 +92,11 @@ export function TournamentKnockoutBracket({
   const [selectedDivision, setSelectedDivision] = useState(teams[0]?.division_id || '')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [resolvingId, setResolvingId] = useState('')
+  const [generationMode, setGenerationMode] = useState<'automatic' | 'manual'>('automatic')
+  const [manualPairings, setManualPairings] = useState<ManualPairing[]>(
+    createManualPairings,
+  )
+  const [courtsCount, setCourtsCount] = useState(1)
 
   const divisions = useMemo(() => (
     Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])))
@@ -77,24 +110,40 @@ export function TournamentKnockoutBracket({
     }
   }, [divisions, selectedDivision])
 
+  // Limpia los cruces manuales cuando cambia la división seleccionada.
+  useEffect(() => {
+    setManualPairings(createManualPairings())
+  }, [selectedDivision])
+
   async function loadBracket() {
     if (!supabase || !selectedDivision) {
       setLoading(false)
       return
     }
     setLoading(true)
-    const { data: stageData } = await supabase
-      .from('tournament_knockout_stages')
-      .select('id, division_id, name, round_number, bracket_size')
-      .eq('tournament_id', tournamentId)
-      .eq('division_id', selectedDivision)
-      .order('round_number')
+    const [{ data: stageData }, { data: settings }] = await Promise.all([
+      supabase
+        .from('tournament_knockout_stages')
+        .select('id, division_id, name, round_number, bracket_size')
+        .eq('tournament_id', tournamentId)
+        .eq('division_id', selectedDivision)
+        .order('round_number'),
+      supabase
+        .from('tournament_competition_settings')
+        .select('courts_count')
+        .eq('tournament_id', tournamentId)
+        .maybeSingle(),
+    ])
+    setCourtsCount(Math.max(1, Number(settings?.courts_count || 1)))
     const loadedStages = (stageData || []) as Stage[]
     const stageIds = loadedStages.map((stage) => stage.id)
     const { data: matchData } = stageIds.length
       ? await supabase
         .from('tournament_knockout_matches')
-        .select('id, stage_id, position, local_team_id, visitor_team_id, winner_team_id, local_source, visitor_source, status')
+        .select(
+          'id, stage_id, position, local_team_id, visitor_team_id, '
+          + 'winner_team_id, local_source, visitor_source, source_match_id, status',
+        )
         .in('stage_id', stageIds)
         .order('position')
       : { data: [] }
@@ -224,53 +273,75 @@ export function TournamentKnockoutBracket({
     }
   }
 
-  // Vincula el cruce con un partido real y mueve el ganador a la siguiente ronda.
-  async function resolveBracketMatch(bracketMatch: BracketMatch, sourceMatchId: string) {
-    if (!supabase || !canManage || !sourceMatchId) return
-    const source = matches.find((match) => match.id === sourceMatchId)
-    if (!source) return
-    const local = source.local_team_id
-    const visitor = source.visitor_team_id
-    let winner = source.local_score > source.visitor_score ? local : visitor
-    if (source.local_score === source.visitor_score) {
-      const { data: result, error } = await supabase.from('matches').select('shootout_local_score, shootout_visitor_score').eq('id', source.id).single()
-      const penaltyWinner = result && shootoutWinner(result.shootout_local_score, result.shootout_visitor_score)
-      if (error || !penaltyWinner) {
-        setMessage('El desempate por penales debe tener un ganador.')
-        return
-      }
-      winner = penaltyWinner === 'local' ? local : visitor
-    }
-    setResolvingId(bracketMatch.id)
-    const currentStage = stages.find((stage) => stage.id === bracketMatch.stage_id)
-    const nextStage = currentStage
-      ? stages.find((stage) => stage.round_number === currentStage.round_number + 1)
-      : null
-    const { error } = await supabase.from('tournament_knockout_matches')
-      .update({
-        local_team_id: local,
-        visitor_team_id: visitor,
-        winner_team_id: winner,
-        source_match_id: sourceMatchId,
-        status: 'finished',
-      })
-      .eq('id', bracketMatch.id)
-    if (error) {
-      setMessage(error.message)
-      setResolvingId('')
+  // Genera la llave de fútbol 8 con los cruces definidos por el organizador.
+  async function generateManualBracket() {
+    if (!supabase || !canManage || !selectedDivision) return
+    const divisionTeams = teams.filter((team) => team.division_id === selectedDivision)
+    const selectedTeamIds = manualPairings.flatMap((pairing) => [
+      pairing.localTeamId,
+      pairing.visitorTeamId,
+    ])
+    const uniqueTeamIds = new Set(selectedTeamIds)
+
+    if (divisionTeams.length !== 16) {
+      setMessage('La división debe tener exactamente 16 equipos para crear la llave.')
       return
     }
-    if (nextStage) {
-      const nextPosition = Math.ceil(bracketMatch.position / 2)
-      const isLocalSlot = bracketMatch.position % 2 === 1
-      const column = isLocalSlot ? 'local_team_id' : 'visitor_team_id'
-      await supabase.from('tournament_knockout_matches')
-        .update({ [column]: winner })
-        .eq('stage_id', nextStage.id)
-        .eq('position', nextPosition)
+    if (manualPairings.some((pairing) => (
+      !pairing.localTeamId
+      || !pairing.visitorTeamId
+      || !pairing.scheduledTime
+      || !pairing.courtNumber
+    ))) {
+      setMessage('Completa los dos equipos, la hora y la cancha de cada cruce.')
+      return
     }
-    setMessage('Resultado guardado y ganador avanzado a la siguiente ronda.')
-    setResolvingId('')
+    if (selectedTeamIds.some((teamId) => !divisionTeams.some((team) => team.id === teamId))) {
+      setMessage('Todos los equipos deben pertenecer a la división seleccionada.')
+      return
+    }
+    if (uniqueTeamIds.size !== 16) {
+      setMessage('Cada equipo debe aparecer exactamente una vez en los octavos.')
+      return
+    }
+    if (manualPairings.some((pairing) => pairing.localTeamId === pairing.visitorTeamId)) {
+      setMessage('Un equipo no puede enfrentarse a sí mismo.')
+      return
+    }
+    if (manualPairings.some((pairing) => {
+      const court = Number(pairing.courtNumber)
+      return !Number.isInteger(court) || court < 1 || court > courtsCount
+    })) {
+      setMessage(`Las canchas disponibles son del 1 al ${courtsCount}.`)
+      return
+    }
+    const occupiedSlots = new Set<string>()
+    for (const pairing of manualPairings) {
+      const slot = `${pairing.scheduledTime}:${pairing.courtNumber}`
+      if (occupiedSlots.has(slot)) {
+        setMessage('No puedes programar dos cruces a la misma hora en la misma cancha.')
+        return
+      }
+      occupiedSlots.add(slot)
+    }
+
+    setMessage('')
+    const { error } = await supabase.rpc('generate_football_eight_manual_bracket', {
+      p_tournament_id: tournamentId,
+      p_division_id: selectedDivision,
+      p_pairings: manualPairings.map((pairing) => ({
+        local_team_id: pairing.localTeamId,
+        visitor_team_id: pairing.visitorTeamId,
+        scheduled_time: pairing.scheduledTime,
+        court_number: Number(pairing.courtNumber),
+      })),
+    })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setMessage('Llave manual generada correctamente.')
+    setManualPairings(createManualPairings())
     await loadBracket()
   }
 
@@ -289,7 +360,44 @@ export function TournamentKnockoutBracket({
         const visitor = match.visitor_team_id
           ? teamById.get(match.visitor_team_id)?.name
           : match.visitor_source || 'Por definir'
-        return `<div class="match"><div>${local}</div><div>${visitor}</div></div>`
+        const sourceMatch = match.source_match_id
+          ? matches.find((item) => item.id === match.source_match_id)
+          : null
+        const scoreVisible = sourceMatch
+          && ['live', 'finished'].includes(sourceMatch.status)
+        const sourceEvents = sourceMatch
+          ? events.filter((event) => event.match_id === sourceMatch.id
+            && event.event_type === 'penalty_kick'
+            && !event.is_corrected)
+          : []
+        const localPenaltyPoints = sourceEvents
+          .filter((event) => event.team_id === sourceMatch?.local_team_id)
+          .reduce((total, event) => total + (event.points || 0), 0)
+        const visitorPenaltyPoints = sourceEvents
+          .filter((event) => event.team_id === sourceMatch?.visitor_team_id)
+          .reduce((total, event) => total + (event.points || 0), 0)
+        const localScore = scoreVisible
+          ? `<strong class="score">${sourceMatch.local_score}</strong>`
+          : ''
+        const visitorScore = scoreVisible
+          ? `<strong class="score">${sourceMatch.visitor_score}</strong>`
+          : ''
+        const localPenalty = localPenaltyPoints > 0
+          ? `<span class="detail">Penales: ${localPenaltyPoints}</span>`
+          : ''
+        const visitorPenalty = visitorPenaltyPoints > 0
+          ? `<span class="detail">Penales: ${visitorPenaltyPoints}</span>`
+          : ''
+        const shootoutVisible = sourceMatch
+          && sourceMatch.shootout_local_score != null
+          && sourceMatch.shootout_visitor_score != null
+        const shootout = shootoutVisible
+          ? `<p class="shootout">Tanda: ${sourceMatch.shootout_local_score}`
+            + ` - ${sourceMatch.shootout_visitor_score}</p>`
+          : ''
+        return `<div class="match"><div><span>${local}</span>${localScore}`
+          + `${localPenalty}</div><div><span>${visitor}</span>${visitorScore}`
+          + `${visitorPenalty}</div>${shootout}</div>`
       }).join('')
       return `<section><h2>${stage.name}</h2>${cards}</section>`
     }).join('')
@@ -306,11 +414,16 @@ export function TournamentKnockoutBracket({
       section h2 { border-bottom: 2px solid #102030; padding-bottom: 3mm;
         text-align: center; font-size: 13px; text-transform: uppercase; }
       .match { margin: 8mm 0; border: 1px solid #9db0c2; break-inside: avoid; }
-      .match div { padding: 3mm; border-bottom: 1px solid #d2dce5; font-size: 11px; }
-      .match div:last-child { border-bottom: 0; }
+      .match > div { display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: space-between; gap: 2mm; padding: 3mm;
+        border-bottom: 1px solid #d2dce5; font-size: 11px; }
+      .match > div + div { border-bottom: 0; }
+      .score { font-size: 15px; font-weight: 700; }
+      .detail { width: 100%; color: #506070; font-size: 9px; }
+      .shootout { margin: 0; padding: 2mm 3mm; color: #7a4d00;
+        background: #fff2cc; font-size: 9px; font-weight: 700; }
       </style></head><body><header>
-      <img src="${window.location.origin}/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" />
-      <img src="${window.location.origin}/upr.png" alt="Organización" /></header>
+       <img src="${window.location.origin}/MarcaAthlonX/MarcaNegro.svg" alt="AthlonX" /></header>
       <h1>Llave de eliminación directa</h1>
       <p class="subtitle">División ${selectedDivision} · AthlonX</p>
       <main class="bracket">${columns}</main></body></html>`)
@@ -329,6 +442,18 @@ export function TournamentKnockoutBracket({
   const finalStage = stages[stages.length - 1]
   const finalMatch = finalStage ? matchesByStage.get(finalStage.id)?.[0] : null
   const champion = finalMatch?.winner_team_id ? teamById.get(finalMatch.winner_team_id) : null
+  const selectedDivisionTeams = teams.filter((team) => team.division_id === selectedDivision)
+
+  // Actualiza un campo del cruce manual sin modificar los demás valores.
+  function updateManualPairing(
+    index: number,
+    field: keyof ManualPairing,
+    value: string,
+  ) {
+    setManualPairings((current) => current.map((pairing, pairingIndex) => (
+      pairingIndex === index ? { ...pairing, [field]: value } : pairing
+    )))
+  }
 
   return (
     <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8">
@@ -338,7 +463,12 @@ export function TournamentKnockoutBracket({
             Eliminación directa
           </p>
           <h2 className="mt-2 text-2xl font-black text-white">Llaves por división</h2>
-          {footballEight && <p className="mt-2 text-sm text-slate-300">16 equipos · Octavos → cuartos → semifinales → final. Los partidos se crean y los ganadores avanzan automáticamente.</p>}
+          {footballEight && (
+            <p className="mt-2 text-sm text-slate-300">
+              16 equipos · Octavos → cuartos → semifinales → final. Los partidos
+              se crean y los ganadores avanzan automáticamente.
+            </p>
+          )}
         </div>
         {canManage && (
           <div className="flex flex-wrap gap-2">
@@ -348,11 +478,16 @@ export function TournamentKnockoutBracket({
                 disabled:cursor-not-allowed disabled:opacity-50">
               PDF de la llave
             </button>
-            <button type="button" onClick={generateBracket}
-              disabled={footballEight && stages.length > 0}
-              className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]">
-              Generar llave
-            </button>
+            {(!footballEight || generationMode === 'automatic') && (
+              <button
+                type="button"
+                onClick={() => void generateBracket()}
+                disabled={footballEight && stages.length > 0}
+                className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]"
+              >
+                Generar llave automática
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -365,6 +500,124 @@ export function TournamentKnockoutBracket({
           </button>
         ))}
       </div>
+      {footballEight && canManage && !stages.length && (
+        <section className="mt-6 rounded-lg border border-[#31556b] bg-[#07131e] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#b4ff45]">
+                Configuración de la llave
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                Elige si los cruces se ordenan automáticamente o se registran manualmente.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setGenerationMode('automatic')}
+                className={generationMode === 'automatic'
+                  ? 'rounded-lg bg-[#b4ff45] px-3 py-2 text-sm font-bold text-[#07131e]'
+                  : 'rounded-lg border border-[#31556b] px-3 py-2 text-sm font-bold text-slate-300'}
+              >
+                Automática
+              </button>
+              <button
+                type="button"
+                onClick={() => setGenerationMode('manual')}
+                className={generationMode === 'manual'
+                  ? 'rounded-lg bg-[#b4ff45] px-3 py-2 text-sm font-bold text-[#07131e]'
+                  : 'rounded-lg border border-[#31556b] px-3 py-2 text-sm font-bold text-slate-300'}
+              >
+                Manual
+              </button>
+            </div>
+          </div>
+          {generationMode === 'manual' && (
+            <div className="mt-5 space-y-3">
+              <p className="text-sm font-bold text-[#dfffba]">
+                Octavos de final · 8 cruces · {courtsCount} cancha{courtsCount === 1 ? '' : 's'}
+              </p>
+              {manualPairings.map((pairing, index) => (
+                <div
+                  key={`manual-pairing-${index}`}
+                  className="grid gap-2 rounded-lg border border-white/10 p-3
+                    lg:grid-cols-[auto_1fr_1fr_150px_130px] lg:items-center"
+                >
+                  <span className="text-xs font-bold uppercase text-slate-500">
+                    Cruce {index + 1}
+                  </span>
+                  <select
+                    value={pairing.localTeamId}
+                    onChange={(event) => updateManualPairing(
+                      index,
+                      'localTeamId',
+                      event.target.value,
+                    )}
+                    className="rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm"
+                  >
+                    <option value="">Equipo local</option>
+                    {selectedDivisionTeams.map((team) => (
+                      <option key={`manual-local-${index}-${team.id}`} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={pairing.visitorTeamId}
+                    onChange={(event) => updateManualPairing(
+                      index,
+                      'visitorTeamId',
+                      event.target.value,
+                    )}
+                    className="rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm"
+                  >
+                    <option value="">Equipo visitante</option>
+                    {selectedDivisionTeams.map((team) => (
+                      <option key={`manual-visitor-${index}-${team.id}`} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="time"
+                    value={pairing.scheduledTime}
+                    onChange={(event) => updateManualPairing(
+                      index,
+                      'scheduledTime',
+                      event.target.value,
+                    )}
+                    className="rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm"
+                  />
+                  <select
+                    value={pairing.courtNumber}
+                    onChange={(event) => updateManualPairing(
+                      index,
+                      'courtNumber',
+                      event.target.value,
+                    )}
+                    className="rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm"
+                  >
+                    <option value="">Cancha</option>
+                    {Array.from({ length: courtsCount }, (_, courtIndex) => courtIndex + 1)
+                      .map((court) => (
+                        <option key={`manual-court-${index}-${court}`} value={court}>
+                          Cancha {court}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => void generateManualBracket()}
+                className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]"
+              >
+                Generar llave manualmente
+              </button>
+            </div>
+          )}
+        </section>
+      )}
       {message && <p className="mt-4 rounded-lg border border-[#b4ff45]/40 p-3 text-sm text-[#b4ff45]">{message}</p>}
       {champion && <p className="mt-4 rounded-lg border border-[#b4ff45] bg-[#b4ff45]/10 p-4 font-bold text-[#b4ff45]">Campeón: {champion.name}</p>}
       {loading ? <p className="mt-8 text-slate-400">Cargando llave...</p> : stages.length === 0 ? (
@@ -380,30 +633,33 @@ export function TournamentKnockoutBracket({
                 {(matchesByStage.get(stage.id) || []).map((match) => {
                   const local = match.local_team_id ? teamById.get(match.local_team_id)?.name : match.local_source || 'Por definir'
                   const visitor = match.visitor_team_id ? teamById.get(match.visitor_team_id)?.name : match.visitor_source || 'Por definir'
+                  const sourceMatch = match.source_match_id
+                    ? matches.find((item) => item.id === match.source_match_id)
+                    : null
+                  // Muestra el marcador del partido real vinculado al cruce.
+                  const scoreVisible = sourceMatch
+                    && ['live', 'finished'].includes(sourceMatch.status)
                   return <article key={match.id} className="rounded-lg border border-[#31556b] bg-[#07131e] p-3 text-sm text-white">
-                    <p>{local}</p><p className="my-1 border-t border-[#31556b] pt-1">{visitor}</p>
+                    <p className="flex items-center justify-between gap-2">
+                      <span>{local}</span>
+                      {scoreVisible && <strong className="text-lg text-[#b4ff45]">
+                        {sourceMatch.local_score}
+                      </strong>}
+                    </p>
+                    <p className="my-1 flex items-center justify-between gap-2 border-t border-[#31556b] pt-1">
+                      <span>{visitor}</span>
+                      {scoreVisible && <strong className="text-lg text-[#b4ff45]">
+                        {sourceMatch.visitor_score}
+                      </strong>}
+                    </p>
+                    {sourceMatch && <p className="mt-2 text-xs text-slate-400">
+                      {sourceMatch.scheduled_time?.slice(0, 5) || 'Hora por definir'}
+                      {' · '}
+                      {sourceMatch.court_number
+                        ? `Cancha ${sourceMatch.court_number}`
+                        : 'Cancha por definir'}
+                    </p>}
                     <span className="mt-2 inline-block text-xs text-slate-500">{match.status === 'bye' ? 'Avance automático' : match.status === 'finished' ? 'Resuelto' : 'Pendiente'}</span>
-                    {canManage && match.status !== 'finished' && match.local_team_id && match.visitor_team_id && (
-                      <select
-                        disabled={resolvingId === match.id}
-                        defaultValue=""
-                        onChange={(event) => {
-                          void resolveBracketMatch(match, event.target.value)
-                        }}
-                        className="mt-3 w-full rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-1 text-xs"
-                      >
-                        <option value="">Vincular partido real</option>
-                        {matches.filter((source) => (
-                          source.status === 'finished' &&
-                          [source.local_team_id, source.visitor_team_id].includes(match.local_team_id) &&
-                          [source.local_team_id, source.visitor_team_id].includes(match.visitor_team_id)
-                        )).map((source) => (
-                          <option key={source.id} value={source.id}>
-                            {source.local_score} - {source.visitor_score} · Fecha {source.date_number}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                   </article>
                 })}
               </div>

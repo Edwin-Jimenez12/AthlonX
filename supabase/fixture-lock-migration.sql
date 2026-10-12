@@ -13,7 +13,10 @@ alter table public.match_events
 
 alter table public.match_events
   add constraint match_events_event_type_check
-  check (event_type in ('try', 'conversion', 'penalty', 'yellow_card', 'red_card', 'injured', 'concussion'));
+  check (event_type in (
+    'try', 'conversion', 'penalty', 'goal', 'penalty_kick',
+    'yellow_card', 'red_card', 'injured', 'concussion'
+  ));
 
 drop policy if exists "Tournament owners can create fixtures" on public.fixtures;
 create policy "Tournament owners can create fixtures" on public.fixtures
