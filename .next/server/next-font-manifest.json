@@ -1,6 +1,24 @@
 {
   "app": {
-    "[project]/app/dashboard/torneos/ver/[id]/page": [
+    "[project]/app/contactanos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/nosotros/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/novedades/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf"
+    ],
+    "[project]/app/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",

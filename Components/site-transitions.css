@@ -1,0 +1,7 @@
+/*
+ * Desplazamiento entre páginas públicas (ver site-chrome.tsx).
+ * Mientras una transición está activa, se oculta el scroll horizontal para que el contenido que sale o entra no lo produzca.
+ */
+html:has(.site-page[style*="transform"]) {
+  overflow-x: hidden;
+}

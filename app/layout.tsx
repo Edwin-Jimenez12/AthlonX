@@ -1,6 +1,7 @@
 import './globals.css'
 import type { ReactNode  } from 'react'
 import localFont from 'next/font/local'
+import SiteChrome from '../Components/site-chrome'
 
 const inter = localFont({
   src: './fonts/Inter/Inter-VariableFont_opsz,wght.ttf',
@@ -38,7 +39,7 @@ export default function RootLayout({children}: {children: ReactNode}) {
   return (
     <html lang="es">
       <body className={`${inter.variable} ${bebasNeue.variable} ${oswald.variable} ${barlowCondensed.variable}`}>
-        {children}
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   )
