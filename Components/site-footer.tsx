@@ -99,7 +99,7 @@ export default function SiteFooter() {
           </span>
           <img
             className="h-10 w-auto"
-            src="/nexdigital.svg"
+            src="/NexDigital.svg"
             alt="Nex Digital"
           />
         </div>
