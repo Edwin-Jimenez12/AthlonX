@@ -1,14 +1,1 @@
-{
-  "/(panel)/busqueda/page": "app/(panel)/busqueda/page.js",
-  "/(panel)/equipos/page": "app/(panel)/equipos/page.js",
-  "/(panel)/mi-perfil/page": "app/(panel)/mi-perfil/page.js",
-  "/(panel)/organizaciones/[id]/page": "app/(panel)/organizaciones/[id]/page.js",
-  "/(panel)/organizaciones/page": "app/(panel)/organizaciones/page.js",
-  "/(panel)/organizaciones/perfil/page": "app/(panel)/organizaciones/perfil/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/contactanos/page": "app/contactanos/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/nosotros/page": "app/nosotros/page.js",
-  "/novedades/page": "app/novedades/page.js",
-  "/page": "app/page.js"
-}
+{}
