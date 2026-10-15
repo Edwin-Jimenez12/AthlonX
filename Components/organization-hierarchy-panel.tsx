@@ -118,7 +118,7 @@ export function OrganizationHierarchyPanel({ rootOrganizationId }: { rootOrganiz
     </div>
 
     <div className="mt-6 flex flex-wrap gap-3">
-      <Link href={`/dashboard/equipos?organizationId=${rootOrganizationId}`} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] hover:bg-[#c7ff73]"><Plus size={17} />Agregar equipo</Link>
+      <Link href={`/equipos?organizationId=${rootOrganizationId}`} className="inline-flex items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] hover:bg-[#c7ff73]"><Plus size={17} />Agregar equipo</Link>
       <button type="button" onClick={() => { setShowAddOrganization((value) => !value); setMessage('') }} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-white hover:border-[#b4ff45] hover:text-[#b4ff45]"><Building2 size={17} />Agregar organización</button>
     </div>
 
@@ -148,7 +148,7 @@ export function OrganizationHierarchyPanel({ rootOrganizationId }: { rootOrganiz
 }
 
 function OrganizationMapNode({ node }: { node: OrganizationNode }) {
-  return <Link href={`/dashboard/organizaciones/${node.organization_id}`} style={{ marginLeft: `${Math.min(node.depth, 5) * 22}px` }} className="group flex items-center gap-3 rounded-[5px] border border-[#29485d] bg-[#0b1d2c] px-4 py-3 transition hover:border-[#b4ff45]">
+  return <Link href={`/organizaciones/${node.organization_id}`} style={{ marginLeft: `${Math.min(node.depth, 5) * 22}px` }} className="group flex items-center gap-3 rounded-[5px] border border-[#29485d] bg-[#0b1d2c] px-4 py-3 transition hover:border-[#b4ff45]">
     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#b4ff45] text-[#07131e]"><Building2 size={18} /></span>
     <span className="min-w-0 flex-1"><strong className="block truncate text-white">{node.organization_name}</strong><span className="text-xs text-slate-400">{node.depth === 0 ? 'Organización actual' : `${node.relationship_type || 'Subordinada'} · Nivel ${node.depth}`}</span></span>
     <ChevronRight size={18} className="text-slate-500 transition group-hover:text-[#b4ff45]" />

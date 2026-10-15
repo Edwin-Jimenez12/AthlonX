@@ -1,0 +1,302 @@
+'use client'
+
+import { useState } from 'react'
+import { LogoutAction } from '../logout-confirmation'
+import { supabase } from '../../lib/supabase'
+import { completenessOf } from '../../lib/mi-perfil'
+import type { PersonaProfile, PrivacyField, Theme, Visibility } from '../../lib/mi-perfil'
+import { Card, Chip, Field, Hero, ListRow, Pending, ReadValue, SaveBar, Segmented, Shell, Toggle } from './ui'
+
+export const personaSections = [
+  { id: 'identidad', label: 'Identidad' },
+  { id: 'privacidad', label: 'Privacidad' },
+  { id: 'participacion', label: 'Participación' },
+  { id: 'torneos', label: 'Torneos' },
+  { id: 'seguridad', label: 'Seguridad' },
+  { id: 'cuenta', label: 'Cuenta' },
+]
+
+const roleLabels: Record<string, string> = { atleta: 'Atleta', entrenador: 'Entrenador', directivo: 'Directivo', staff: 'Staff' }
+const bloodTypes = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+function ageFrom(birthDate: string | null) {
+  if (!birthDate) return null
+  const birth = new Date(`${birthDate}T00:00:00`)
+  if (Number.isNaN(birth.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age -= 1
+  return age
+}
+
+export function PersonaProfileView({
+  profile,
+  theme,
+  onTheme,
+  section,
+  onSection,
+  noticesEnabled,
+  onNotices,
+  onProfileSaved,
+}: {
+  profile: PersonaProfile
+  theme: Theme
+  onTheme: (theme: Theme) => void
+  section: string
+  onSection: (id: string) => void
+  noticesEnabled: boolean
+  onNotices: (value: boolean) => void
+  onProfileSaved: () => void
+}) {
+  const [firstName, setFirstName] = useState(profile.firstName)
+  const [lastName, setLastName] = useState(profile.lastName)
+  const [phone, setPhone] = useState(profile.phone)
+  const [bloodType, setBloodType] = useState(profile.bloodType)
+  const [privacy, setPrivacy] = useState<Record<PrivacyField, Visibility>>(profile.privacy)
+  const [tournaments, setTournaments] = useState(profile.tournaments)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [repeatPassword, setRepeatPassword] = useState('')
+
+  const age = ageFrom(profile.birthDate)
+  const displayName = `${firstName} ${lastName}`.trim() || profile.fullName || 'Persona pendiente'
+  const initials = displayName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+  const percent = completenessOf([
+    Boolean(profile.firstName),
+    Boolean(profile.lastName),
+    Boolean(profile.phone),
+    Boolean(profile.bloodType),
+    Boolean(profile.birthDate),
+    profile.roles.length > 0,
+    profile.teams.length + profile.organizations.length > 0,
+    profile.emailVerified,
+  ])
+
+  function flash(text: string) {
+    setMessage(text)
+    setError('')
+    window.setTimeout(() => setMessage(''), 2500)
+  }
+
+  async function saveIdentity() {
+    if (!supabase) return
+    if (!firstName.trim() || !lastName.trim()) return setError('Nombre y apellido son obligatorios.')
+    setSaving(true)
+    const { error: updateError } = await supabase.from('profiles').update({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      full_name: `${firstName.trim()} ${lastName.trim()}`,
+      phone: phone.trim() || null,
+      blood_type: bloodType || null,
+    }).eq('id', profile.userId)
+    setSaving(false)
+    if (updateError) return setError(updateError.message)
+    onProfileSaved()
+    flash('Datos guardados.')
+  }
+
+  async function savePrivacy() {
+    if (!supabase) return
+    setSaving(true)
+    const rows = (Object.keys(privacy) as PrivacyField[]).map((field) => ({
+      user_id: profile.userId,
+      field_key: field,
+      visibility: privacy[field],
+      updated_at: new Date().toISOString(),
+    }))
+    const { error: upsertError } = await supabase.from('profile_privacy_settings').upsert(rows, { onConflict: 'user_id,field_key' })
+    setSaving(false)
+    if (upsertError) return setError(upsertError.message)
+    flash('Privacidad guardada.')
+  }
+
+  async function saveTournaments() {
+    if (!supabase) return
+    setSaving(true)
+    const { error: upsertError } = await supabase.from('profile_tournament_visibility').upsert(
+      tournaments.map((item) => ({ user_id: profile.userId, tournament_id: item.id, is_visible: item.visible, updated_at: new Date().toISOString() })),
+      { onConflict: 'user_id,tournament_id' },
+    )
+    setSaving(false)
+    if (upsertError) return setError(upsertError.message)
+    flash('Torneos guardados.')
+  }
+
+  async function changePassword() {
+    if (!supabase) return
+    if (newPassword.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.')
+    if (newPassword !== repeatPassword) return setError('Las contraseñas no coinciden.')
+    setSaving(true)
+    const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword })
+    setSaving(false)
+    if (passwordError) return setError(passwordError.message)
+    setNewPassword('')
+    setRepeatPassword('')
+    flash('Contraseña actualizada.')
+  }
+
+  async function saveTheme(next: Theme) {
+    onTheme(next)
+    try {
+      window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark')
+    } catch {
+      // Sin almacenamiento local: el tema igual se guarda en la cuenta.
+    }
+    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    if (supabase) {
+      await supabase.from('account_preferences').upsert({ user_id: profile.userId, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  async function saveNotices(value: boolean) {
+    onNotices(value)
+    if (supabase) {
+      await supabase.from('account_preferences').upsert({ user_id: profile.userId, theme, notices_enabled: value, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  const sectionLabel = personaSections.find((item) => item.id === section)?.label ?? 'Identidad'
+
+  return (
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={personaSections} activeSection={section} onSection={onSection}>
+      <Hero
+        initials={initials}
+        title={displayName}
+        subtitle={profile.email}
+        percent={percent}
+        chips={<>
+          {profile.athlonxCode && <Chip tone="lime">{profile.athlonxCode}</Chip>}
+          {profile.roles.map((role) => <Chip key={role}>{roleLabels[role] ?? role}</Chip>)}
+        </>}
+      />
+
+      {section === 'identidad' && (
+        <Card title="Datos personales" description="Solo tú editas estos datos. Tu código AthlonX no se puede cambiar.">
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field label="Nombre" value={firstName} onChange={setFirstName} maxLength={60} />
+            <Field label="Apellido" value={lastName} onChange={setLastName} maxLength={60} />
+            <Field label="Teléfono" value={phone} onChange={setPhone} maxLength={20} placeholder="+507 0000-0000" />
+            <label className="block">
+              <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Tipo de sangre</span>
+              <select className="mt-2 w-full rounded-[5px] border border-[var(--mp-line)] bg-[var(--mp-raised)] px-4 py-3 text-[var(--mp-text)]" value={bloodType} onChange={(event) => setBloodType(event.target.value)}>
+                {bloodTypes.map((type) => <option key={type || 'none'} value={type}>{type || 'Sin registrar'}</option>)}
+              </select>
+            </label>
+            <ReadValue label="Fecha de nacimiento" value={profile.birthDate ?? ''} />
+            <ReadValue label="Edad" value={age === null ? '' : `${age} años`} />
+          </div>
+          <SaveBar onSave={saveIdentity} saving={saving} message={message} error={error} />
+        </Card>
+      )}
+
+      {section === 'identidad' && (
+        <Card title="Código AthlonX" description="Tu cédula dentro de la plataforma. Úsalo para que te encuentren y te inviten.">
+          <ReadValue label="Código" value={profile.athlonxCode} copyable />
+        </Card>
+      )}
+
+      {section === 'privacidad' && (
+        <Card title="Qué se ve en tu perfil" description="Por defecto todo es privado. Elige qué mostrar a otras cuentas.">
+          <div className="space-y-3">
+            {([
+              ['email', 'Correo', 'Visible para cuentas que te vean en la plataforma.'],
+              ['phone', 'Teléfono', 'Visible para cuentas que te vean en la plataforma.'],
+              ['age', 'Edad', 'Solo se muestra el número de años, nunca la fecha de nacimiento.'],
+            ] as const).map(([field, label, description]) => (
+              <Toggle
+                key={field}
+                label={label}
+                description={description}
+                checked={privacy[field] === 'public'}
+                onChange={(checked) => setPrivacy((current) => ({ ...current, [field]: checked ? 'public' : 'owner' }))}
+              />
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-[var(--mp-muted)]">La fecha de nacimiento y el tipo de sangre siempre son privados.</p>
+          <SaveBar onSave={savePrivacy} saving={saving} message={message} error={error} />
+        </Card>
+      )}
+
+      {section === 'participacion' && (
+        <>
+          <Card title="Roles" description="Los roles personales que tienes activos en AthlonX.">
+            <div className="flex flex-wrap gap-2">
+              {profile.roles.length ? profile.roles.map((role) => <Chip key={role} tone="lime">{roleLabels[role] ?? role}</Chip>) : <Pending>Aún no tienes roles asignados.</Pending>}
+            </div>
+          </Card>
+          <Card title="Equipos" description="Equipos a los que perteneces. Los cambios de plantilla los administra el equipo.">
+            <div className="space-y-3">
+              {profile.teams.length ? profile.teams.map((team) => (
+                <ListRow key={team.id} title={team.name} meta={`${team.discipline} · ${team.athlonxCode}`} right={<Chip tone={team.status === 'active' ? 'lime' : 'default'}>{team.roleLabel || roleLabels[team.role] || team.role}</Chip>} />
+              )) : <Pending>No perteneces a ningún equipo todavía.</Pending>}
+            </div>
+          </Card>
+          <Card title="Cargo de staff" description="Cargo fijo dentro de un equipo, cuando aplique.">
+            {profile.staffPositionName ? <ListRow title={profile.staffPositionName} /> : <Pending>Sin cargo de staff asignado.</Pending>}
+          </Card>
+          <Card title="Organizaciones" description="Organizaciones que te han vinculado.">
+            <div className="space-y-3">
+              {profile.organizations.length ? profile.organizations.map((org) => (
+                <ListRow key={org.id} title={org.name} meta={org.athlonxCode} right={<Chip>{org.role}</Chip>} />
+              )) : <Pending>Sin organizaciones vinculadas.</Pending>}
+            </div>
+          </Card>
+        </>
+      )}
+
+      {section === 'torneos' && (
+        <Card title="Torneos visibles" description="Elige qué torneos supervisados se muestran en tu perfil. Todos empiezan ocultos.">
+          <div className="space-y-3">
+            {tournaments.length ? tournaments.map((item, index) => (
+              <Toggle
+                key={item.id}
+                label={item.name}
+                description={item.season ?? undefined}
+                checked={item.visible}
+                onChange={(checked) => setTournaments((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, visible: checked } : row))}
+              />
+            )) : <Pending>No supervisas torneos todavía.</Pending>}
+          </div>
+          {tournaments.length > 0 && <SaveBar onSave={saveTournaments} saving={saving} message={message} error={error} />}
+        </Card>
+      )}
+
+      {section === 'seguridad' && (
+        <Card title="Cambiar contraseña" description="Usa al menos 8 caracteres.">
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field label="Nueva contraseña" type="password" value={newPassword} onChange={setNewPassword} />
+            <Field label="Repetir contraseña" type="password" value={repeatPassword} onChange={setRepeatPassword} />
+          </div>
+          <SaveBar onSave={changePassword} saving={saving} disabled={!newPassword} message={message} error={error} />
+        </Card>
+      )}
+
+      {section === 'cuenta' && (
+        <>
+          <Card title="Datos de la cuenta">
+            <div className="grid gap-5 md:grid-cols-2">
+              <ReadValue label="Correo de acceso" value={profile.email} />
+              <ReadValue label="Correo verificado" value={profile.emailVerified ? 'Sí' : 'Pendiente'} />
+            </div>
+          </Card>
+          <Card title="Preferencias" description="Se guardan en tu cuenta y se aplican en cualquier dispositivo.">
+            <div className="space-y-5">
+              <div>
+                <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Tema</span>
+                <div className="mt-2">
+                  <Segmented<Theme> options={[{ value: 'oscuro', label: 'Oscuro' }, { value: 'claro', label: 'Claro' }]} value={theme} onChange={saveTheme} />
+                </div>
+              </div>
+              <Toggle label="Avisos de la plataforma" description="Novedades y avisos de AthlonX." checked={noticesEnabled} onChange={saveNotices} />
+            </div>
+          </Card>
+          <Card title="Sesión">
+            <LogoutAction />
+          </Card>
+        </>
+      )}
+    </Shell>
+  )
+}

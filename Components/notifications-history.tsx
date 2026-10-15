@@ -183,7 +183,7 @@ function NotificationCard({
                   </button>
                 </>
               )}
-              {notification.tournament_id && <Link href={`/dashboard/torneos/ver/${notification.tournament_id}`} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]">Inspeccionar torneo</Link>}
+              {notification.tournament_id && <Link href={`/torneos/ver/${notification.tournament_id}`} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]">Inspeccionar torneo</Link>}
               {!notification.read_at && (
                 <button
                   type="button"

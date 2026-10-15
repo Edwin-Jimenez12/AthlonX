@@ -2,39 +2,53 @@
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from 'lucide-react'
+import { Building2, ChevronLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Search, UserRound, Users, X } from 'lucide-react'
 import { LocationFields } from './location-fields'
 import { StyledSelect } from './styled-select'
 import { loadAccountContexts } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 
 type Discipline = { id: string; name: string; code: string }
-type Modality = { id: string; name: string; discipline_id: string }
+type AuthView = 'login' | 'register' | 'forgot' | 'reset'
+type AccountType = 'persona' | 'equipo' | 'organizacion'
+type RegisterStep = 'type' | 'form'
 
-export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'login' | 'register' }) {
+const ACCOUNT_LABEL: Record<AccountType, string> = { persona: 'Persona', equipo: 'Equipo', organizacion: 'Organización' }
+const STEP_MS = 240
+
+// Animaciones entre pasos. Se desactivan si el usuario pide movimiento reducido.
+const STEP_STYLES = `
+@keyframes athlonxStepIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes athlonxStepBack { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: translateX(0); } }
+.athlonx-step { animation: athlonxStepIn 460ms cubic-bezier(.22,.8,.2,1) both; }
+.athlonx-step-back { animation: athlonxStepBack 460ms cubic-bezier(.22,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .athlonx-step, .athlonx-step-back { animation: none; } }
+`
+
+export default function AuthPanel({ initialMode = 'login' }: { initialMode?: AuthView }) {
   const router = useRouter()
-  const [mode, setMode] = useState<'login' | 'register'>(initialMode)
+  const [view, setView] = useState<AuthView>(initialMode)
+  const [registerStep, setRegisterStep] = useState<RegisterStep>('type')
+  const [stepLeaving, setStepLeaving] = useState(false)
+  const [stepDirection, setStepDirection] = useState<'forward' | 'back'>('forward')
+  const [email, setEmail] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [roles, setRoles] = useState<string[]>(['atleta'])
-  const [accountType, setAccountType] = useState<'persona' | 'organizacion' | 'equipo'>('persona')
+  const [accountType, setAccountType] = useState<AccountType>('persona')
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
-  const [modalities, setModalities] = useState<Modality[]>([])
   const [disciplineError, setDisciplineError] = useState('')
   const [organizationDisciplines, setOrganizationDisciplines] = useState<string[]>([])
-  const [organizationModalities, setOrganizationModalities] = useState<string[]>([])
   const [organizationCountry, setOrganizationCountry] = useState('Panamá')
   const [organizationCity, setOrganizationCity] = useState('')
   const [organizationType, setOrganizationType] = useState('organizacion_deportiva')
   const [teamDiscipline, setTeamDiscipline] = useState('')
-  const [teamModality, setTeamModality] = useState('')
   const [teamCountry, setTeamCountry] = useState('Panamá')
   const [teamCity, setTeamCity] = useState('')
-  const [inviteMode, setInviteMode] = useState(false)
-  const [inviteCode, setInviteCode] = useState('')
-  const isRegister = mode === 'register'
+  const isRegister = view === 'register'
+  const showTypeStep = isRegister && registerStep === 'type'
 
   useEffect(() => {
     async function loadDisciplines() {
@@ -48,11 +62,30 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       if (error) setDisciplineError('No se pudieron cargar las disciplinas disponibles.')
       else if (!data?.length) setDisciplineError('No hay disciplinas activas disponibles. Ejecuta la migración de acceso público en Supabase.')
       else setDisciplineError('')
-      const { data: modalityData } = await supabase.from('sport_modalities').select('id, name, discipline_id').eq('is_active', true).order('name')
-      setModalities(modalityData ?? [])
     }
     void loadDisciplines()
   }, [])
+
+  // Cambia la vista cuando el modal recibe otra petición (por ejemplo, un enlace de restablecimiento).
+  useEffect(() => {
+    setView(initialMode)
+    setRegisterStep('type')
+    setStepLeaving(false)
+    setMessage('')
+  }, [initialMode])
+
+  // Cambio de paso con salida animada: el paso actual se retira y luego entra el siguiente.
+  function changeRegisterStep(next: RegisterStep, type?: AccountType) {
+    if (stepLeaving) return
+    setStepDirection(next === 'form' ? 'forward' : 'back')
+    setStepLeaving(true)
+    setMessage('')
+    window.setTimeout(() => {
+      if (type) setAccountType(type)
+      setRegisterStep(next)
+      setStepLeaving(false)
+    }, STEP_MS)
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -61,35 +94,39 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       return
     }
     const form = event.currentTarget
-    if (inviteMode) {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase.rpc('claim_participation_invite', { p_code: inviteCode })
-        if (error) {
-          setMessage(error.message)
-          return
-        }
-        const claimed = Array.isArray(data) ? data[0] : data
-        setMessage(`Participación confirmada para ${claimed?.full_name ?? 'tu perfil'}.`)
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'No se pudo procesar la invitación.')
-      } finally {
-        setLoading(false)
-      }
+    if (view === 'forgot') {
+      await sendResetLink()
       return
     }
-    const email = (form.elements.namedItem('email') as HTMLInputElement).value
-    const fullName = (form.elements.namedItem('fullName') as HTMLInputElement | null)?.value ?? ''
+    if (view === 'reset') {
+      await saveNewPassword(form)
+      return
+    }
+    const firstName = (form.elements.namedItem('firstName') as HTMLInputElement | null)?.value.trim() ?? ''
+    const lastName = (form.elements.namedItem('lastName') as HTMLInputElement | null)?.value.trim() ?? ''
+    const birthDate = (form.elements.namedItem('birthDate') as HTMLInputElement | null)?.value ?? ''
     const password = (form.elements.namedItem('password') as HTMLInputElement).value
     const confirmation = (form.elements.namedItem('confirmation') as HTMLInputElement | null)?.value
     const publicUsername = (form.elements.namedItem('publicUsername') as HTMLInputElement | null)?.value ?? ''
-    const organizationName = (form.elements.namedItem('organizationName') as HTMLInputElement | null)?.value ?? ''
-    const teamName = (form.elements.namedItem('teamName') as HTMLInputElement | null)?.value ?? ''
+    const organizationName = (form.elements.namedItem('organizationName') as HTMLInputElement | null)?.value.trim() ?? ''
+    const teamName = (form.elements.namedItem('teamName') as HTMLInputElement | null)?.value.trim() ?? ''
     if (isRegister && password !== confirmation) {
       setMessage('Las contraseñas no coinciden.')
       return
     }
-    if (isRegister && accountType === 'organizacion' && !organizationName.trim()) {
+    if (isRegister && accountType === 'persona' && (!firstName || !lastName)) {
+      setMessage('Ingresa tu nombre y tu apellido.')
+      return
+    }
+    if (isRegister && accountType === 'persona' && !birthDate) {
+      setMessage('Ingresa tu fecha de nacimiento.')
+      return
+    }
+    if (isRegister && accountType === 'persona' && birthDate > new Date().toISOString().slice(0, 10)) {
+      setMessage('La fecha de nacimiento no puede ser futura.')
+      return
+    }
+    if (isRegister && accountType === 'organizacion' && !organizationName) {
       setMessage('Ingresa el nombre de la organización.')
       return
     }
@@ -97,7 +134,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       setMessage('Selecciona al menos una disciplina para la organización.')
       return
     }
-    if (isRegister && accountType === 'equipo' && !teamName.trim()) {
+    if (isRegister && accountType === 'equipo' && !teamName) {
       setMessage('Ingresa el nombre del equipo.')
       return
     }
@@ -105,29 +142,48 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       setMessage('Selecciona la disciplina del equipo.')
       return
     }
-    if (isRegister && accountType === 'equipo' && modalities.some((modality) => modality.discipline_id === teamDiscipline) && !teamModality) {
-      setMessage('Selecciona la modalidad del equipo.')
-      return
-    }
-    if (isRegister && accountType === 'equipo' && !teamCity) {
-      setMessage('Selecciona la ciudad del equipo.')
+    if (isRegister && accountType === 'equipo' && !teamCity.trim()) {
+      setMessage('Ingresa la ciudad del equipo.')
       return
     }
     const normalizedUsername = publicUsername.trim().replace(/^@/, '').toLowerCase()
-    if (isRegister && !/^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])?$/.test(normalizedUsername)) {
-      setMessage('El nombre de usuario debe tener entre 3 y 30 caracteres y usar letras, números, punto, guion o guion bajo.')
+    if (isRegister && !/^[a-z0-9._]{3,30}$/.test(normalizedUsername)) {
+      setMessage('El nombre de usuario debe tener entre 3 y 30 caracteres, solo minúsculas, números, punto o guion bajo.')
       return
     }
     setLoading(true)
     try {
       const result = isRegister
-        ? await supabase.auth.signUp({ email, password, options: { data: { full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : fullName, public_username: normalizedUsername, roles: accountType === 'organizacion' || accountType === 'equipo' ? ['directivo'] : roles, account_type: accountType, organization_name: organizationName, organization_type: organizationType, organization_country: organizationCountry, organization_city: organizationCity, organization_disciplines: organizationDisciplines, organization_modalities: organizationModalities, team_name: teamName, team_country: teamCountry, team_city: teamCity, team_discipline: teamDiscipline, team_modality: teamModality } } })
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : `${firstName} ${lastName}`,
+                first_name: accountType === 'persona' ? firstName : null,
+                last_name: accountType === 'persona' ? lastName : null,
+                birth_date: accountType === 'persona' ? birthDate : null,
+                public_username: normalizedUsername,
+                roles: accountType === 'persona' ? roles : ['directivo'],
+                account_type: accountType,
+                organization_name: organizationName,
+                organization_type: organizationType,
+                organization_country: organizationCountry,
+                organization_city: organizationCity,
+                organization_disciplines: organizationDisciplines,
+                team_name: teamName,
+                team_country: teamCountry,
+                team_city: teamCity,
+                team_discipline: teamDiscipline,
+              },
+            },
+          })
         : await supabase.auth.signInWithPassword({ email, password })
 
       if (result.error) {
         const errorMessage = result.error.message.toLowerCase()
         setMessage(errorMessage.includes('database error saving new user')
-          ? 'Supabase rechazo el registro del equipo. Ejecuta team-registration-fix-migration.sql en el SQL Editor y vuelve a intentarlo.'
+          ? 'Supabase rechazó el registro. Revisa que hayas ejecutado las migraciones de registro en el SQL Editor y vuelve a intentarlo.'
           : errorMessage.includes('already registered')
           ? 'Este correo ya está registrado. Cambia a Iniciar sesión para entrar a tu cuenta.'
           : result.error.message)
@@ -135,7 +191,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       }
 
       if (isRegister && !result.data.session) {
-        setMessage(`Cuenta de ${accountType} creada. Revisa tu correo para confirmar el acceso.`)
+        setMessage(`Cuenta de ${ACCOUNT_LABEL[accountType]} creada. Revisa tu correo para confirmar el acceso.`)
         return
       }
 
@@ -143,6 +199,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
       const sessionAccountType = isRegister ? accountType : result.data.user?.user_metadata?.account_type
       if (result.data.user) {
         await supabase.rpc('ensure_my_public_identity')
+        // Si la cuenta estaba programada para eliminarse, iniciar sesión dentro de los 15 días la recupera.
+        await supabase.rpc('cancel_account_deletion')
         const { error: organizationError } = await supabase.rpc('ensure_my_organization')
         if (organizationError && sessionAccountType === 'organizacion') {
           setMessage(`No se pudo preparar la cuenta de organización: ${organizationError.message}`)
@@ -156,9 +214,68 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
         if (selectedContext.teamId) window.localStorage.setItem('athlonx-active-team-id', selectedContext.teamId)
       }
-      router.push('/dashboard/busqueda')
+      // Cierra el modal de acceso: el usuario ya entró y no debe quedar sobre el panel.
+      window.dispatchEvent(new Event('athlonx-auth-done'))
+      router.push('/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Envía el enlace de restablecimiento al correo escrito en el inicio de sesión.
+  async function sendResetLink() {
+    if (!supabase) return
+    const address = email.trim()
+    if (!address) {
+      setMessage('Escribe el correo de tu cuenta.')
+      return
+    }
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: `${window.location.origin}/` })
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      setMessage(`Te enviaremos un correo a ${address} con el enlace para restablecer tu contraseña. El enlace es de un solo uso: si ya lo usaste o venció, pide uno nuevo. Revisa también tu carpeta de spam.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo enviar el correo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Guarda la nueva contraseña del enlace y pide iniciar sesión de nuevo.
+  async function saveNewPassword(form: HTMLFormElement) {
+    if (!supabase) return
+    const password = (form.elements.namedItem('password') as HTMLInputElement).value
+    const confirmation = (form.elements.namedItem('confirmation') as HTMLInputElement).value
+    if (password.length < 8) {
+      setMessage('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    if (password !== confirmation) {
+      setMessage('Las contraseñas no coinciden.')
+      return
+    }
+    setLoading(true)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        setMessage(error.message)
+        return
+      }
+      window.localStorage.removeItem('athlonx-recovery-pending')
+      await supabase.auth.signOut()
+      window.history.replaceState(null, '', window.location.pathname)
+      setEmail(userData.user?.email ?? '')
+      setView('login')
+      setMessage('Tu contraseña fue actualizada. Inicia sesión con tu nueva contraseña.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo actualizar la contraseña.')
     } finally {
       setLoading(false)
     }
@@ -167,120 +284,312 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: 'lo
   const activeTabClass = 'border-[#B4FF45] bg-[#B4FF45]/10 text-[#D9FFB1]'
   const inactiveTabClass = 'border-transparent text-slate-400 hover:border-white/30 hover:text-white'
   const fieldClass = 'h-11 w-full rounded-[5px] border border-white/15 bg-white/[.04] px-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#B4FF45] focus:bg-white/[.06]'
+
+  const headline = view === 'forgot'
+    ? 'Recupera tu acceso'
+    : view === 'reset'
+    ? 'Crea una nueva contraseña'
+    : showTypeStep
+    ? 'Elige tu cuenta'
+    : isRegister
+    ? 'Crea tu cuenta'
+    : 'Bienvenido'
+
+  const description = view === 'forgot'
+    ? 'Te enviaremos un enlace a tu correo para crear una nueva contraseña.'
+    : view === 'reset'
+    ? 'Escribe tu nueva contraseña para volver a entrar a AthlonX.'
+    : showTypeStep
+    ? 'Selecciona el tipo de cuenta que necesitas. Después completas solo los datos que corresponden.'
+    : isRegister && accountType === 'equipo'
+    ? 'Crea el perfil de tu equipo para organizar su actividad deportiva.'
+    : isRegister && accountType === 'organizacion'
+    ? 'Registra tu organización para gestionar torneos y demás actividades.'
+    : isRegister
+    ? 'Crea tu cuenta para participar, seguir torneos y conectarte con equipos y organizaciones.'
+    : 'Accede a tu perfil'
+
+  // Campos de acceso: correo y contraseña. Se usan en todas las vistas.
+  const accessFields = (
+    <>
+      {view !== 'reset' && <FieldWithIcon icon={<Mail size={17} />}><input required name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Correo electrónico" /></FieldWithIcon>}
+      {isRegister ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PasswordField name="password" placeholder="Contraseña" visible={showPassword} onToggle={() => setShowPassword((current) => !current)} />
+          <PasswordField name="confirmation" placeholder="Confirmar contraseña" visible={showConfirmation} onToggle={() => setShowConfirmation((current) => !current)} />
+        </div>
+      ) : (
+        <>
+          {view === 'reset' ? (
+            <>
+              <PasswordField name="password" placeholder="Nueva contraseña" visible={showPassword} onToggle={() => setShowPassword((current) => !current)} />
+              <PasswordField name="confirmation" placeholder="Confirmar nueva contraseña" visible={showConfirmation} onToggle={() => setShowConfirmation((current) => !current)} />
+            </>
+          ) : (
+            <PasswordField name="password" placeholder="Contraseña" visible={showPassword} onToggle={() => setShowPassword((current) => !current)} />
+          )}
+          {view === 'login' && (
+            <div className="-mt-1 text-right">
+              <button type="button" disabled={loading} onClick={() => { setView('forgot'); setMessage('') }} className="text-sm font-semibold text-[#B4FF45] transition hover:text-white">¿Olvidaste tu contraseña?</button>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+
+  // Nombre de usuario: común a las tres cuentas.
+  const identityField = (
+    <label className="block text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
+      Nombre de usuario
+      <div className="relative mt-2">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-bold text-[#B4FF45]">@</span>
+        <input
+          required
+          name="publicUsername"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={30}
+          onChange={(event) => {
+            // Solo minúsculas, números, punto y guion bajo, como en Instagram.
+            event.currentTarget.value = event.currentTarget.value.toLowerCase().replace(/[^a-z0-9._]/g, "")
+          }}
+          className={`${fieldClass} pl-8`}
+          placeholder="nombre.de.usuario"
+        />
+      </div>
+    </label>
+  )
+
   return (
     <div className="flex max-h-[min(860px,calc(100dvh-2rem))] min-h-0 w-full flex-col overflow-hidden rounded-[5px] border border-white/15 bg-[#0b141e]/95 shadow-2xl backdrop-blur-xl">
+      <style>{STEP_STYLES}</style>
       <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-7 sm:pt-5">
         <div className="mb-4 flex items-center justify-between gap-4 pr-10">
           <div>
             <p className="font-heading text-lg uppercase tracking-[.25em] text-[#B4FF45]">AthlonX</p>
           </div>
         </div>
-        <nav aria-label="Acceso a AthlonX" className="grid grid-cols-3">
-          <button type="button" disabled={loading} onClick={() => { setInviteMode(false); setMode('login'); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${!isRegister && !inviteMode ? activeTabClass : inactiveTabClass}`}>Iniciar sesión</button>
-          <button type="button" disabled={loading} onClick={() => { setInviteMode(false); setMode('register'); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${isRegister && !inviteMode ? activeTabClass : inactiveTabClass}`}>Registrarse</button>
-          <button type="button" disabled={loading} onClick={() => { setInviteMode(true); setMode('login'); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${inviteMode ? activeTabClass : inactiveTabClass}`}>Invitación</button>
-        </nav>
+        {(view === 'login' || view === 'register') && (
+          <nav aria-label="Acceso a AthlonX" className="grid grid-cols-2">
+            <button type="button" disabled={loading} onClick={() => { setView('login'); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${view === 'login' ? activeTabClass : inactiveTabClass}`}>Iniciar sesión</button>
+            <button type="button" disabled={loading} onClick={() => { setView('register'); setRegisterStep('type'); setStepLeaving(false); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${view === 'register' ? activeTabClass : inactiveTabClass}`}>Registrarse</button>
+          </nav>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-6 sm:px-7 sm:pb-8 sm:pt-7">
         <div className="max-w-xl">
-          <h2 className="font-display text-4xl uppercase leading-none text-white sm:text-5xl">{inviteMode ? 'Ingresa por invitación' : isRegister ? 'Crea tu cuenta' : 'Bienvenido'}</h2>
-          <p className=" max-w-lg text-sm leading-6 text-slate-400">{inviteMode ? 'Introduce el código temporal que te proporcionó la organización.' : isRegister && accountType === 'equipo' ? 'Crea el perfil de tu equipo para organizar su actividad deportiva.' : isRegister && accountType === 'organizacion' ? 'Registra tu organización para gestionar torneos y demás actividades.' : isRegister ? 'Crea tu cuenta para conectarte con equipos y organizaciones.' : 'Accede a tu perfil'}</p>
+          <h2 className="font-display text-4xl uppercase leading-none text-white sm:text-5xl">{headline}</h2>
+          <p className="max-w-lg text-sm leading-6 text-slate-400">{description}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {inviteMode && (
-            <label className="block text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
-              Código de invitación
-              <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} required maxLength={32} className={`${fieldClass} mt-2 font-mono text-base tracking-widest`} placeholder="AX-XXXXXX" />
-            </label>
-          )}
-
-          {isRegister && (
-            <div className="grid grid-cols-3 overflow-hidden rounded-[5px] border border-white/15 bg-black/20">
-              {(['persona', 'equipo', 'organizacion'] as const).map((type) => (
-                <button key={type} type="button" disabled={loading} onClick={() => setAccountType(type)} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${accountType === type ? 'border-[#B4FF45] bg-[#B4FF45]/10 text-[#D9FFB1]' : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-                  {type === 'organizacion' ? 'Organización' : type[0].toUpperCase() + type.slice(1)}
+        {isRegister && (
+          <div className="mt-6 space-y-3">
+            <div className="flex min-h-8 items-center justify-between gap-3">
+              {registerStep === 'form' ? (
+                <button type="button" disabled={loading || stepLeaving} onClick={() => changeRegisterStep('type')} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-300 transition hover:text-white">
+                  <ChevronLeft size={16} aria-hidden="true" />
+                  Cambiar tipo
                 </button>
-              ))}
+              ) : <span />}
+              <span className="text-xs font-semibold uppercase tracking-[.14em] text-[#B4FF45]">
+                Paso {registerStep === 'type' ? 1 : 2} de 2 · {registerStep === 'type' ? 'Tipo de cuenta' : ACCOUNT_LABEL[accountType]}
+              </span>
             </div>
-          )}
+            <div className="h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+              <div className={`h-full rounded-full bg-[#B4FF45] transition-[width] duration-500 ease-out ${registerStep === 'type' ? 'w-1/2' : 'w-full'}`} />
+            </div>
+          </div>
+        )}
 
-          {isRegister && (
-            <label className="block text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
-              Identificador público
-              <div className="relative mt-2">
-                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-bold text-[#B4FF45]">@</span>
-                <input required name="publicUsername" className={`${fieldClass} pl-8`} placeholder="nombre.de.usuario" />
+        {/* El contenido del paso sale hacia el lado contrario y el siguiente entra por el otro. */}
+        <div className={`transition duration-200 ease-in-out ${stepLeaving ? `opacity-0 ${stepDirection === 'forward' ? '-translate-x-6' : 'translate-x-6'}` : 'translate-x-0 opacity-100'} ${isRegister ? 'mt-6' : 'mt-6'}`}>
+          {showTypeStep ? (
+            <AccountTypeStep direction={stepDirection} disabled={stepLeaving} onSelect={(type) => changeRegisterStep('form', type)} />
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div key={`${view}-${accountType}`} className={`space-y-5 ${stepDirection === 'back' && isRegister ? 'athlonx-step-back' : 'athlonx-step'}`}>
+                {isRegister && accountType === 'persona' && (
+                  <>
+                    <FormSection>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="relative block">
+                          <UserRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#B4FF45]" size={17} />
+                          <input required name="firstName" autoComplete="given-name" className={`${fieldClass} pl-10`} placeholder="Nombre" aria-label="Nombre" />
+                        </label>
+                        <input required name="lastName" autoComplete="family-name" className={fieldClass} placeholder="Apellido" aria-label="Apellido" />
+                      </div>
+                    </FormSection>
+                    <FormSection>
+                      <label className="block text-sm font-bold text-slate-200">
+                        Fecha de nacimiento
+                        <input required type="date" name="birthDate" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} className={`${fieldClass} mt-2 font-normal`} aria-label="Fecha de nacimiento" />
+                      </label>
+                      {identityField}
+                      <RoleSelector roles={roles} onChange={setRoles} />
+                    </FormSection>
+                  </>
+                )}
+
+                {isRegister && accountType === 'equipo' && (
+                  <>
+                    <FormSection>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-bold text-slate-200">
+                          Nombre del equipo
+                          <input required name="teamName" className={`${fieldClass} mt-2 font-normal`} placeholder="Escribe el nombre" />
+                        </label>
+                        <StyledSelect label="Disciplina" name="teamDiscipline" value={teamDiscipline} onChange={setTeamDiscipline} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder={disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'} required />
+                      </div>
+                      <LocationFields country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
+                      {identityField}
+                    </FormSection>
+                  </>
+                )}
+
+                {isRegister && accountType === 'organizacion' && (
+                  <>
+                    <FormSection>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block text-sm font-bold text-slate-200">
+                        Nombre de la organización
+                        <input required name="organizationName" className={`${fieldClass} mt-2 font-normal`} placeholder="Escribe el nombre" />
+                      </label>
+                      <StyledSelect label="Tipo de organización" name="organizationType" value={organizationType} onChange={setOrganizationType} options={[
+                        { value: 'organizacion_deportiva', label: 'Organización deportiva' },
+                        { value: 'comite_olimpico', label: 'Comité olímpico' },
+                        { value: 'institucion_gubernamental', label: 'Institución gubernamental' },
+                        { value: 'federacion', label: 'Federación' },
+                        { value: 'union', label: 'Unión' },
+                        { value: 'liga', label: 'Liga' },
+                        { value: 'otro', label: 'Otro' },
+                      ]} />
+                      </div>
+                      <LocationFields country={organizationCountry} city={organizationCity} onCountryChange={setOrganizationCountry} onCityChange={setOrganizationCity} />
+                      <DisciplinePicker disciplines={disciplines} selected={organizationDisciplines} onChange={setOrganizationDisciplines} emptyMessage={disciplineError || 'Cargando disciplinas...'} />
+                      {identityField}
+                    </FormSection>
+                  </>
+                )}
+
+                {isRegister ? <FormSection>{accessFields}</FormSection> : accessFields}
+
+                <button type="submit" disabled={loading} aria-busy={loading} className="font-heading inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#B4FF45] px-4 text-base font-bold text-[#10151b] transition hover:bg-[#C8FF7A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] disabled:cursor-wait disabled:opacity-60 sm:text-lg">
+                  {loading && <LoaderCircle size={17} className="animate-spin" aria-hidden="true" />}
+                  {loading ? (isRegister ? 'Creando cuenta' : 'Procesando') : view === 'forgot' ? 'Enviar enlace' : view === 'reset' ? 'Guardar contraseña' : isRegister ? 'Crear cuenta' : 'Entrar a mi cuenta'}
+                </button>
+                {(view === 'forgot' || view === 'reset') && (
+                  <button type="button" disabled={loading} onClick={() => { setView('login'); setMessage('') }} className="mx-auto block text-sm font-semibold text-slate-300 transition hover:text-white">← Volver a iniciar sesión</button>
+                )}
               </div>
-            </label>
+            </form>
           )}
+        </div>
 
-          {isRegister && accountType === 'persona' && (
-            <>
-              <label className="relative block">
-                <UserRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#B4FF45]" size={17} />
-                <input required name="fullName" className={`${fieldClass} pl-10`} placeholder="Nombre completo" />
-              </label>
-              <RoleSelector roles={roles} onChange={setRoles} />
-            </>
-          )}
-
-          {isRegister && accountType === 'equipo' && (
-            <section className="space-y-4 rounded-[5px] border border-[#B4FF45]/25 bg-white/[.03] p-4 sm:p-5">
-              <div>
-                <p className="font-heading text-lg uppercase tracking-wide text-[#B4FF45]">Datos del equipo</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">Este perfil representará a tu equipo. Podrás completar la plantilla y los datos deportivos desde su panel.</p>
-              </div>
-              <input required name="teamName" className={fieldClass} placeholder="Nombre del equipo" />
-              <StyledSelect label="Disciplina" name="teamDiscipline" value={teamDiscipline} onChange={setTeamDiscipline} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder={disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'} required />
-              <StyledSelect label="Modalidad" name="teamModality" value={teamModality} onChange={setTeamModality} options={modalities.filter((modality) => modality.discipline_id === teamDiscipline).map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={teamDiscipline && modalities.some((modality) => modality.discipline_id === teamDiscipline) ? 'Seleccionar modalidad' : 'Modalidad opcional'} disabled={!teamDiscipline || !modalities.some((modality) => modality.discipline_id === teamDiscipline)} />
-              {disciplineError && <p className="text-xs leading-5 text-amber-200">{disciplineError}</p>}
-              <LocationFields country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
-            </section>
-          )}
-
-          {isRegister && accountType === 'organizacion' && (
-            <section className="space-y-4 rounded-[5px] border border-[#B4FF45]/25 bg-white/[.03] p-4 sm:p-5">
-              <div>
-                <p className="font-heading text-lg uppercase tracking-wide text-[#B4FF45]">Datos de la organización</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">Define la identidad institucional y las disciplinas que administra.</p>
-              </div>
-              <input required name="organizationName" className={fieldClass} placeholder="Nombre de la organización" />
-              <StyledSelect label="Tipo de organización" name="organizationType" value={organizationType} onChange={setOrganizationType} options={[
-                { value: 'organizacion_deportiva', label: 'Organización deportiva' },
-                { value: 'comite_olimpico', label: 'Comité olímpico' },
-                { value: 'institucion_gubernamental', label: 'Institución gubernamental' },
-                { value: 'federacion', label: 'Federación' },
-                { value: 'union', label: 'Unión' },
-                { value: 'liga', label: 'Liga' },
-                { value: 'otro', label: 'Otro' },
-              ]} />
-              <LocationFields country={organizationCountry} city={organizationCity} onCountryChange={setOrganizationCountry} onCityChange={setOrganizationCity} />
-              <fieldset>
-                <legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">Disciplinas representadas</legend>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {disciplines.map((discipline) => <label key={discipline.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border border-white/10 px-3 text-sm text-slate-300 transition hover:border-[#B4FF45]/50"><input type="checkbox" checked={organizationDisciplines.includes(discipline.id)} onChange={(event) => setOrganizationDisciplines((current) => event.target.checked ? [...current, discipline.id] : current.filter((id) => id !== discipline.id))} className="accent-[#B4FF45]" />{discipline.name}</label>)}
-                  {!disciplines.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{disciplineError || 'Cargando disciplinas...'}</p>}
-                </div>
-              </fieldset>
-              {organizationDisciplines.length > 0 && <fieldset className="rounded-[5px]"><legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">Modalidades que maneja</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{modalities.filter((modality) => organizationDisciplines.includes(modality.discipline_id)).map((modality) => <label key={modality.id} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border border-white/10 px-3 text-sm text-slate-300 transition hover:border-[#B4FF45]/50"><input type="checkbox" checked={organizationModalities.includes(modality.id)} onChange={(event) => setOrganizationModalities((current) => event.target.checked ? [...current, modality.id] : current.filter((id) => id !== modality.id))} className="accent-[#B4FF45]" />{modality.name}</label>)}</div></fieldset>}
-            </section>
-          )}
-
-          {!inviteMode && <FieldWithIcon icon={<Mail size={17} />}><input required name="email" type="email" className="h-11 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Correo electrónico" /></FieldWithIcon>}
-          {!inviteMode && <PasswordField name="password" placeholder="Contraseña" visible={showPassword} onToggle={() => setShowPassword((current) => !current)} />}
-          {isRegister && !inviteMode && <PasswordField name="confirmation" placeholder="Confirmar contraseña" visible={showConfirmation} onToggle={() => setShowConfirmation((current) => !current)} />}
-
-          <button type="submit" disabled={loading} aria-busy={loading} className="font-heading inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#B4FF45] px-4 text-base font-bold text-[#10151b] transition hover:bg-[#C8FF7A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] disabled:cursor-wait disabled:opacity-60 sm:text-lg">
-            {loading && <LoaderCircle size={17} className="animate-spin" aria-hidden="true" />}
-            {loading ? (inviteMode ? 'Verificando invitación' : isRegister ? 'Creando cuenta' : 'Iniciando sesión') : inviteMode ? 'Confirmar participación' : isRegister ? 'Crear cuenta' : 'Entrar a mi cuenta'}
-          </button>
-        </form>
         {message && <p role="status" aria-live="polite" className="mt-4 rounded-[5px] border border-[#B4FF45]/30 bg-[#B4FF45]/10 p-3 text-sm leading-5 text-[#D9FFB1]">{message}</p>}
       </div>
     </div>
   )
+}
+
+function FormSection({ children }: { children: ReactNode }) {
+  return <section className="space-y-3">{children}</section>
+}
+
+// Paso 1: tres tarjetas grandes. Al elegir una, el formulario entra con sus campos.
+function AccountTypeStep({ onSelect, direction, disabled }: { onSelect: (type: AccountType) => void; direction: 'forward' | 'back'; disabled: boolean }) {
+  const options: { type: AccountType; title: string; text: string; Icon: typeof UserRound }[] = [
+    { type: 'persona', title: 'Persona', text: 'Atletas, entrenadores, staff o directivos que participan o siguen torneos.', Icon: UserRound },
+    { type: 'equipo', title: 'Equipo', text: 'Un equipo con su disciplina, ciudad y plantilla.', Icon: Users },
+    { type: 'organizacion', title: 'Organización', text: 'Instituciones, ligas o federaciones que organizan torneos y disciplinas.', Icon: Building2 },
+  ]
+
+  return (
+    <div className={`space-y-3 ${direction === 'back' ? 'athlonx-step-back' : 'athlonx-step'}`}>
+      <div className="grid gap-3">
+        {options.map(({ type, title, text, Icon }) => (
+          <button
+            key={type}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(type)}
+            className="group flex items-center gap-4 rounded-[5px] border border-white/15 bg-white/[.03] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[#B4FF45] hover:bg-[#B4FF45]/[.07] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] active:scale-[.99] disabled:pointer-events-none"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] border border-[#B4FF45]/40 text-[#B4FF45] transition duration-300 group-hover:scale-105 group-hover:bg-[#B4FF45] group-hover:text-[#10151b]">
+              <Icon size={22} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="font-heading block text-lg font-bold text-white">{title}</span>
+              <span className="mt-1 block text-sm leading-5 text-slate-400">{text}</span>
+            </span>
+            <ChevronLeft size={18} aria-hidden="true" className="shrink-0 rotate-180 text-slate-500 transition duration-300 group-hover:translate-x-1 group-hover:text-[#B4FF45]" />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Disciplinas de una organización. Con muchas disciplinas aparece un buscador y la lista tiene desplazamiento.
+function DisciplinePicker({ disciplines, selected, onChange, emptyMessage }: { disciplines: Discipline[]; selected: string[]; onChange: (ids: string[]) => void; emptyMessage: string }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = normalizeText(query.trim())
+  const visible = disciplines.filter((discipline) => normalizeText(discipline.name).includes(normalizedQuery))
+  const selectedDisciplines = disciplines.filter((discipline) => selected.includes(discipline.id))
+
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((currentId) => currentId !== id) : [...selected, id])
+  }
+
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
+        Disciplinas que representa <span className="normal-case tracking-normal text-slate-500">({selected.length} seleccionadas)</span>
+      </legend>
+
+      {selectedDisciplines.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedDisciplines.map((discipline) => (
+            <span key={discipline.id} className="inline-flex items-center gap-1 rounded-full border border-[#B4FF45]/50 bg-[#B4FF45]/10 py-1 pl-3 pr-1 text-xs font-semibold text-[#D9FFB1]">
+              {discipline.name}
+              <button type="button" aria-label={`Quitar ${discipline.name}`} onClick={() => toggle(discipline.id)} className="inline-flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-white/10">
+                <X size={12} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {disciplines.length > 6 && (
+        <div className="relative">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#B4FF45]" />
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar disciplina" aria-label="Buscar disciplina" className="h-10 w-full rounded-[5px] border border-white/15 bg-white/[.04] pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#B4FF45]" />
+        </div>
+      )}
+
+      <div className="max-h-56 overflow-y-auto overscroll-contain rounded-[5px] border border-white/10 bg-black/20 p-1.5">
+        {!disciplines.length && <p className="px-2 py-3 text-xs leading-5 text-amber-200">{emptyMessage}</p>}
+        {disciplines.length > 0 && !visible.length && <p className="px-2 py-3 text-xs text-slate-400">No encontramos disciplinas con ese nombre.</p>}
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {visible.map((discipline) => {
+            const checked = selected.includes(discipline.id)
+            return (
+              <label key={discipline.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border px-3 text-sm transition ${checked ? 'border-[#B4FF45]/60 bg-[#B4FF45]/10 text-white' : 'border-white/10 text-slate-300 hover:border-[#B4FF45]/40'}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggle(discipline.id)} className="accent-[#B4FF45]" />
+                {discipline.name}
+              </label>
+            )
+          })}
+        </div>
+      </div>
+    </fieldset>
+  )
+}
+
+function normalizeText(text: string) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
 function FieldWithIcon({ icon, children }: { icon: ReactNode; children: ReactNode }) {
@@ -308,17 +617,19 @@ function RoleSelector({ roles, onChange }: { roles: string[]; onChange: (roles: 
   }
 
   return (
-    <fieldset className="rounded-[5px] border border-white/15 bg-white/[.03] p-4">
-      <legend className="px-1 text-sm font-semibold text-slate-300">¿Cómo utilizarás AthlonX?</legend>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {availableRoles.map(([value, label]) => (
-          <label key={value} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border border-transparent px-2 text-sm text-slate-300 transition hover:border-white/15 hover:bg-white/[.03]">
-            <input type="checkbox" checked={roles.includes(value)} onChange={() => toggleRole(value)} className="accent-[#B4FF45]" />
-            {label}
-          </label>
-        ))}
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-semibold text-slate-300">¿Cómo utilizarás AthlonX?</legend>
+      <div className="flex flex-wrap gap-2">
+        {availableRoles.map(([value, label]) => {
+          const checked = roles.includes(value)
+          return (
+            <label key={value} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm transition ${checked ? 'border-[#B4FF45]/60 bg-[#B4FF45]/10 text-white' : 'border-white/15 text-slate-300 hover:border-[#B4FF45]/40'}`}>
+              <input type="checkbox" checked={checked} onChange={() => toggleRole(value)} className="accent-[#B4FF45]" />
+              {label}
+            </label>
+          )
+        })}
       </div>
-      <p className="mt-3 text-xs text-slate-500">Puedes cambiar tus roles y vincularte a una organización después.</p>
     </fieldset>
   )
 }

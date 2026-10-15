@@ -1,0 +1,239 @@
+'use client'
+
+import { useState } from 'react'
+import { LogoutAction } from '../logout-confirmation'
+import { supabase } from '../../lib/supabase'
+import { completenessOf } from '../../lib/mi-perfil'
+import type { Discipline, TeamProfile, Theme } from '../../lib/mi-perfil'
+import { Card, Chip, Field, Hero, ListRow, Pending, ReadValue, SaveBar, Segmented, Shell, Toggle } from './ui'
+
+export const teamSections = [
+  { id: 'identidad', label: 'Identidad' },
+  { id: 'divisiones', label: 'Divisiones' },
+  { id: 'roles', label: 'Roles y organización' },
+  { id: 'configuracion', label: 'Configuración' },
+  { id: 'seguridad', label: 'Seguridad' },
+  { id: 'cuenta', label: 'Cuenta' },
+]
+
+const roleLabels: Record<string, string> = { owner: 'Propietario', directivo: 'Directivo', entrenador: 'Entrenador', staff: 'Staff', atleta: 'Atleta' }
+const levelLabels: Record<string, string> = { primera: 'Primera', segunda: 'Segunda', unica: 'Única' }
+const ageLabels: Record<string, string> = { mayores: 'Mayores', 'sub-18': 'Sub-18', 'sub-16': 'Sub-16', 'sub-14': 'Sub-14', 'sub-12': 'Sub-12' }
+const genderLabels: Record<string, string> = { masculino: 'Masculino', femenino: 'Femenino', mixto: 'Mixto' }
+const descriptionWordLimit = 300
+
+function wordCount(text: string) {
+  return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+export function TeamProfileView({
+  team,
+  disciplines,
+  theme,
+  onTheme,
+  section,
+  onSection,
+  noticesEnabled,
+  onNotices,
+  onSaved,
+}: {
+  team: TeamProfile
+  disciplines: Discipline[]
+  theme: Theme
+  onTheme: (theme: Theme) => void
+  section: string
+  onSection: (id: string) => void
+  noticesEnabled: boolean
+  onNotices: (value: boolean) => void
+  onSaved: () => void
+}) {
+  const canEdit = team.myRole === 'owner' || team.myRole === 'directivo'
+  const [name, setName] = useState(team.name)
+  const [handle, setHandle] = useState(team.handle)
+  const [description, setDescription] = useState(team.description)
+  const [city, setCity] = useState(team.city)
+  const [country, setCountry] = useState(team.country)
+  const [disciplineId, setDisciplineId] = useState(team.disciplineId)
+  const [contactEmail, setContactEmail] = useState(team.contactEmail)
+  const [contactPhone, setContactPhone] = useState(team.contactPhone)
+  const [websiteUrl, setWebsiteUrl] = useState(team.websiteUrl)
+  const [isPublic, setIsPublic] = useState(team.isPublic)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+  const percent = completenessOf([
+    Boolean(team.name),
+    Boolean(team.handle),
+    Boolean(team.description),
+    Boolean(team.city),
+    Boolean(team.disciplineId),
+    Boolean(team.contactEmail || team.contactPhone),
+    team.divisions.length > 0,
+    Boolean(team.organizationName),
+  ])
+
+  function flash(text: string) {
+    setMessage(text)
+    setError('')
+    window.setTimeout(() => setMessage(''), 2500)
+  }
+
+  async function saveIdentity() {
+    if (!supabase) return
+    if (!name.trim()) return setError('El nombre del equipo es obligatorio.')
+    if (wordCount(description) > descriptionWordLimit) return setError(`La descripción no puede pasar de ${descriptionWordLimit} palabras.`)
+    setSaving(true)
+    const { error: rpcError } = await supabase.rpc('update_team_profile', {
+      p_team_id: team.id,
+      p_name: name.trim(),
+      p_description: description.trim() || null,
+      p_logo_url: team.logoUrl || null,
+      p_country: country.trim() || 'Panamá',
+      p_city: city.trim() || null,
+      p_contact_email: contactEmail.trim() || null,
+      p_contact_phone: contactPhone.trim() || null,
+      p_website_url: websiteUrl.trim() || null,
+      p_handle: handle.trim() || null,
+      p_discipline_id: disciplineId || null,
+      p_is_public: isPublic,
+    })
+    setSaving(false)
+    if (rpcError) return setError(rpcError.message)
+    onSaved()
+    flash('Equipo guardado.')
+  }
+
+  async function saveTheme(next: Theme) {
+    onTheme(next)
+    try { window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark') } catch { /* sin almacenamiento local */ }
+    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    if (supabase) {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  async function saveNotices(value: boolean) {
+    onNotices(value)
+    if (supabase) {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme, notices_enabled: value, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  const sectionLabel = teamSections.find((item) => item.id === section)?.label ?? 'Identidad'
+  const disciplineName = disciplines.find((item) => item.id === disciplineId)?.name ?? team.disciplineName
+
+  return (
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={teamSections} activeSection={section} onSection={onSection}>
+      <Hero
+        initials={initials}
+        title={name || 'Equipo pendiente'}
+        subtitle={[team.city, team.country].filter(Boolean).join(', ') || 'Ubicación pendiente'}
+        percent={percent}
+        chips={<>
+          {team.athlonxCode && <Chip tone="lime">{team.athlonxCode}</Chip>}
+          <Chip>{disciplineName}</Chip>
+          <Chip>{roleLabels[team.myRole] ?? team.myRole}</Chip>
+        </>}
+      />
+
+      {section === 'identidad' && (
+        <Card title="Datos del equipo" description={canEdit ? 'Los cambios se guardan en el perfil público del equipo.' : 'Solo el propietario o directivos pueden editar este perfil.'}>
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field label="Nombre" value={name} onChange={setName} disabled={!canEdit} maxLength={80} />
+            <Field label="Usuario público" value={handle} onChange={setHandle} disabled={!canEdit} maxLength={40} hint="Letras, números, puntos, guiones." />
+            <label className="block">
+              <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Disciplina</span>
+              <select className="mt-2 w-full rounded-[5px] border border-[var(--mp-line)] bg-[var(--mp-raised)] px-4 py-3 text-[var(--mp-text)] disabled:opacity-60" value={disciplineId} disabled={!canEdit} onChange={(event) => setDisciplineId(event.target.value)}>
+                <option value="">Sin disciplina</option>
+                {disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            <Field label="Ciudad" value={city} onChange={setCity} disabled={!canEdit} maxLength={60} />
+            <Field label="País" value={country} onChange={setCountry} disabled={!canEdit} maxLength={60} />
+            <Field label="Correo de contacto" type="email" value={contactEmail} onChange={setContactEmail} disabled={!canEdit} />
+            <Field label="Teléfono de contacto" value={contactPhone} onChange={setContactPhone} disabled={!canEdit} />
+            <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={!canEdit} />
+          </div>
+          <div className="mt-5">
+            <Field label="Descripción" as="textarea" value={description} onChange={setDescription} disabled={!canEdit} hint={`Máximo ${descriptionWordLimit} palabras.`} placeholder="Cuenta la historia del equipo." />
+            <p className={`mt-1 text-right text-xs ${wordCount(description) > descriptionWordLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{wordCount(description)}/{descriptionWordLimit} palabras</p>
+          </div>
+          {canEdit && <SaveBar onSave={saveIdentity} saving={saving} message={message} error={error} />}
+        </Card>
+      )}
+
+      {section === 'identidad' && (
+        <Card title="Código AthlonX" description="Identificador del equipo. No se puede cambiar.">
+          <ReadValue label="Código del equipo" value={team.athlonxCode} copyable />
+        </Card>
+      )}
+
+      {section === 'divisiones' && (
+        <Card title="Divisiones" description="Cada división tiene su propio código AthlonX y sus atributos. Se gestionan desde Mi equipo.">
+          <div className="space-y-3">
+            {team.divisions.length ? team.divisions.map((division) => (
+              <ListRow
+                key={division.id}
+                title={division.name}
+                meta={[division.level && levelLabels[division.level], division.ageGroup && ageLabels[division.ageGroup], division.gender && genderLabels[division.gender], division.athlonxCode].filter(Boolean).join(' · ')}
+              />
+            )) : <Pending>Este equipo todavía no tiene divisiones.</Pending>}
+          </div>
+        </Card>
+      )}
+
+      {section === 'roles' && (
+        <>
+          <Card title="Roles del equipo" description="Cantidad de integrantes activos por rol.">
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(team.memberCounts).length ? Object.entries(team.memberCounts).map(([role, count]) => (
+                <Chip key={role} tone="lime">{roleLabels[role] ?? role}: {count}</Chip>
+              )) : <Pending>Aún no hay integrantes activos.</Pending>}
+            </div>
+          </Card>
+          <Card title="Organización" description="Organización a la que está afiliado el equipo.">
+            {team.organizationName ? <ListRow title={team.organizationName} /> : <Pending>Este equipo no está afiliado a una organización.</Pending>}
+          </Card>
+        </>
+      )}
+
+      {section === 'configuracion' && (
+        <Card title="Visibilidad" description="Define si el perfil del equipo aparece en la búsqueda pública.">
+          <div className="space-y-3">
+            <Toggle label="Perfil público" description="Otras cuentas podrán ver el perfil del equipo." checked={isPublic} disabled={!canEdit} onChange={setIsPublic} />
+          </div>
+          {canEdit && <SaveBar onSave={saveIdentity} saving={saving} message={message} error={error} />}
+        </Card>
+      )}
+
+      {section === 'seguridad' && (
+        <Card title="Seguridad" description="La contraseña se cambia desde la sección Seguridad de tu cuenta personal.">
+          <Pending>Cada integrante administra su propia contraseña.</Pending>
+        </Card>
+      )}
+
+      {section === 'cuenta' && (
+        <>
+          <Card title="Preferencias" description="Se guardan en tu cuenta y se aplican en cualquier dispositivo.">
+            <div className="space-y-5">
+              <div>
+                <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Tema</span>
+                <div className="mt-2">
+                  <Segmented<Theme> options={[{ value: 'oscuro', label: 'Oscuro' }, { value: 'claro', label: 'Claro' }]} value={theme} onChange={saveTheme} />
+                </div>
+              </div>
+              <Toggle label="Avisos de la plataforma" description="Novedades y avisos de AthlonX." checked={noticesEnabled} onChange={saveNotices} />
+            </div>
+          </Card>
+          <Card title="Sesión">
+            <LogoutAction />
+          </Card>
+        </>
+      )}
+    </Shell>
+  )
+}
