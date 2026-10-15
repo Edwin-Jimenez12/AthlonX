@@ -5,7 +5,7 @@ import { SiGmail } from "react-icons/si";
 // Enlaces oficiales de AthlonX. WhatsApp usa el formato internacional de Panamá (+507).
 export const ATHLONX_WHATSAPP_NUMBER = "50765591976";
 export const ATHLONX_CONTACT_EMAIL = "contacto@nexdigitaldev.com";
-export const ATHLONX_INSTAGRAM_URL = "https://www.instagram.com/athlonx.pan";
+export const ATHLONX_INSTAGRAM_URL = "https://www.instagram.com/athlonx.pa";
 
 const navLinks = [
   { label: "Inicio", href: "/" },
