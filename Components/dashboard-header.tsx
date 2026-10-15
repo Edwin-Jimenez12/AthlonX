@@ -14,6 +14,7 @@ const titles: Record<string, string> = {
   busqueda: 'Búsqueda',
   atleta: 'Vista del atleta',
   'perfil-publico': 'Perfil público',
+  'mi-perfil': 'Mi perfil',
   equipo: 'Mi equipo',
   entrenador: 'Panel del entrenador',
   staff: 'Panel del staff',
@@ -125,29 +126,29 @@ export function DashboardHeader() {
 
     const destination = context.contextType === 'personal'
       ? context.role === 'entrenador'
-        ? '/dashboard/entrenador'
+        ? '/entrenador'
         : context.role === 'staff'
-          ? context.contextType === 'personal' ? '/dashboard/calendario' : '/dashboard/staff'
+          ? context.contextType === 'personal' ? '/calendario' : '/staff'
           : context.role === 'atleta'
-            ? '/dashboard/atleta'
-            : '/dashboard/organizaciones'
+            ? '/atleta'
+            : '/organizaciones'
       : context.contextType === 'organization'
-      ? '/dashboard/organizaciones'
+      ? '/organizaciones'
       : context.role === 'entrenador'
-        ? '/dashboard/entrenador'
+        ? '/entrenador'
         : context.role === 'staff'
-          ? '/dashboard/staff'
+          ? '/staff'
           : context.role === 'atleta'
-            ? '/dashboard/atleta'
+            ? '/atleta'
             : context.contextType === 'team'
-              ? '/dashboard/equipo'
-              : '/dashboard/perfil'
+              ? '/equipo'
+              : '/mi-perfil'
 
     if (pathname !== destination) router.push(destination)
   }
 
   const initials = profileName.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
-  const key = pathname?.startsWith('/dashboard/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
+  const key = pathname?.startsWith('/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
   const activeContext = contexts.find((context) => context.id === activeContextId)
   const selectableContexts = contexts
   const canSwitchContexts = selectableContexts.length > 1

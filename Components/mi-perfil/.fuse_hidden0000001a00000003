@@ -1,0 +1,245 @@
+'use client'
+
+import { useState } from 'react'
+import { LogoutAction } from '../logout-confirmation'
+import { supabase } from '../../lib/supabase'
+import { completenessOf } from '../../lib/mi-perfil'
+import type { Discipline, OrganizationProfile, Theme } from '../../lib/mi-perfil'
+import { Card, Chip, Field, Hero, ListRow, Pending, ReadValue, SaveBar, Segmented, Shell, Toggle } from './ui'
+
+export const organizationSections = [
+  { id: 'identidad', label: 'Identidad' },
+  { id: 'disciplinas', label: 'Disciplinas' },
+  { id: 'equipos', label: 'Equipos' },
+  { id: 'directivos', label: 'Directivos' },
+  { id: 'torneos', label: 'Torneos' },
+  { id: 'configuracion', label: 'Configuración' },
+  { id: 'seguridad', label: 'Seguridad' },
+  { id: 'cuenta', label: 'Cuenta' },
+]
+
+const organizationTypes = [
+  ['organizacion_deportiva', 'Organización deportiva'],
+  ['comite_olimpico', 'Comité olímpico'],
+  ['institucion_gubernamental', 'Institución gubernamental'],
+  ['federacion', 'Federación'],
+  ['union', 'Unión'],
+  ['liga', 'Liga'],
+  ['otro', 'Otro'],
+] as const
+
+const typeLabel = (type: string) => organizationTypes.find(([value]) => value === type)?.[1] ?? type
+const roleLabel = (role: string) => (role === 'owner' ? 'Propietario' : 'Directivo')
+
+export function OrganizationProfileView({
+  organization,
+  disciplines,
+  theme,
+  onTheme,
+  section,
+  onSection,
+  noticesEnabled,
+  onNotices,
+  onSaved,
+}: {
+  organization: OrganizationProfile
+  disciplines: Discipline[]
+  theme: Theme
+  onTheme: (theme: Theme) => void
+  section: string
+  onSection: (id: string) => void
+  noticesEnabled: boolean
+  onNotices: (value: boolean) => void
+  onSaved: () => void
+}) {
+  const canEdit = organization.canEdit
+  const [name, setName] = useState(organization.name)
+  const [type, setType] = useState(organization.type)
+  const [handle, setHandle] = useState(organization.handle)
+  const [country, setCountry] = useState(organization.country)
+  const [city, setCity] = useState(organization.city)
+  const [description, setDescription] = useState(organization.description)
+  const [contactEmail, setContactEmail] = useState(organization.contactEmail)
+  const [contactPhone, setContactPhone] = useState(organization.contactPhone)
+  const [websiteUrl, setWebsiteUrl] = useState(organization.websiteUrl)
+  const [isPublic, setIsPublic] = useState(organization.isPublic)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+  const percent = completenessOf([
+    Boolean(organization.name),
+    Boolean(organization.handle),
+    Boolean(organization.type),
+    Boolean(organization.city),
+    Boolean(organization.description),
+    Boolean(organization.contactEmail || organization.contactPhone),
+    organization.disciplineIds.length > 0,
+    organization.teams.length > 0,
+  ])
+
+  function flash(text: string) {
+    setMessage(text)
+    setError('')
+    window.setTimeout(() => setMessage(''), 2500)
+  }
+
+  async function saveIdentity() {
+    if (!supabase) return
+    if (!name.trim()) return setError('El nombre de la organización es obligatorio.')
+    setSaving(true)
+    // La RPC reescribe todos los campos, por eso se envían también los que no se editan aquí
+    // (logo, redes, disciplinas y modalidades) con su valor actual.
+    const { error: rpcError } = await supabase.rpc('update_organization_public_profile', {
+      p_organization_id: organization.id,
+      p_profile: {
+        name: name.trim(),
+        type,
+        handle: handle.trim() || null,
+        country: country.trim() || 'Panamá',
+        city: city.trim() || null,
+        description: description.trim() || null,
+        logo_url: organization.logoUrl || null,
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        website_url: websiteUrl.trim() || null,
+        social_links: organization.socialLinks,
+        is_public: isPublic,
+      },
+      p_discipline_ids: organization.disciplineIds,
+      p_modality_ids: organization.modalityIds,
+    })
+    setSaving(false)
+    if (rpcError) return setError(rpcError.message)
+    onSaved()
+    flash('Organización guardada.')
+  }
+
+  async function saveTheme(next: Theme) {
+    onTheme(next)
+    try { window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark') } catch { /* sin almacenamiento local */ }
+    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    if (supabase) {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  async function saveNotices(value: boolean) {
+    onNotices(value)
+    if (supabase) {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme, notices_enabled: value, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    }
+  }
+
+  const sectionLabel = organizationSections.find((item) => item.id === section)?.label ?? 'Identidad'
+
+  return (
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={organizationSections} activeSection={section} onSection={onSection}>
+      <Hero
+        initials={initials}
+        title={name || 'Organización pendiente'}
+        subtitle={[typeLabel(type), city, country].filter(Boolean).join(' · ')}
+        percent={percent}
+        chips={<>
+          {organization.athlonxCode && <Chip tone="lime">{organization.athlonxCode}</Chip>}
+          {organization.disciplineNames.map((item) => <Chip key={item}>{item}</Chip>)}
+        </>}
+      />
+
+      {section === 'identidad' && (
+        <Card title="Datos de la organización" description={canEdit ? 'Estos datos aparecen en el perfil público.' : 'Solo propietarios y directivos pueden editar estos datos.'}>
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field label="Nombre" value={name} onChange={setName} disabled={!canEdit} maxLength={100} />
+            <Field label="Usuario público" value={handle} onChange={setHandle} disabled={!canEdit} maxLength={40} />
+            <label className="block">
+              <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Tipo</span>
+              <select className="mt-2 w-full rounded-[5px] border border-[var(--mp-line)] bg-[var(--mp-raised)] px-4 py-3 text-[var(--mp-text)] disabled:opacity-60" value={type} disabled={!canEdit} onChange={(event) => setType(event.target.value)}>
+                {organizationTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <Field label="País" value={country} onChange={setCountry} disabled={!canEdit} maxLength={60} />
+            <Field label="Ciudad" value={city} onChange={setCity} disabled={!canEdit} maxLength={60} />
+            <Field label="Correo de contacto" type="email" value={contactEmail} onChange={setContactEmail} disabled={!canEdit} />
+            <Field label="Teléfono de contacto" value={contactPhone} onChange={setContactPhone} disabled={!canEdit} />
+            <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={!canEdit} />
+          </div>
+          <div className="mt-5">
+            <Field label="Descripción" as="textarea" value={description} onChange={setDescription} disabled={!canEdit} maxLength={1200} />
+          </div>
+          <div className="mt-5">
+            <Toggle label="Perfil público" description="Permite que la organización aparezca en la búsqueda pública." checked={isPublic} disabled={!canEdit} onChange={setIsPublic} />
+          </div>
+          {canEdit && <SaveBar onSave={saveIdentity} saving={saving} message={message} error={error} />}
+        </Card>
+      )}
+
+      {section === 'identidad' && (
+        <Card title="Código AthlonX" description="Identificador de la organización. No se puede cambiar.">
+          <ReadValue label="Código de la organización" value={organization.athlonxCode} copyable />
+        </Card>
+      )}
+
+      {section === 'disciplinas' && (
+        <Card title="Disciplinas y modalidades" description="Disciplinas en las que la organización organiza torneos.">
+          <div className="flex flex-wrap gap-2">
+            {organization.disciplineNames.length ? organization.disciplineNames.map((item) => <Chip key={item} tone="lime">{item}</Chip>) : <Pending>Sin disciplinas seleccionadas.</Pending>}
+          </div>
+          <p className="mt-4 text-xs text-[var(--mp-muted)]">Disponibles: {disciplines.map((item) => item.name).join(', ') || 'ninguna'}.</p>
+        </Card>
+      )}
+
+      {section === 'equipos' && (
+        <Card title="Equipos afiliados" description="Equipos oficiales vinculados a esta organización.">
+          <div className="space-y-3">
+            {organization.teams.length ? organization.teams.map((team) => <ListRow key={team.id} title={team.name} meta={team.athlonxCode} />) : <Pending>Aún no hay equipos oficiales afiliados.</Pending>}
+          </div>
+        </Card>
+      )}
+
+      {section === 'directivos' && (
+        <Card title="Directivos" description="Personas con permisos de administración en la organización.">
+          <div className="space-y-3">
+            {organization.directivos.length ? organization.directivos.map((person) => <ListRow key={person.userId} title={person.fullName} right={<Chip>{roleLabel(person.role)}</Chip>} />) : <Pending>Sin directivos activos.</Pending>}
+          </div>
+        </Card>
+      )}
+
+      {section === 'torneos' && (
+        <Card title="Torneos" description="Torneos creados por la organización.">
+          <div className="space-y-3">
+            {organization.tournaments.length ? organization.tournaments.map((item) => <ListRow key={item.id} title={item.name} meta={item.season ?? undefined} />) : <Pending>La organización aún no tiene torneos.</Pending>}
+          </div>
+        </Card>
+      )}
+
+      {section === 'configuracion' && (
+        <Card title="Preferencias" description="Se guardan en tu cuenta.">
+          <div className="space-y-5">
+            <div>
+              <span className="font-heading text-xs font-bold uppercase tracking-[.16em] text-[var(--mp-muted)]">Tema</span>
+              <div className="mt-2">
+                <Segmented<Theme> options={[{ value: 'oscuro', label: 'Oscuro' }, { value: 'claro', label: 'Claro' }]} value={theme} onChange={saveTheme} />
+              </div>
+            </div>
+            <Toggle label="Avisos de la plataforma" description="Novedades y avisos de AthlonX." checked={noticesEnabled} onChange={saveNotices} />
+          </div>
+        </Card>
+      )}
+
+      {section === 'seguridad' && (
+        <Card title="Seguridad" description="Cada directivo administra su propia contraseña desde su cuenta personal.">
+          <Pending>Los cambios de contraseña se hacen desde la cuenta que inició sesión.</Pending>
+        </Card>
+      )}
+
+      {section === 'cuenta' && (
+        <Card title="Sesión">
+          <LogoutAction />
+        </Card>
+      )}
+    </Shell>
+  )
+}

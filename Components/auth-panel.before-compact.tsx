@@ -202,7 +202,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
         if (selectedContext.teamId) window.localStorage.setItem('athlonx-active-team-id', selectedContext.teamId)
       }
-      router.push('/dashboard/busqueda')
+      router.push('/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
     } finally {

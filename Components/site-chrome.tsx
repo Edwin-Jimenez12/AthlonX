@@ -160,6 +160,22 @@ export default function SiteChrome({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Las páginas públicas siempre usan el tema oscuro original. El tema del panel no debe quedarse en el sitio.
+  useEffect(() => {
+    if (!isPublic) return
+    document.documentElement.removeAttribute("data-theme")
+  }, [isPublic, pathname])
+
+  // Al iniciar sesión o crear la cuenta, el modal se cierra. La sesión se conserva.
+  useEffect(() => {
+    function handleAuthDone() {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current)
+      setAuth({ mode: null, shown: false })
+    }
+    window.addEventListener("athlonx-auth-done", handleAuthDone)
+    return () => window.removeEventListener("athlonx-auth-done", handleAuthDone)
+  }, [])
+
   // Enlaces de restablecimiento: Supabase abre el sitio con la sesión temporal de recuperación.
   // La marca se guarda para que el formulario siga disponible si la página se recarga o se cambia de pestaña.
   useEffect(() => {

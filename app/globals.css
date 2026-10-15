@@ -137,35 +137,35 @@ html[data-theme='light'] .athlonx-dashboard main [class*="bg-[#0d1d2b"] {
   color: var(--ax-text) !important;
 }
 
-html[data-theme='dark'] body main {
+html[data-theme='dark'] .athlonx-dashboard main {
   background-color: #07131e !important;
   color: #e8eef3;
 }
 
-html[data-theme='dark'] body main section,
-html[data-theme='dark'] body main article {
+html[data-theme='dark'] .athlonx-dashboard main section,
+html[data-theme='dark'] .athlonx-dashboard main article {
   border-color: #263b4d !important;
 }
 
-html[data-theme='dark'] body main input,
-html[data-theme='dark'] body main select,
-html[data-theme='dark'] body main textarea {
+html[data-theme='dark'] .athlonx-dashboard main input,
+html[data-theme='dark'] .athlonx-dashboard main select,
+html[data-theme='dark'] .athlonx-dashboard main textarea {
   border-color: #31485c !important;
   background-color: #0d1d2b !important;
   color: #f7fafc !important;
 }
 
-html[data-theme='dark'] body main .bg-white {
+html[data-theme='dark'] .athlonx-dashboard main .bg-white {
   background-color: #0d1d2b !important;
 }
 
-html[data-theme='dark'] body main .text-\[\#081522\],
-html[data-theme='dark'] body main .text-\[\#17212b\] {
+html[data-theme='dark'] .athlonx-dashboard main .text-\[\#081522\],
+html[data-theme='dark'] .athlonx-dashboard main .text-\[\#17212b\] {
   color: #f7fafc !important;
 }
 
-html[data-theme='dark'] body main .text-slate-500,
-html[data-theme='dark'] body main .text-slate-600 {
+html[data-theme='dark'] .athlonx-dashboard main .text-slate-500,
+html[data-theme='dark'] .athlonx-dashboard main .text-slate-600 {
   color: #9bb0c2 !important;
 }
 

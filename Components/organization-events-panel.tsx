@@ -377,7 +377,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
 
           {message && <p role="status" className="mt-5 rounded-xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">El torneo se guardará como borrador para completar su configuración.</p><button type="submit" disabled={loading} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#081522] transition hover:bg-[#c8ff7a] disabled:cursor-wait disabled:opacity-60">{loading ? 'Creando...' : 'Crear torneo'}</button></div>
-          {createdTournament && <Link href={`/dashboard/torneos/ver/${createdTournament.id}`} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver torneo <span aria-hidden="true">→</span></Link>}
+          {createdTournament && <Link href={`/torneos/ver/${createdTournament.id}`} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver torneo <span aria-hidden="true">→</span></Link>}
         </form>}
       </div>
     </section>

@@ -104,6 +104,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }
     const firstName = (form.elements.namedItem('firstName') as HTMLInputElement | null)?.value.trim() ?? ''
     const lastName = (form.elements.namedItem('lastName') as HTMLInputElement | null)?.value.trim() ?? ''
+    const birthDate = (form.elements.namedItem('birthDate') as HTMLInputElement | null)?.value ?? ''
     const password = (form.elements.namedItem('password') as HTMLInputElement).value
     const confirmation = (form.elements.namedItem('confirmation') as HTMLInputElement | null)?.value
     const publicUsername = (form.elements.namedItem('publicUsername') as HTMLInputElement | null)?.value ?? ''
@@ -115,6 +116,14 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }
     if (isRegister && accountType === 'persona' && (!firstName || !lastName)) {
       setMessage('Ingresa tu nombre y tu apellido.')
+      return
+    }
+    if (isRegister && accountType === 'persona' && !birthDate) {
+      setMessage('Ingresa tu fecha de nacimiento.')
+      return
+    }
+    if (isRegister && accountType === 'persona' && birthDate > new Date().toISOString().slice(0, 10)) {
+      setMessage('La fecha de nacimiento no puede ser futura.')
       return
     }
     if (isRegister && accountType === 'organizacion' && !organizationName) {
@@ -138,8 +147,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       return
     }
     const normalizedUsername = publicUsername.trim().replace(/^@/, '').toLowerCase()
-    if (isRegister && !/^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])?$/.test(normalizedUsername)) {
-      setMessage('El nombre de usuario debe tener entre 3 y 30 caracteres y usar letras, números, punto, guion o guion bajo.')
+    if (isRegister && !/^[a-z0-9._]{3,30}$/.test(normalizedUsername)) {
+      setMessage('El nombre de usuario debe tener entre 3 y 30 caracteres, solo minúsculas, números, punto o guion bajo.')
       return
     }
     setLoading(true)
@@ -153,6 +162,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                 full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : `${firstName} ${lastName}`,
                 first_name: accountType === 'persona' ? firstName : null,
                 last_name: accountType === 'persona' ? lastName : null,
+                birth_date: accountType === 'persona' ? birthDate : null,
                 public_username: normalizedUsername,
                 roles: accountType === 'persona' ? roles : ['directivo'],
                 account_type: accountType,
@@ -189,6 +199,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       const sessionAccountType = isRegister ? accountType : result.data.user?.user_metadata?.account_type
       if (result.data.user) {
         await supabase.rpc('ensure_my_public_identity')
+        // Si la cuenta estaba programada para eliminarse, iniciar sesión dentro de los 15 días la recupera.
+        await supabase.rpc('cancel_account_deletion')
         const { error: organizationError } = await supabase.rpc('ensure_my_organization')
         if (organizationError && sessionAccountType === 'organizacion') {
           setMessage(`No se pudo preparar la cuenta de organización: ${organizationError.message}`)
@@ -202,7 +214,9 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
         if (selectedContext.teamId) window.localStorage.setItem('athlonx-active-team-id', selectedContext.teamId)
       }
-      router.push('/dashboard/busqueda')
+      // Cierra el modal de acceso: el usuario ya entró y no debe quedar sobre el panel.
+      window.dispatchEvent(new Event('athlonx-auth-done'))
+      router.push('/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
     } finally {
@@ -330,7 +344,20 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       Nombre de usuario
       <div className="relative mt-2">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-bold text-[#B4FF45]">@</span>
-        <input required name="publicUsername" className={`${fieldClass} pl-8`} placeholder="nombre.de.usuario" />
+        <input
+          required
+          name="publicUsername"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={30}
+          onChange={(event) => {
+            // Solo minúsculas, números, punto y guion bajo, como en Instagram.
+            event.currentTarget.value = event.currentTarget.value.toLowerCase().replace(/[^a-z0-9._]/g, "")
+          }}
+          className={`${fieldClass} pl-8`}
+          placeholder="nombre.de.usuario"
+        />
       </div>
     </label>
   )
@@ -396,6 +423,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                       </div>
                     </FormSection>
                     <FormSection>
+                      <label className="block text-sm font-bold text-slate-200">
+                        Fecha de nacimiento
+                        <input required type="date" name="birthDate" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} className={`${fieldClass} mt-2 font-normal`} aria-label="Fecha de nacimiento" />
+                      </label>
                       {identityField}
                       <RoleSelector roles={roles} onChange={setRoles} />
                     </FormSection>
