@@ -96,7 +96,7 @@ export default function ContactanosPage() {
             </div>
             <div className="rounded-[10px] border border-white/15 bg-[#0b1d2c]/85 p-6 backdrop-blur-sm">
               <p className="font-heading text-sm font-bold uppercase tracking-[.2em] text-[#B4FF45]">Instagram</p>
-              <a href="https://www.instagram.com/athlonx.pan" target="_blank" rel="noopener noreferrer" className="mt-2 block text-xl font-semibold transition hover:text-[#B4FF45]">@athlonx.pan</a>
+              <a href="https://www.instagram.com/athlonx.pa" target="_blank" rel="noopener noreferrer" className="mt-2 block text-xl font-semibold transition hover:text-[#B4FF45]">@athlonx.pa</a>
             </div>
             <div className="rounded-[10px] border border-white/15 bg-[#0b1d2c]/85 p-6 backdrop-blur-sm">
               <p className="font-heading text-sm font-bold uppercase tracking-[.2em] text-[#B4FF45]">Correo</p>
