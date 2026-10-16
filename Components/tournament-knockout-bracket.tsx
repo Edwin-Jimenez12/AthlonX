@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { BasketballTournamentPanels } from './basketball-tournament-panels'
 
 type Team = { id: string; name: string; division_id: string; division_name: string }
 type Match = {
@@ -72,7 +73,12 @@ function createManualPairings(): ManualPairing[] {
   }))
 }
 
-export function TournamentKnockoutBracket({
+export function TournamentKnockoutBracket(props: Parameters<typeof LegacyTournamentKnockoutBracket>[0] & { discipline?: string; tournamentName?: string }) {
+  if (props.discipline === 'baloncesto') return <BasketballTournamentPanels tournamentId={props.tournamentId} tournamentName={props.tournamentName || 'Torneo 3x3'} section="llaves" canManage={props.canManage} />
+  return <LegacyTournamentKnockoutBracket {...props} />
+}
+
+function LegacyTournamentKnockoutBracket({
   tournamentId,
   teams,
   matches,

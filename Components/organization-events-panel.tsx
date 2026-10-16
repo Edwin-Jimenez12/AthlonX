@@ -9,6 +9,7 @@ import { StyledSelect } from './styled-select'
 import { PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
 import { footballEight } from '../lib/football-eight'
+import { validateBasketballSettings } from '../lib/basketball'
 
 type Discipline = { id: string; name: string; code: string }
 type Modality = { id: string; name: string; code: string; discipline_id: string }
@@ -43,6 +44,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [halfDuration, setHalfDuration] = useState('')
   const [halftimeDuration, setHalftimeDuration] = useState('')
   const [intervalDuration, setIntervalDuration] = useState('')
+  const [overtimeDuration, setOvertimeDuration] = useState('')
+  const [opensAt, setOpensAt] = useState('08:00')
+  const [closesAt, setClosesAt] = useState('17:00')
   const [location, setLocation] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -74,12 +78,20 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const selectableModalities = availableModalities.filter(
     (modality) => selectedDiscipline?.code === 'futbol'
       ? modality.code === 'futbol-8'
+      : selectedDiscipline?.code === 'baloncesto' ? modality.code === '3x3'
       : !['futbol-7', 'futbol-11'].includes(modality.code),
   )
   const selectedModality = modalities.find((modality) => modality.id === modalityId)
   const selectedRule = modalityRules.find((rule) => rule.modality_id === modalityId)
   const isFootball = selectedDiscipline?.code === 'futbol'
   const isFootball8 = isFootball && selectedModality?.code === 'futbol-8'
+  const isBasketball3 = selectedDiscipline?.code === 'baloncesto' && selectedModality?.code === '3x3'
+
+  useEffect(() => {
+    if (!isBasketball3) return
+    setHalfDuration(''); setIntervalDuration(''); setOvertimeDuration('')
+    setLocation('Universidad Tecnológica de Panamá (UTP)')
+  }, [isBasketball3])
 
   // Aplica los valores iniciales de la modalidad seleccionada.
   useEffect(() => {
@@ -122,6 +134,21 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     const parsedHalfDuration = Number(halfDuration)
     const parsedHalftimeDuration = Number(halftimeDuration)
     const parsedIntervalDuration = Number(intervalDuration)
+    if (isBasketball3) {
+      const settings = { period_minutes: Number(halfDuration), interval_minutes: Number(intervalDuration), overtime_minutes: Number(overtimeDuration), opens_at: opensAt, closes_at: closesAt, venue: location }
+      const issue = !intervalDuration.trim() ? 'Completa el intervalo entre partidos.' : validateBasketballSettings(settings)
+      if (issue) return setMessage(issue)
+      if (new Date(endDate) < new Date(startDate)) return setMessage('La fecha final no puede ser anterior a la inicial.')
+      setLoading(true)
+      try {
+        const { data, error } = await supabase.rpc('create_basketball_tournament', {
+          p_values: { name: name.trim(), start_date: startDate, end_date: endDate, organization_id: organizationId || null, organizer_team_id: sourceTeamId || null, is_quick: selectedEvent === 'torneo-rapido' }, p_settings: settings,
+        })
+        if (error) throw error
+        setCreatedTournament(data); setMessage('Torneo 3x3 creado. Agrega sus equipos y plantillas desde la gestión del torneo.'); onCreated?.()
+      } catch (e) { setMessage((e as Error).message || 'No se pudo crear el torneo.') } finally { setLoading(false) }
+      return
+    }
     if (isFootball && !isFootball8) {
       return setMessage('Actualmente solo está disponible la modalidad Fútbol 8 vs 8.')
     }
@@ -279,6 +306,16 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
               />
             {disciplineId && !selectableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
             {isFootball && rulesError && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{rulesError}</p>}
+            {isBasketball3 && <>
+              <p className="text-sm leading-6 text-[#d8ffad] sm:col-span-2">16 equipos · eliminación directa · una cancha · un periodo. Plantillas de 3 a 6 jugadores.</p>
+              <label className="block text-sm font-semibold">Duración del periodo (minutos)<input required type="number" min="1" max="120" value={halfDuration} onChange={e => setHalfDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <label className="block text-sm font-semibold">Intervalo entre partidos (minutos)<input required type="number" min="0" max="120" value={intervalDuration} onChange={e => setIntervalDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <label className="block text-sm font-semibold">Duración de cada prórroga (minutos)<input required type="number" min="1" max="120" value={overtimeDuration} onChange={e => setOvertimeDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <label className="block text-sm font-semibold">Sede<input required value={location} onChange={e => setLocation(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <label className="block text-sm font-semibold">Inicio de la jornada<input required type="time" value={opensAt} onChange={e => setOpensAt(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <label className="block text-sm font-semibold">Cierre de la jornada<input required type="time" value={closesAt} onChange={e => setClosesAt(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
+              <p className="text-xs leading-5 text-slate-400 sm:col-span-2">El calendario reserva periodo e intervalo. Las prórrogas pueden retrasarlo. En prórroga se requieren 2 puntos de ventaja; si se agota un bloque sin esa ventaja, continúa otro de la misma duración.</p>
+            </>}
             {isFootball8 && <>
               <StyledSelect
                 label="Formato de juego"
@@ -370,7 +407,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
                 </div>
               )}
             </>}
-            <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />
+            {!isBasketball3 && <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />}
             <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
             <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
           </div>

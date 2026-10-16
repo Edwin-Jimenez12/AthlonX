@@ -15,7 +15,7 @@ function minimumDatesForDivision(teamCount: number, matchesPerTeam: number) {
   return matchesPerTeam > 0 ? 1 : 0
 }
 
-export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, competitionFormat, footballEight = false, divisions, teams, dates, matches, canManage, onGenerate, onOpenCalendar }: { tournamentName: string; tournamentStatus: string; competitionFormat: string; footballEight?: boolean; divisions: Division[]; teams: Team[]; dates: number[]; matches: FixtureMatch[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[], numberOfDates?: number, firstMatchTime?: string) => void; onOpenCalendar?: () => void }) {
+export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, competitionFormat, footballEight = false, discipline, divisions, teams, dates, matches, canManage, onGenerate, onOpenCalendar }: { tournamentName: string; tournamentStatus: string; competitionFormat: string; footballEight?: boolean; discipline?: string; divisions: Division[]; teams: Team[]; dates: number[]; matches: FixtureMatch[]; canManage: boolean; onGenerate: (teamIds: string[], mode: 'automatic' | 'manual', pairings?: ManualPairing[], divisionConfigs?: AutomaticDivisionConfig[], numberOfDates?: number, firstMatchTime?: string) => void; onOpenCalendar?: () => void }) {
   const [mode, setMode] = useState<'automatic' | 'manual' | null>(null)
   const [matchesPerDivision, setMatchesPerDivision] = useState<Record<string, string>>({})
   const [numberOfDates, setNumberOfDates] = useState('1')
@@ -111,6 +111,7 @@ export function TournamentFixtureGenerator({ tournamentName, tournamentStatus, c
     onGenerate(teamIds, mode, [], automaticConfigs, configuredDateCount, firstMatchTime)
   }
 
+  if (discipline === 'baloncesto') return <section className="pt-6"><h2 className="text-xl font-bold">Fixture 3x3</h2><p className="mt-3 text-slate-300">Sortea y ajusta los 16 equipos desde Llaves. Al publicar el cuadro se programan los 15 partidos con los tiempos configurados en este torneo.</p></section>
   if (footballEight && competitionFormat === 'knockout') return <section className="pt-6"><h2 className="text-xl font-bold">Eliminación directa</h2><p className="mt-3 text-slate-300">Abre la pestaña Llaves para generar los cruces. Cada ronda recibe automáticamente su cancha y horario sin repetir equipos en el mismo bloque.</p></section>
 
   return <section className="pt-6 print:hidden">
