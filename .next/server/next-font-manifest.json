@@ -1,6 +1,34 @@
 {
   "app": {
+    "[project]/app/(panel)/atleta/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+    ],
     "[project]/app/(panel)/busqueda/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+    ],
+    "[project]/app/(panel)/entrenador/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+    ],
+    "[project]/app/(panel)/equipo/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
+      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+    ],
+    "[project]/app/(panel)/eventos/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
@@ -21,14 +49,14 @@
       "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
       "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
     ],
-    "[project]/app/(panel)/perfil/[id]/page": [
+    "[project]/app/(panel)/torneos/ver/[id]/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
       "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
       "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
     ],
-    "[project]/app/_not-found/page": [
+    "[project]/app/page": [
       "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
       "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
       "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",

@@ -1,8 +1,12 @@
 {
+  "/(panel)/atleta/page": "app/(panel)/atleta/page.js",
   "/(panel)/busqueda/page": "app/(panel)/busqueda/page.js",
+  "/(panel)/entrenador/page": "app/(panel)/entrenador/page.js",
+  "/(panel)/equipo/page": "app/(panel)/equipo/page.js",
+  "/(panel)/eventos/page": "app/(panel)/eventos/page.js",
   "/(panel)/mi-perfil/page": "app/(panel)/mi-perfil/page.js",
   "/(panel)/notificaciones/page": "app/(panel)/notificaciones/page.js",
-  "/(panel)/perfil/[id]/page": "app/(panel)/perfil/[id]/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js"
+  "/(panel)/torneos/ver/[id]/page": "app/(panel)/torneos/ver/[id]/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/page": "app/page.js"
 }
