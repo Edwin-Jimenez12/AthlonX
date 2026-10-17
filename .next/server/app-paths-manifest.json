@@ -1,1 +1,8 @@
-{}
+{
+  "/(panel)/busqueda/page": "app/(panel)/busqueda/page.js",
+  "/(panel)/mi-perfil/page": "app/(panel)/mi-perfil/page.js",
+  "/(panel)/notificaciones/page": "app/(panel)/notificaciones/page.js",
+  "/(panel)/perfil/[id]/page": "app/(panel)/perfil/[id]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/icon.svg/route": "app/icon.svg/route.js"
+}

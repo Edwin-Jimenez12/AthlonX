@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { useRegisterSettingsNav } from '../settings-nav'
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users, Circle } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import type { Country, Theme } from '../../lib/mi-perfil'
 import { formatPanamaNumber, joinPhone, parsePhone, phoneError, plainPhoneNumber } from '../../lib/mi-perfil'
@@ -48,7 +50,8 @@ export const outlineButtonClass = 'cursor-pointer rounded-full border border-[va
 export const dangerButtonClass = 'cursor-pointer rounded-full bg-[var(--mp-danger)] px-[22px] py-3 text-[15px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50'
 export const dangerOutlineButtonClass = 'cursor-pointer rounded-full border border-[var(--mp-danger)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-danger)] transition disabled:cursor-not-allowed disabled:opacity-50'
 
-export type SectionItem = { id: string; label: string; description: string }
+export type SectionItem = { id: string; label: string; description?: string }
+
 export type Notice = { type: 'ok' | 'error'; text: string }
 
 export function Shell({
@@ -60,29 +63,90 @@ export function Shell({
   children,
   notice,
   publicProfileHref,
+  unsaved = false,
+  onSaveChanges,
+  onDiscardChanges,
 }: {
   theme: Theme
   notice?: Notice | null
   publicProfileHref?: string | null
+  unsaved?: boolean
+  onSaveChanges?: () => Promise<string>
+  onDiscardChanges?: () => void
   sectionLabel: string
   sections: SectionItem[]
   activeSection: string
   onSection: (id: string) => void
   children: ReactNode
 }) {
+  const router = useRouter()
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const [leaveError, setLeaveError] = useState('')
+  const [leaveBusy, setLeaveBusy] = useState(false)
+
+  useRegisterSettingsNav(sections, activeSection, onSection)
+
+  useEffect(() => {
+    if (!unsaved) return
+    function warnBeforeClose(event: BeforeUnloadEvent) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warnBeforeClose)
+    return () => window.removeEventListener('beforeunload', warnBeforeClose)
+  }, [unsaved])
+
+  function guardNavigation(event: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    if (!unsaved) return
+    event.preventDefault()
+    setLeaveError('')
+    setPendingHref(href)
+  }
+
+  async function saveAndLeave() {
+    if (!onSaveChanges || !pendingHref) return
+    setLeaveBusy(true)
+    const failure = await onSaveChanges()
+    setLeaveBusy(false)
+    if (failure) return setLeaveError(failure)
+    const href = pendingHref
+    setPendingHref(null)
+    router.push(href)
+  }
+
+  function discardAndLeave() {
+    const href = pendingHref
+    onDiscardChanges?.()
+    setPendingHref(null)
+    if (href) router.push(href)
+  }
+
   return (
-    <div style={{ ...themeStyle(theme), colorScheme: theme === 'claro' ? 'light' : 'dark' } as CSSProperties} className="min-h-screen bg-[var(--mp-bg)] text-[var(--mp-text)]">
-      <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-10 lg:py-[22px]">
-        <Link href="/busqueda" className="flex items-center rounded-[12px] px-3.5 py-2">
-          <img src={theme === 'claro' ? '/MarcaAthlonX/MarcaHorizontalNegra.png' : '/MarcaAthlonX/MarcaHorizontal.svg'} alt="AthlonX" className="h-7 w-auto" />
-        </Link>
-        <div className="flex flex-wrap items-center gap-4">
-          <Link href="/busqueda" className={`${outlineButtonClass} inline-flex items-center gap-2`}>
+    <div style={{ ...themeStyle(theme), colorScheme: theme === 'claro' ? 'light' : 'dark' } as CSSProperties} className="min-h-screen text-[var(--mp-text)]">
+
+      {pendingHref && (
+        <div role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-5">
+          <div className="w-full max-w-[460px] rounded-[24px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-7 text-[var(--mp-text)] shadow-2xl">
+            <h2 id="unsaved-changes-title" className="font-heading text-3xl font-semibold uppercase">Cambios sin guardar</h2>
+            <p className="mt-3 text-[15px] text-[var(--mp-muted)]">Hiciste cambios en este perfil. ¿Deseas guardarlos o descartarlos antes de salir?</p>
+            {leaveError && <p className="mt-4 rounded-[12px] border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{leaveError}</p>}
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={() => setPendingHref(null)} disabled={leaveBusy} className={`${outlineButtonClass} disabled:opacity-60`}>Seguir editando</button>
+              <button type="button" onClick={discardAndLeave} disabled={leaveBusy} className="rounded-full border border-red-400/40 px-5 py-3 text-[15px] font-semibold text-red-200 transition hover:bg-red-500/10 disabled:opacity-60">Descartar</button>
+              <button type="button" onClick={saveAndLeave} disabled={leaveBusy} className="rounded-full bg-[var(--mp-lime)] px-5 py-3 text-[15px] font-semibold text-[var(--mp-on-lime)] transition hover:brightness-110 disabled:opacity-60">{leaveBusy ? 'Guardando...' : 'Guardar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-col lg:ml-64">
+        <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-10 lg:py-[22px]">        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/busqueda" onClick={(event) => guardNavigation(event, '/busqueda')} className={`${outlineButtonClass} inline-flex items-center gap-2`}>
             <ArrowLeft size={16} aria-hidden="true" />
             Volver
           </Link>
           {publicProfileHref ? (
-            <Link href={publicProfileHref} className="rounded-full border border-[var(--mp-line)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-text)] transition hover:border-[var(--mp-lime)] hover:text-[var(--mp-lime)]">
+            <Link href={publicProfileHref} onClick={(event) => guardNavigation(event, publicProfileHref)} className="rounded-full border border-[var(--mp-line)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-text)] transition hover:border-[var(--mp-lime)] hover:text-[var(--mp-lime)]">
               Ver perfil público
             </Link>
           ) : (
@@ -91,31 +155,7 @@ export function Shell({
             </span>
           )}
         </div>
-      </header>
-
-      <div className="flex flex-col lg:flex-row">
-        <nav aria-label="Secciones de Mi perfil" className="flex gap-2 overflow-x-auto bg-[var(--mp-surface)] px-5 py-6 lg:w-[300px] lg:shrink-0 lg:flex-col lg:overflow-visible">
-          {sections.map((section, index) => {
-            const active = section.id === activeSection
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => onSection(section.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`flex min-w-[220px] cursor-pointer items-center gap-3 rounded-[14px] border px-3.5 py-3 text-left transition lg:min-w-0 ${active ? 'border-[var(--mp-lime)] bg-[var(--mp-lime-soft)]' : 'border-transparent hover:bg-[var(--mp-raised)]'}`}
-              >
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[16px] text-[12px] font-semibold ${active ? 'bg-[var(--mp-lime)] text-[var(--mp-on-lime)]' : 'bg-[var(--mp-raised)] text-[var(--mp-muted)]'}`}>
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <span className="min-w-0">
-                  <span className={`block text-[15px] font-semibold ${active ? 'text-[var(--mp-lime)]' : 'text-[var(--mp-text)]'}`}>{section.label}</span>
-                  <span className="block text-[12px] text-[var(--mp-muted)]">{section.description}</span>
-                </span>
-              </button>
-            )
-          })}
-        </nav>
+        </header>
         <div className="flex min-w-0 flex-1 flex-col gap-5 p-5 lg:p-10">
           {notice && (
             <p role="status" className={`rounded-[12px] border px-4 py-3 text-[14px] ${notice.type === 'error' ? 'border-[var(--mp-danger)] text-[var(--mp-danger)]' : 'border-[var(--mp-lime)] text-[var(--mp-lime)]'}`}>

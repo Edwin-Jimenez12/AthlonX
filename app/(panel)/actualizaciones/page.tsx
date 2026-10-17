@@ -121,13 +121,13 @@ export default function UpdatesAdminPage() {
 
   if (loading)
     return (
-      <main className="min-h-screen bg-[#07131e] px-6 py-12 text-white lg:ml-64">
+      <main className="min-h-screen bg-transparent px-6 py-12 text-white lg:ml-64">
         Cargando panel de actualizaciones...
       </main>
     );
   if (!authorized)
     return (
-      <main className="min-h-screen bg-[#07131e] px-6 py-12 text-white lg:ml-64">
+      <main className="min-h-screen bg-transparent px-6 py-12 text-white lg:ml-64">
         <div className="mx-auto max-w-3xl rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-8">
           <p className="text-xs font-bold uppercase tracking-[.25em] text-[#b4ff45]">
             Acceso restringido
@@ -144,7 +144,7 @@ export default function UpdatesAdminPage() {
     );
 
   return (
-    <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10">
+    <main className="min-h-screen bg-transparent px-5 py-8 text-white lg:ml-64 lg:px-10">
       <div className="mx-auto max-w-7xl space-y-8">
         <header className="flex flex-col justify-between gap-4 border-b border-[#1f4057] pb-8 md:flex-row md:items-end">
           <div>

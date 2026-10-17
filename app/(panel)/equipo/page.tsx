@@ -47,7 +47,7 @@ export default function TeamDashboard() {
   const name = team?.name || 'Equipo pendiente de configuración'
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'EQ'
 
-  return <main className="min-h-screen bg-[#07131e] text-white lg:ml-64">
+  return <main className="min-h-screen bg-transparent text-white lg:ml-64">
     <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
       <div className="flex flex-col justify-between gap-6 border-b border-[#1f4057] pb-8 md:flex-row md:items-end">
         <div><p className="text-sm font-bold uppercase tracking-[.24em] text-[#b4ff45]">Panel de equipo</p><h2 className="mt-3 font-display text-5xl uppercase leading-none sm:text-6xl">Mi equipo</h2><p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Administra la identidad, la plantilla y la actividad deportiva de tu equipo desde un solo lugar.</p></div>

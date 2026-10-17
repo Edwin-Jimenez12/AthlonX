@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
 import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
+import { useThemeMode, type ThemeMode } from '../lib/theme'
 import { AccountMenu } from './account-menu'
 import { ContextSwitcher } from './context-switcher'
 import { NotificationsMenu } from './notifications-menu'
+import { announceHeaderMenu, useDismissableMenu } from './header-menu-dismiss'
 
 const titles: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -32,16 +34,12 @@ export function DashboardHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const [profileOpen, setProfileOpen] = useState(false)
+  const menuClusterRef = useRef<HTMLDivElement>(null)
+  useDismissableMenu(menuClusterRef, 'account', profileOpen, () => setProfileOpen(false))
   const [profileName, setProfileName] = useState('Usuario AthlonX')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [theme, setThemeMode] = useThemeMode()
   const [contexts, setContexts] = useState<AccountContext[]>([])
   const [activeContextId, setActiveContextId] = useState('')
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem('athlonx-theme') === 'light' ? 'light' : 'dark'
-    setTheme(stored)
-    document.documentElement.dataset.theme = stored
-  }, [])
 
   useEffect(() => {
     let active = true
@@ -61,6 +59,7 @@ export function DashboardHeader() {
         organizationId: null,
         name: team.name,
         discipline: team.discipline,
+        organizationType: null,
         role: team.role === 'owner' ? 'directivo' : (team.role as AccountContext['role']),
         roleLabel: null,
       }))
@@ -109,12 +108,8 @@ export function DashboardHeader() {
     return () => window.removeEventListener('athlonx-profile-updated', syncProfileName)
   }, [])
 
-  function changeTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    document.documentElement.dataset.theme = next
-    window.localStorage.setItem('athlonx-theme', next)
-    setProfileOpen(false)
+  function changeTheme(mode: ThemeMode) {
+    void setThemeMode(mode)
   }
 
   function selectContext(context: AccountContext) {
@@ -128,7 +123,7 @@ export function DashboardHeader() {
       ? context.role === 'entrenador'
         ? '/entrenador'
         : context.role === 'staff'
-          ? context.contextType === 'personal' ? '/calendario' : '/staff'
+          ? '/staff'
           : context.role === 'atleta'
             ? '/atleta'
             : '/organizaciones'
@@ -152,16 +147,15 @@ export function DashboardHeader() {
   const activeContext = contexts.find((context) => context.id === activeContextId)
   const selectableContexts = contexts
   const canSwitchContexts = selectableContexts.length > 1
-  return <header className="border-b border-[#1b3548] bg-[#07131e]/95 px-6 py-4 text-white backdrop-blur-xl print:hidden lg:ml-64 md:px-10">
-    <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-      <h1 className="truncate font-display text-3xl uppercase tracking-wide sm:text-4xl">{titles[key] || 'AthlonX'}</h1>
-      <div className="relative flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+  return <header className="relative z-50 px-6 pt-6 text-white print:hidden lg:ml-64 md:px-10 md:pt-10">
+    <div className="flex justify-end">
+      <div ref={menuClusterRef} className="relative flex min-w-0 flex-wrap items-center justify-end gap-4">
         {canSwitchContexts && <ContextSwitcher contexts={selectableContexts} activeContextId={activeContextId} onChange={selectContext} />}
         <NotificationsMenu />
         <span className="hidden h-7 w-px bg-[#294052] sm:block" />
-        <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-[5px] border border-transparent p-1 pr-2 hover:border-[#29485d] hover:bg-white/5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[5px] bg-[#b4ff45] font-heading font-bold text-[#07131e]">{initials}</span>
-          <span className="hidden max-w-40 truncate font-semibold sm:block">{profileName}</span>
+        <button type="button" onClick={() => { if (!profileOpen) announceHeaderMenu('account'); setProfileOpen(!profileOpen) }} aria-label="Abrir menú de cuenta" className="flex cursor-pointer items-center gap-2 rounded-[5px] border border-transparent p-1 pr-2 hover:border-[#29485d] hover:bg-white/5">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#b4ff45] font-heading text-base font-bold text-[#07131e]">{initials}</span>
+          <span className="hidden max-w-48 truncate font-body text-base font-semibold text-[#e8eef3] sm:block">{profileName}</span>
         </button>
         {profileOpen && <AccountMenu name={profileName} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}
       </div>

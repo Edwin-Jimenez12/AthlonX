@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LogoutAction } from '../logout-confirmation'
 import { supabase } from '../../lib/supabase'
+import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, handlePattern, normalizeHandle, phoneError } from '../../lib/mi-perfil'
 import type { Discipline, TeamMember, TeamProfile, Theme } from '../../lib/mi-perfil'
 import { Card, Chip, ConfirmModal, Field, Hero, ListRow, Pending, PhoneField, ReadValue, SelectField, SettingRow, Segmented, Shell, Toggle, dangerOutlineButtonClass, initialsOf, outlineButtonClass, primaryButtonClass } from './ui'
@@ -31,11 +32,7 @@ const memberRoleOptions = [
 const levelLabels: Record<string, string> = { primera: 'Primera', segunda: 'Segunda', unica: 'Única' }
 const ageLabels: Record<string, string> = { mayores: 'Mayores', 'sub-18': 'Sub-18', 'sub-16': 'Sub-16', 'sub-14': 'Sub-14', 'sub-12': 'Sub-12' }
 const genderLabels: Record<string, string> = { masculino: 'Masculino', femenino: 'Femenino', mixto: 'Mixto' }
-const descriptionWordLimit = 300
-
-function wordCount(text: string) {
-  return text.trim() ? text.trim().split(/\s+/).length : 0
-}
+const descriptionCharLimit = 1000
 
 function memberKey(member: TeamMember) {
   return `${member.userId}|${member.role}|${member.divisionId ?? ''}`
@@ -92,9 +89,15 @@ export function TeamProfileView({
   const directors = team.members.filter((member) => member.role === 'owner' || member.role === 'directivo')
   const disciplineName = disciplines.find((item) => item.id === disciplineId)?.name ?? team.disciplineName
 
+  // Cambios sin guardar: se compara con la versión que había al empezar a editar.
+  const [baseline, setBaseline] = useState('')
+  const currentSnapshot = JSON.stringify([name, handle, description, city, country, disciplineId, contactEmail, contactPhone, websiteUrl, isPublic])
+  const unsaved = editing && currentSnapshot !== baseline
+
   function startEdit() {
     if (!editableSections.includes(section)) onSection('identidad')
     setNotice(null)
+    setBaseline(currentSnapshot)
     setEditing(true)
   }
 
@@ -118,7 +121,7 @@ export function TeamProfileView({
     if (!name.trim()) return 'El nombre del equipo es obligatorio.'
     if (phoneError(contactPhone)) return phoneError(contactPhone)
     if (handle && !handlePattern.test(handle)) return 'El usuario público debe tener de 3 a 30 caracteres: minúsculas, números, puntos o guiones bajos.'
-    if (wordCount(description) > descriptionWordLimit) return `La descripción no puede pasar de ${descriptionWordLimit} palabras.`
+    if (description.length > descriptionCharLimit) return `La descripción no puede pasar de ${descriptionCharLimit} caracteres.`
     const { error } = await supabase.rpc('update_team_profile', {
       p_team_id: team.id,
       p_name: name.trim(),
@@ -164,10 +167,19 @@ export function TeamProfileView({
     onSaved()
   }
 
+  // Guardado desde el aviso de salida. Devuelve el error o vacío si se guardó.
+  async function saveFromNavigation(): Promise<string> {
+    const failure = await saveTeam()
+    if (failure) return failure
+    setEditing(false)
+    setNotice({ type: 'ok', text: 'Cambios guardados.' })
+    onSaved()
+    return ''
+  }
+
   async function saveTheme(next: Theme) {
     onTheme(next)
-    try { window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark') } catch { /* sin almacenamiento local */ }
-    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    applyTheme(next === 'claro' ? 'light' : 'dark')
     if (supabase) {
       const { data } = await supabase.auth.getUser()
       if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
@@ -185,7 +197,7 @@ export function TeamProfileView({
   const sectionLabel = teamSections.find((item) => item.id === section)?.label ?? teamSections[0].label
 
   return (
-    <Shell theme={theme} sectionLabel={sectionLabel} sections={teamSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/equipos/${team.id}`}>
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={teamSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/equipos/${team.id}`} unsaved={unsaved} onDiscardChanges={cancelEdit} onSaveChanges={saveFromNavigation}>
       <Hero
         initials={initials}
         kindLabel="Perfil de equipo"
@@ -218,9 +230,9 @@ export function TeamProfileView({
               <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={!editing} />
             </div>
           </Card>
-          <Card title="Descripción" description={`Se muestra en el perfil público del equipo. Máximo ${descriptionWordLimit} palabras.`}>
-            <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={!editing} placeholder="Cuenta la historia del equipo." />
-            <p className={`text-right text-[12px] ${wordCount(description) > descriptionWordLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{wordCount(description)} / {descriptionWordLimit} palabras</p>
+          <Card title="Descripción" description={`Se muestra en el perfil público del equipo. Máximo ${descriptionCharLimit} caracteres.`}>
+            <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={!editing} maxLength={descriptionCharLimit} placeholder="Cuenta la historia del equipo." />
+            <p className={`text-right text-[12px] ${description.length > descriptionCharLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>
           </Card>
           <Card title="Escudo" description="Opcional. Sin escudo se muestran las iniciales.">
             <div className="flex flex-wrap items-center gap-5">

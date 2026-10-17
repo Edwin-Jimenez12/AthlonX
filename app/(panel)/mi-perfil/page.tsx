@@ -15,6 +15,7 @@ import {
 } from '../../../lib/mi-perfil'
 import type { Discipline, OrganizationProfile, PersonaProfile, TeamProfile, Theme } from '../../../lib/mi-perfil'
 import { supabase } from '../../../lib/supabase'
+import { applyTheme } from '../../../lib/theme'
 
 type Loaded =
   | { kind: 'persona'; profile: PersonaProfile }
@@ -54,7 +55,7 @@ export default function MiPerfilPage() {
     const preferences = await loadPreferences(userId)
     setTheme(preferences.theme)
     setNoticesEnabled(preferences.noticesEnabled)
-    document.documentElement.dataset.theme = preferences.theme === 'claro' ? 'light' : 'dark'
+    applyTheme(preferences.theme === 'claro' ? 'light' : 'dark')
     setDisciplines(await loadDisciplines())
 
     if (accountType === 'equipo') {

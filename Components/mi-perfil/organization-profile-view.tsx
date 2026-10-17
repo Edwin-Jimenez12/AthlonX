@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LogoutAction } from '../logout-confirmation'
 import { supabase } from '../../lib/supabase'
+import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, handlePattern, normalizeHandle, phoneError } from '../../lib/mi-perfil'
 import type { Discipline, OrganizationProfile, Theme } from '../../lib/mi-perfil'
 import { Card, Chip, ConfirmModal, Field, Hero, ListRow, Pending, PhoneField, ReadValue, SelectField, SettingRow, Segmented, Shell, Toggle, initialsOf } from './ui'
@@ -21,7 +22,7 @@ export const organizationSections: SectionItem[] = [
 ]
 
 const editableSections = ['identidad', 'configuracion']
-const descriptionWordLimit = 300
+const descriptionCharLimit = 1000
 const organizationTypes = [
   ['organizacion_deportiva', 'Organización deportiva'],
   ['comite_olimpico', 'Comité olímpico'],
@@ -35,8 +36,21 @@ const organizationTypes = [
 const typeLabel = (type: string) => organizationTypes.find(([value]) => value === type)?.[1] ?? type
 const roleLabel = (role: string) => (role === 'owner' ? 'Propietario' : 'Directivo')
 
-function wordCount(text: string) {
-  return text.trim() ? text.trim().split(/\s+/).length : 0
+const socialNetworks = [
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'facebook', label: 'Facebook' },
+  { key: 'x', label: 'X (Twitter)' },
+  { key: 'tiktok', label: 'TikTok' },
+  { key: 'youtube', label: 'YouTube' },
+  { key: 'linkedin', label: 'LinkedIn' },
+]
+
+function cleanSocialLinks(links: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(links)
+      .map(([key, value]) => [key, value.trim()] as const)
+      .filter(([, value]) => Boolean(value)),
+  )
 }
 
 export function OrganizationProfileView({
@@ -78,12 +92,19 @@ export function OrganizationProfileView({
   const [contactEmail, setContactEmail] = useState(organization.contactEmail)
   const [contactPhone, setContactPhone] = useState(organization.contactPhone)
   const [websiteUrl, setWebsiteUrl] = useState(organization.websiteUrl)
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>(organization.socialLinks)
   const [isPublic, setIsPublic] = useState(organization.isPublic)
   const [disciplineIds, setDisciplineIds] = useState<string[]>(organization.disciplineIds)
+
+  // Cambios sin guardar: se compara con la versión que había al empezar a editar.
+  const [baseline, setBaseline] = useState('')
+  const currentSnapshot = JSON.stringify([name, type, handle, country, city, description, contactEmail, contactPhone, websiteUrl, isPublic, disciplineIds, socialLinks])
+  const unsaved = editing && currentSnapshot !== baseline
 
   function startEdit() {
     if (!editableSections.includes(section)) onSection('identidad')
     setNotice(null)
+    setBaseline(currentSnapshot)
     setEditing(true)
   }
 
@@ -97,6 +118,7 @@ export function OrganizationProfileView({
     setContactEmail(organization.contactEmail)
     setContactPhone(organization.contactPhone)
     setWebsiteUrl(organization.websiteUrl)
+    setSocialLinks(organization.socialLinks)
     setIsPublic(organization.isPublic)
     setDisciplineIds(organization.disciplineIds)
     setConfirmError('')
@@ -112,7 +134,7 @@ export function OrganizationProfileView({
     if (!name.trim()) return 'El nombre de la organización es obligatorio.'
     if (phoneError(contactPhone)) return phoneError(contactPhone)
     if (handle && !handlePattern.test(handle)) return 'El nombre de usuario debe tener de 3 a 30 caracteres: minúsculas, números, puntos o guiones bajos.'
-    if (wordCount(description) > descriptionWordLimit) return `La descripción no puede pasar de ${descriptionWordLimit} palabras.`
+    if (description.length > descriptionCharLimit) return `La descripción no puede pasar de ${descriptionCharLimit} caracteres.`
     // La RPC reescribe todos los campos: se envían también logo, redes y modalidades con su valor actual.
     const { error } = await supabase.rpc('update_organization_public_profile', {
       p_organization_id: organization.id,
@@ -127,7 +149,7 @@ export function OrganizationProfileView({
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         website_url: websiteUrl.trim() || null,
-        social_links: organization.socialLinks,
+        social_links: cleanSocialLinks(socialLinks),
         is_public: isPublic,
       },
       p_discipline_ids: disciplineIds,
@@ -148,10 +170,19 @@ export function OrganizationProfileView({
     onSaved()
   }
 
+  // Guardado desde el aviso de salida. Devuelve el error o vacío si se guardó.
+  async function saveFromNavigation(): Promise<string> {
+    const failure = await saveOrganization()
+    if (failure) return failure
+    setEditing(false)
+    setNotice({ type: 'ok', text: 'Cambios guardados.' })
+    onSaved()
+    return ''
+  }
+
   async function saveTheme(next: Theme) {
     onTheme(next)
-    try { window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark') } catch { /* sin almacenamiento local */ }
-    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    applyTheme(next === 'claro' ? 'light' : 'dark')
     if (supabase) {
       const { data } = await supabase.auth.getUser()
       if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
@@ -169,7 +200,7 @@ export function OrganizationProfileView({
   const sectionLabel = organizationSections.find((item) => item.id === section)?.label ?? organizationSections[0].label
 
   return (
-    <Shell theme={theme} sectionLabel={sectionLabel} sections={organizationSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/organizaciones/${organization.id}`}>
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={organizationSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/organizaciones/${organization.id}`} unsaved={unsaved} onDiscardChanges={cancelEdit} onSaveChanges={saveFromNavigation}>
       <Hero
         initials={initialsOf(name) || 'AX'}
         kindLabel="Perfil de organización"
@@ -205,9 +236,9 @@ export function OrganizationProfileView({
               </div>
             </div>
           </Card>
-          <Card title="Descripción" description={`Se muestra en el perfil público de la organización. Máximo ${descriptionWordLimit} palabras.`}>
-            <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={!editing} />
-            <p className={`text-right text-[12px] ${wordCount(description) > descriptionWordLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{wordCount(description)} / {descriptionWordLimit} palabras</p>
+          <Card title="Descripción" description={`Se muestra en el perfil público de la organización. Máximo ${descriptionCharLimit} caracteres.`}>
+            <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={!editing} maxLength={descriptionCharLimit} />
+            <p className={`text-right text-[12px] ${description.length > descriptionCharLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>
           </Card>
           <Card title="Disciplinas" description="Disciplinas en las que trabaja la organización. Cada torneo indica su modalidad.">
             <div className="flex flex-wrap gap-2">
@@ -226,6 +257,20 @@ export function OrganizationProfileView({
             <div className="grid gap-5 md:grid-cols-2">
               <PhoneField label="Teléfono de contacto" value={contactPhone} onChange={setContactPhone} disabled={!editing} countries={countries} />
               <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={!editing} />
+            </div>
+          </Card>
+          <Card title="Redes sociales" description="Escribe el enlace completo, por ejemplo https://instagram.com/tu_cuenta. Se muestran en el perfil público.">
+            <div className="grid gap-5 md:grid-cols-2">
+              {socialNetworks.map((network) => (
+                <Field
+                  key={network.key}
+                  label={network.label}
+                  value={socialLinks[network.key] ?? ''}
+                  onChange={(value) => setSocialLinks((current) => ({ ...current, [network.key]: value }))}
+                  disabled={!editing}
+                />
+              ))}
+              <PhoneField label="WhatsApp" value={socialLinks.whatsapp ?? ''} onChange={(value) => setSocialLinks((current) => ({ ...current, whatsapp: value }))} disabled={!editing} countries={countries} />
             </div>
           </Card>
         </>

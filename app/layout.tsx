@@ -24,10 +24,12 @@ const oswald = localFont({
 })
 
 const barlowCondensed = localFont({
-  src: './fonts/Barlow_Condensed/BarlowCondensed-Regular.ttf',
+  src: [
+    { path: './fonts/Barlow_Condensed/BarlowCondensed-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/Barlow_Condensed/BarlowCondensed-SemiBold.ttf', weight: '600', style: 'normal' },
+  ],
   variable: '--font-barlow-condensed',
   display: 'swap',
-  weight: '400',
 })
 
 export const metadata = {

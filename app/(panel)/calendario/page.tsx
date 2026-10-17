@@ -610,7 +610,7 @@ function LegacyTeamCalendarPage() {
   }).format(monthCursor)
 
   return (
-    <main className="min-h-screen bg-[#07131e] text-white lg:ml-64">
+    <main className="min-h-screen bg-transparent text-white lg:ml-64">
       <section className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
         <header className="flex flex-col justify-between gap-6 border-b border-[#1f4057] pb-8 xl:flex-row xl:items-end">
           <div>

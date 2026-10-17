@@ -1,321 +1,157 @@
 'use client'
 
-import {
-  ArrowUpRight,
-  CalendarDays,
-  Search,
-  Shield,
-  Users,
-} from 'lucide-react'
+import { ArrowUpRight, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
-import { TeamDivisionSettings } from '../../../Components/team-division-settings'
-import { TeamCallupsPanel } from '../../../Components/team-callups-panel'
+import { PersonaViewSwitcher } from '../../../Components/persona-view-switcher'
+
+type TournamentRow = { id: string; name: string; cover_url: string | null; status: string; start_date: string | null }
+type TeamLogo = { id: string; logo_url: string | null }
+
+const statusLabels: Record<string, string> = { in_progress: 'En curso', finished: 'Finalizado' }
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'EQ'
+}
 
 export default function TrainerDashboard() {
-  const [teams, setTeams] = useState<ManagedTeam[]>([])
-  const [activeTeamId, setActiveTeamId] = useState('')
+  const [userName, setUserName] = useState('Entrenador')
+  const [coachedTeams, setCoachedTeams] = useState<(ManagedTeam & { logo_url: string | null })[]>([])
+  const [tournaments, setTournaments] = useState<TournamentRow[]>([])
+  const [athleteCount, setAthleteCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    async function loadTrainerTeams() {
-      if (!supabase) return setLoading(false)
-      const { data } = await supabase.auth.getUser()
-      if (!data.user) return setLoading(false)
+    let active = true
+    async function load() {
+      if (!supabase) {
+        setError('Supabase no está configurado.')
+        setLoading(false)
+        return
+      }
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData.user
+      if (!user) {
+        setError('Debes iniciar sesión para ver tu panel de entrenador.')
+        setLoading(false)
+        return
+      }
+      const [{ data: profile }, managedTeams] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+        loadManagedTeams(user.id),
+      ])
+      const coached = managedTeams.filter((team) => team.role === 'entrenador')
+      const teamIds = coached.map((team) => team.id)
 
-      const managedTeams = await loadManagedTeams(data.user.id)
-      const requestedTeamId = new URLSearchParams(window.location.search).get('teamId')
-      const storedTeamId = window.localStorage.getItem('athlonx-active-team-id')
-      const selectedTeamId = [requestedTeamId, storedTeamId, managedTeams[0]?.id].find(
-        (id) => id && managedTeams.some((team) => team.id === id),
-      ) || ''
+      let logos: TeamLogo[] = []
+      let tournamentRows: TournamentRow[] = []
+      let athletes: number | null = 0
+      if (teamIds.length) {
+        const [{ data: logoRows }, { data: links }, { data: players }] = await Promise.all([
+          supabase.from('teams').select('id, logo_url').in('id', teamIds),
+          supabase.from('tournament_teams').select('tournament_id').in('team_id', teamIds),
+          supabase.from('team_players').select('player_id').in('team_id', teamIds),
+        ])
+        logos = (logoRows ?? []) as TeamLogo[]
+        athletes = new Set((players ?? []).map((row) => row.player_id)).size
+        const tournamentIds = Array.from(new Set((links ?? []).map((link) => link.tournament_id)))
+        if (tournamentIds.length) {
+          const { data } = await supabase
+            .from('tournaments')
+            .select('id, name, cover_url, status, start_date')
+            .in('id', tournamentIds)
+            .neq('status', 'draft')
+            .order('start_date', { ascending: true })
+          tournamentRows = (data ?? []) as TournamentRow[]
+        }
+      } else {
+        athletes = null
+      }
 
-      setTeams(managedTeams)
-      setActiveTeamId(selectedTeamId)
-      if (selectedTeamId) window.localStorage.setItem('athlonx-active-team-id', selectedTeamId)
+      if (!active) return
+      const logoById = new Map(logos.map((logo) => [logo.id, logo.logo_url]))
+      setUserName(profile?.full_name || user.user_metadata?.full_name || 'Entrenador')
+      setCoachedTeams(coached.map((team) => ({ ...team, logo_url: logoById.get(team.id) ?? null })))
+      setTournaments(tournamentRows)
+      setAthleteCount(athletes)
       setLoading(false)
     }
-
-    void loadTrainerTeams()
-    const syncTeam = (event: Event) => setActiveTeamId((event as CustomEvent<string>).detail)
-    window.addEventListener('athlonx-team-change', syncTeam)
-    return () => window.removeEventListener('athlonx-team-change', syncTeam)
+    void load()
+    return () => { active = false }
   }, [])
 
-  const team = teams.find((item) => item.id === activeTeamId)
+  const value = (number: number | null) => (loading || number === null ? '—' : String(number))
+  const firstName = userName.trim().split(/\s+/)[0]?.toUpperCase() || 'ENTRENADOR'
 
   return (
-    <main className="min-h-screen bg-[#07131e] text-white lg:ml-64">
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
-        <div className="flex flex-col justify-between gap-6 border-b border-[#1f4057] pb-8 md:flex-row md:items-end">
+    <main className="ax-panel-enter min-h-screen bg-transparent text-white lg:ml-64">
+      <section className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
+        <header className="flex flex-col gap-6 border-b border-[#1f4057] pb-8">
+          <PersonaViewSwitcher active="entrenador" />
           <div>
-            <p className="text-sm font-bold uppercase tracking-[.24em] text-[#b4ff45]">Área técnica</p>
-            <h2 className="mt-3 font-display text-5xl uppercase leading-none sm:text-6xl">Panel del entrenador</h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">
-              Organiza el trabajo deportivo y acompaña el rendimiento de tu equipo.
-            </p>
+            <p className="text-sm font-bold uppercase tracking-[.24em] text-[#b4ff45]">Mi vista · Entrenador</p>
+            <h1 className="mt-3 font-display text-5xl uppercase leading-none sm:text-6xl">Hola, {firstName}</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Tus equipos a cargo, su plantilla y sus convocatorias por torneo y jornada.</p>
           </div>
-          <Link
-            href="/busqueda"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#31556b] px-5 py-3 font-semibold text-slate-200 transition hover:border-[#b4ff45] hover:text-[#b4ff45]"
-          >
-            <Search size={18} />
-            Buscar perfiles
-          </Link>
-        </div>
+        </header>
 
-        {loading ? <LoadingState /> : team ? <TrainerWorkspace team={team} /> : <NoTeamState />}
-      </section>
-    </main>
-  )
-}
+        {error && <p role="alert" className="rounded-2xl border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{error}</p>}
 
-function TrainerWorkspace({ team }: { team: ManagedTeam }) {
-  const initials = team.name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || 'EQ'
-
-  return (
-    <div className="mt-8 space-y-6">
-      <section className="rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-5">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#b4ff45] font-display text-3xl text-[#07131e]">
-              {initials}
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Equipo activo</p>
-              <h3 className="mt-1 font-display text-4xl uppercase">{team.name}</h3>
-              <p className="mt-2 text-slate-400">
-                {team.discipline} <span className="mx-2 text-[#b4ff45]">•</span> {team.city || 'Ubicación pendiente'}
-              </p>
-            </div>
-          </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#cfff91]">
-            <Shield size={15} />
-            Entrenador
-          </span>
-        </div>
-      </section>
-
-      <TeamDivisionSettings teamId={team.id} canManageDivisions={false} canManageRoster />
-
-      <TeamCallupsPanel teamId={team.id} teamName={team.name} />
-
-      <section className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Actividad del equipo</p>
-            <h3 className="mt-2 font-display text-3xl uppercase">Calendario</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Consulta los compromisos y actividades del equipo desde el calendario.</p>
-          </div>
-          <button type="button" onClick={() => window.alert('El calendario llegará próximamente.')} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><CalendarDays size={18} />Abrir calendario<ArrowUpRight size={16} /></button>
-        </div>
-      </section>
-
-    </div>
-  )
-}
-
-type TrainerTournament = {
-  id: string
-  name: string
-  status: string
-  start_date: string | null
-  end_date: string | null
-  divisions: TrainerTournamentDivision[]
-}
-
-type TrainerTournamentDivision = {
-  id: string
-  name: string
-  matchdays: TrainerMatchday[]
-}
-
-type TrainerMatchday = {
-  id: string
-  dateNumber: number
-  calendarDate: string | null
-  scheduledTime: string | null
-  opponentName: string
-  status: string
-  deadlineAt: string | null
-}
-
-type TrainerCallup = { match_id: string; status: string; deadline_at: string }
-
-function formatTrainerDate(calendarDate: string | null, dateNumber: number) {
-  return calendarDate
-    ? new Intl.DateTimeFormat('es-PA', { day: 'numeric', month: 'short' }).format(new Date(`${calendarDate}T12:00:00`))
-    : `Fecha ${dateNumber}`
-}
-
-function trainerCallupStatus(callup: TrainerCallup | undefined, deadlineAt: string | null) {
-  if (!callup) return 'Pendiente'
-  if (callup.status !== 'reopened' && callup.status !== 'locked' && deadlineAt && new Date(deadlineAt).getTime() <= Date.now()) return 'Bloqueada'
-  return { pending: 'Pendiente', editing: 'En edición', submitted: 'Enviada', locked: 'Bloqueada', reopened: 'Reabierta' }[callup.status] || callup.status
-}
-
-function TrainerCallupsAccess({ teamId, teamName }: { teamId: string; teamName: string }) {
-  const [tournaments, setTournaments] = useState<TrainerTournament[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadTournaments() {
-      if (!supabase) {
-        setLoading(false)
-        return
-      }
-
-      const { data: links } = await supabase
-        .from('tournament_teams')
-        .select('tournament_id, division_id, tournament_divisions(name)')
-        .eq('team_id', teamId)
-
-      const tournamentIds = Array.from(new Set((links ?? []).map((link) => link.tournament_id)))
-      if (!tournamentIds.length) {
-        setLoading(false)
-        return
-      }
-
-      const { data } = await supabase
-        .from('tournaments')
-        .select('id, name, status, start_date, end_date')
-        .in('id', tournamentIds)
-        .neq('status', 'finished')
-        .order('start_date', { ascending: true })
-
-      const activeTournaments = (data ?? []) as Array<Omit<TrainerTournament, 'divisions'>>
-      const activeTournamentIds = activeTournaments.map((tournament) => tournament.id)
-      const { data: fixtures } = activeTournamentIds.length
-        ? await supabase.from('fixtures').select('id, tournament_id, date_number, calendar_date').in('tournament_id', activeTournamentIds).order('date_number')
-        : { data: [] }
-      const fixtureIds = (fixtures ?? []).map((fixture) => fixture.id)
-      const { data: matches } = fixtureIds.length
-        ? await supabase.from('matches').select('id, fixture_id, division_id, scheduled_time, local_team_id, visitor_team_id, local_team:teams!matches_local_team_id_fkey(name), visitor:teams!matches_visitor_team_id_fkey(name)').in('fixture_id', fixtureIds)
-        : { data: [] }
-      const { data: callups } = activeTournamentIds.length
-        ? await supabase.from('tournament_callups').select('match_id, status, deadline_at').eq('team_id', teamId).in('tournament_id', activeTournamentIds)
-        : { data: [] }
-      const fixtureById = new Map((fixtures ?? []).map((fixture) => [fixture.id, fixture]))
-      const callupByMatchId = new Map(((callups ?? []) as TrainerCallup[]).map((callup) => [callup.match_id, callup]))
-      const tournamentById = new Map(activeTournaments.map((tournament) => [tournament.id, { ...tournament, divisions: [] as TrainerTournamentDivision[] }]))
-
-      for (const link of (links ?? []) as Array<{ tournament_id: string; division_id: string; tournament_divisions: { name: string } | Array<{ name: string }> | null }>) {
-        const tournament = tournamentById.get(link.tournament_id)
-        if (!tournament) continue
-        const linkedDivision = Array.isArray(link.tournament_divisions) ? link.tournament_divisions[0] : link.tournament_divisions
-        const divisionMatches = (matches ?? []).filter((match) => {
-          const fixture = fixtureById.get(match.fixture_id)
-          return fixture?.tournament_id === link.tournament_id && match.division_id === link.division_id && (match.local_team_id === teamId || match.visitor_team_id === teamId)
-        })
-        const matchdays = divisionMatches
-          .map((match) => {
-            const fixture = fixtureById.get(match.fixture_id)
-            const opponent = match.local_team_id === teamId ? match.visitor : match.local
-            const callup = callupByMatchId.get(match.id)
-            return {
-              id: match.id,
-              dateNumber: fixture?.date_number ?? 0,
-              calendarDate: fixture?.calendar_date ?? null,
-              scheduledTime: match.scheduled_time,
-              opponentName: opponent?.name || 'Rival pendiente',
-              status: trainerCallupStatus(callup, callup?.deadline_at || null),
-              deadlineAt: callup?.deadline_at || null,
-            }
-          })
-          .sort((a, b) => a.dateNumber - b.dateNumber || (a.calendarDate || '').localeCompare(b.calendarDate || ''))
-        const division = tournament.divisions.find((item) => item.id === link.division_id)
-        if (division) division.matchdays = matchdays
-        else tournament.divisions.push({ id: link.division_id, name: linkedDivision?.name || 'División', matchdays })
-      }
-
-      setTournaments(Array.from(tournamentById.values()))
-      setLoading(false)
-    }
-
-    void loadTournaments()
-  }, [teamId])
-
-  return (
-    <section className="rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-6 sm:p-8">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Competencias del equipo</p>
-          <h3 className="mt-2 font-display text-3xl uppercase">Convocatorias</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Selecciona un torneo para preparar la lista de jugadores de cada jornada.
-          </p>
-        </div>
-        <Users className="text-[#b4ff45]" size={25} />
-      </div>
-
-      {loading ? (
-        <p className="mt-5 text-sm text-slate-400">Cargando competencias...</p>
-      ) : tournaments.length ? (
-        <div className="mt-5 space-y-5">
-          {tournaments.map((tournament) => (
-            <article key={tournament.id} className="rounded-2xl border border-[#31556b] bg-[#07131e] p-4 sm:p-5">
-              <div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center">
-                <div>
-                  <h4 className="font-bold text-white">{tournament.name}</h4>
-                  <p className="mt-1 text-xs uppercase tracking-wider text-slate-500">{tournament.status} · {teamName}</p>
-                </div>
-                <Link href={`/torneos/ver/${tournament.id}?tab=convocatorias`} className="inline-flex items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">
-                  Ver competencia <ArrowUpRight size={16} />
-                </Link>
-              </div>
-              <div className="mt-4 space-y-4">
-                {tournament.divisions.map((division) => (
-                  <div key={division.id}>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-[#dfffba]">{division.name}</p>
-                      <span className="text-xs text-slate-500">{division.matchdays.length} {division.matchdays.length === 1 ? 'jornada' : 'jornadas'}</span>
-                    </div>
-                    {division.matchdays.length ? <div className="mt-2 grid gap-2 lg:grid-cols-2">{division.matchdays.map((matchday) => (
-                      <Link key={matchday.id} href={`/torneos/ver/${tournament.id}?tab=convocatorias&matchId=${matchday.id}&teamId=${teamId}`} className="flex items-center justify-between gap-3 rounded-xl border border-[#29485d] p-3 transition hover:border-[#b4ff45]">
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-white">Jornada {matchday.dateNumber} · {formatTrainerDate(matchday.calendarDate, matchday.dateNumber)}</span>
-                          <span className="mt-1 block truncate text-xs text-slate-400">Rival: {matchday.opponentName}{matchday.scheduledTime ? ` · ${matchday.scheduledTime.slice(0, 5)}` : ''}</span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${matchday.status === 'Bloqueada' ? 'bg-red-400/10 text-red-200' : matchday.status === 'Enviada' ? 'bg-[#b4ff45]/10 text-[#dfffba]' : 'bg-white/5 text-slate-300'}`}>{matchday.status}</span>
-                          <ArrowUpRight className="text-[#b4ff45]" size={16} />
-                        </span>
-                      </Link>
-                    ))}</div> : <p className="mt-2 rounded-xl border border-dashed border-[#31556b] p-3 text-xs text-slate-500">El organizador todavía no genera partidos para esta división.</p>}
-                  </div>
-                ))}
-              </div>
+        <section className="grid grid-cols-3 gap-4">
+          {[
+            ['Equipos a cargo', value(loading ? null : coachedTeams.length)],
+            ['Atletas en plantilla', value(athleteCount)],
+            ['Torneos', value(loading ? null : tournaments.length)],
+          ].map(([label, figure]) => (
+            <article key={label} className="rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6">
+              <p className="font-display text-5xl leading-none">{figure}</p>
+              <p className="mt-3 text-xs font-bold uppercase tracking-[.2em] text-slate-400">{label}</p>
             </article>
           ))}
-        </div>
-      ) : (
-        <p className="mt-5 rounded-2xl border border-dashed border-[#31556b] p-4 text-sm text-slate-400">
-          No hay torneos activos asociados a este equipo.
-        </p>
-      )}
-    </section>
-  )
-}
+        </section>
 
-function LoadingState() {
-  return <div className="mt-8 rounded-3xl border border-[#1f4057] bg-[#0b1d2c] p-10 text-center text-slate-400">Cargando equipos asignados...</div>
-}
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+          <div className="space-y-4">
+            <h2 className="font-display text-3xl uppercase">Mis equipos</h2>
+            {coachedTeams.length ? coachedTeams.map((team) => (
+              <article key={team.id} className="space-y-5 rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">
+                    {team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : initials(team.name)}
+                  </div>
+                  <div>
+                    <h3 className="font-display text-3xl uppercase">{team.name}</h3>
+                    <p className="mt-1 text-sm text-slate-400">{team.discipline}{team.city ? ` · ${team.city}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link href={`/entrenador/equipo/${team.id}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] transition hover:brightness-110"><Users size={18} />Administrar equipo</Link>
+                  <Link href={`/entrenador/equipo/${team.id}?tab=convocatorias`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#31556b] px-5 py-3 font-semibold text-slate-200 transition hover:border-[#b4ff45] hover:text-[#b4ff45]">Convocatorias</Link>
+                </div>
+              </article>
+            )) : !loading && <p className="rounded-3xl border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Aún no tienes equipos asignados como entrenador.</p>}
+          </div>
 
-function NoTeamState() {
-  return (
-    <div className="mt-8 rounded-3xl border border-dashed border-[#31556b] bg-[#0b1d2c] p-8 text-center sm:p-12">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#b4ff45]/10 text-[#b4ff45]"><Users size={28} /></div>
-      <h3 className="mt-5 font-display text-3xl uppercase">Aún no tienes equipos asignados</h3>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">Cuando un directivo te invite como entrenador, el equipo aparecerá aquí y podrás empezar a gestionarlo.</p>
-      <Link href="/busqueda" className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]">Buscar equipos <ArrowUpRight size={17} /></Link>
-    </div>
+          <div className="space-y-4">
+            <h2 className="font-display text-3xl uppercase">Torneos de mis equipos</h2>
+            {tournaments.length ? tournaments.map((tournament) => (
+              <article key={tournament.id} className="overflow-hidden rounded-3xl border border-[#29485d] bg-[#0b1d2c]">
+                <div className="flex h-28 items-center justify-center bg-[#1b3b50]">
+                  {tournament.cover_url ? <img src={tournament.cover_url} alt="" className="h-full w-full object-cover" /> : <span className="font-display text-3xl text-slate-300">{initials(tournament.name)}</span>}
+                </div>
+                <div className="space-y-3 p-5">
+                  <h3 className="font-display text-2xl uppercase">{tournament.name}</h3>
+                  {statusLabels[tournament.status] && <span className="inline-flex rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#cfff91]">{statusLabels[tournament.status]}</span>}
+                  <Link href={`/torneos/ver/${tournament.id}`} className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver evento<ArrowUpRight size={16} /></Link>
+                </div>
+              </article>
+            )) : !loading && <p className="rounded-3xl border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Tus equipos aún no están inscritos en torneos.</p>}
+          </div>
+        </section>
+      </section>
+    </main>
   )
 }

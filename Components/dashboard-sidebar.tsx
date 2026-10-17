@@ -1,17 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { Bell, Building2, CalendarDays, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
+import { Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
+import { settingsSectionIcons, useSettingsNavConfig } from './settings-nav'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
+import { useThemeMode } from '../lib/theme'
 import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
 
 type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean; notice?: string }
 
 const calendarNotice = 'El calendario llegará próximamente.'
+
 
 const searchNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
@@ -95,6 +98,7 @@ export function DashboardSidebar() {
         organizationId: null,
         name: team.name,
         discipline: team.discipline,
+        organizationType: null,
         role: team.role === 'owner' ? 'directivo' : team.role as AccountContext['role'],
         roleLabel: null,
       }))
@@ -166,18 +170,66 @@ export function DashboardSidebar() {
     baseNavigation = staffNavigation
   }
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }] : baseNavigation
+  const activeHref = navigation.find((item) => item.href && pathname === item.href.split('#')[0] && !item.href.includes('#'))?.href ?? ''
+  const settingsNav = useSettingsNavConfig()
+  const [themeMode] = useThemeMode()
+  const light = themeMode === 'light'
+  const asideSurface = light
+    ? 'border-r border-[#d3dde6] bg-white text-[#0b1d2c] shadow-[14px_0_40px_-28px_rgba(11,29,44,.28)]'
+    : 'border-r border-[#1d3a4d] bg-gradient-to-b from-[#0a1b2a] via-[#081522] to-[#07131e] text-white shadow-2xl'
+  const muted = light ? 'text-[#5b7185]' : 'text-[#5f7d91]'
+  const idleItem = light ? 'text-[#26394a] hover:bg-[#0b1d2c]/[.05] hover:text-[#0b1d2c]' : 'text-[#c9d6e0] hover:bg-white/[.06] hover:text-white'
+  const pronto = light ? 'border-[#bccad6] text-[#3f7d00]' : 'border-[#29485d] text-[#b4ff45]/80'
+  const settingsSections = settingsNav?.sections ?? null
+  const activeKey = settingsSections ? `section:${settingsNav?.activeSection ?? ''}` : activeHref
+
+  // Indicador deslizante: se mueve desde el ítem anterior hasta el activo.
+  const navRef = useRef<HTMLElement>(null)
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({})
+  const [indicator, setIndicator] = useState({ top: 0, height: 0, visible: false })
+  const [layoutTick, setLayoutTick] = useState(0)
+  useEffect(() => {
+    const onResize = () => setLayoutTick((tick) => tick + 1)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  useLayoutEffect(() => {
+    const node = activeKey ? itemRefs.current[activeKey] : null
+    if (!node) {
+      setIndicator((current) => (current.visible ? { ...current, visible: false } : current))
+      return
+    }
+    setIndicator({ top: node.offsetTop, height: node.offsetHeight, visible: true })
+  }, [activeKey, layoutTick, open])
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-[5px] border border-[#29485d] bg-[#081522] text-white shadow-lg print:hidden lg:hidden"><Menu size={22} /></button>
-    {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-30 cursor-pointer bg-[#081522]/60 print:hidden lg:hidden" />}
-    <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[#1b3548] bg-[#07131e] px-5 py-6 text-white shadow-2xl transition-transform duration-200 print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-      <Link href="/busqueda" onClick={close} className="block border-b border-white/10 pb-7"><img src="/MarcaAthlonX/MarcaHorizontal.svg" alt="AthlonX" className="w-44" /></Link>
-      <nav className="mt-8 space-y-2">{navigation.map(({ label, icon: Icon, href, disabled, notice }) => {
-        if (disabled || label === 'Calendario') return <button key={label} type="button" onClick={() => window.alert(notice || calendarNotice)} title={notice || calendarNotice} className="flex w-full cursor-pointer items-center gap-4 rounded-[5px] px-4 py-3 text-left font-heading text-lg text-slate-500 opacity-70 hover:bg-white/10"><Icon size={20} /><span className="flex min-w-0 flex-1 items-center justify-between gap-2"><span>{label}</span><span className="text-[9px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span></span></button>
-        if (!href) return null
-        const isActive = pathname === href.split('#')[0] && !href.includes('#')
-        return <Link key={href} href={href} onClick={close} className={`flex w-full cursor-pointer items-center gap-4 rounded-[5px] px-4 py-3 font-heading text-lg transition hover:bg-white/10 hover:text-white ${isActive ? 'bg-[#b4ff45] font-bold text-[#081522]' : 'text-slate-300'}`}><Icon size={20} />{label}</Link>
-      })}</nav>
+    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#29485d] bg-[#081522]/95 text-white shadow-lg backdrop-blur print:hidden lg:hidden"><Menu size={22} /></button>
+    {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-30 cursor-pointer bg-[#020b12]/60 backdrop-blur-[2px] print:hidden lg:hidden" />}
+    <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-x-hidden overflow-y-auto ${asideSurface} px-4 py-6 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <Link href="/busqueda" onClick={close} className="group flex shrink-0 items-center pb-6">
+        <img src={light ? "/MarcaAthlonX/MarcaHorizontalClara.svg" : "/MarcaAthlonX/MarcaHorizontal.svg"} alt="AthlonX" style={{ width: 207, height: 28, maxWidth: "none" }} className="shrink-0 transition duration-300 group-hover:brightness-110" />
+      </Link>
+      <p className={`px-3 pb-3 font-body text-[10px] font-semibold uppercase tracking-[0.24em] ${muted}`}>{settingsSections ? 'Mi perfil' : 'Menú'}</p>
+      <nav ref={navRef} className="relative flex flex-col gap-1">
+        <span aria-hidden="true" className="pointer-events-none absolute left-0 top-0 w-full rounded-xl bg-gradient-to-r from-[#b4ff45] to-[#a2f02e] shadow-[0_8px_24px_-8px_rgba(180,255,69,.55)] transition-[transform,height,opacity] duration-500 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height, opacity: indicator.visible ? 1 : 0 }} />
+        {settingsSections && settingsSections.map((section) => {
+          const isActive = section.id === settingsNav?.activeSection
+          const Icon = settingsSectionIcons[section.id] ?? Circle
+          return <button key={section.id} type="button" ref={(node) => { itemRefs.current[`section:${section.id}`] = node }} onClick={() => settingsNav?.onSection(section.id)} aria-current={isActive ? 'page' : undefined} className={`relative z-10 flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-300 motion-reduce:transition-none ${isActive ? 'font-semibold text-[#07131e]' : idleItem}`}>
+            <Icon size={18} className="shrink-0" aria-hidden="true" />
+            <span className="font-barlow text-[18px] font-semibold leading-none">{section.label}</span>
+          </button>
+        })}
+        {!settingsSections && navigation.map(({ label, icon: Icon, href, disabled, notice }) => {
+          if (disabled || label === 'Calendario') return <div key={label} aria-disabled="true" title={notice || calendarNotice} className={`relative z-10 flex w-full cursor-default items-center gap-3 rounded-xl px-3 py-2.5 ${muted}`}><Icon size={18} className="shrink-0" /><span className="font-barlow text-[18px] font-semibold leading-none">{label}</span><span className={`ml-auto rounded-full border px-2 py-0.5 font-body text-[9px] font-semibold uppercase tracking-[0.12em] ${pronto}`}>Pronto</span></div>
+          if (!href) return null
+          const isActive = href === activeHref
+          return <Link key={href} href={href} onClick={close} ref={(node) => { itemRefs.current[href] = node }} aria-current={isActive ? 'page' : undefined} className={`group relative z-10 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-300 motion-reduce:transition-none ${isActive ? 'font-semibold text-[#07131e]' : idleItem}`}>
+            <Icon size={18} className={`shrink-0 transition-transform duration-300 motion-reduce:transform-none ${isActive ? '' : 'group-hover:translate-x-0.5 group-hover:scale-110'}`} />
+            <span className="font-barlow text-[18px] font-semibold leading-none">{label}</span>
+          </Link>
+        })}
+      </nav>
     </aside>
   </>
 }

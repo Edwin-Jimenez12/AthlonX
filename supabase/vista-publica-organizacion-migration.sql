@@ -224,6 +224,7 @@ as $$
         'id', item.id,
         'name', item.name,
         'slug', item.slug,
+        'cover_url', item.cover_url,
         'season', item.season,
         'status', item.status,
         'location', item.location,
@@ -244,6 +245,7 @@ as $$
           t.id,
           t.name,
           t.slug,
+          t.cover_url,
           t.season,
           t.status,
           t.location,
@@ -263,7 +265,7 @@ as $$
         where t.is_public = true
           and t.status in ('published', 'in_progress', 'finished')
           and (t.organization_id = p_organization_id or member_team.organization_id = p_organization_id)
-        group by t.id, t.name, t.slug, t.season, t.status, t.location, t.start_date, t.end_date, t.created_at, t.discipline_id, d.name, sm.id, sm.code, sm.name
+        group by t.id, t.name, t.slug, t.cover_url, t.season, t.status, t.location, t.start_date, t.end_date, t.created_at, t.discipline_id, d.name, sm.id, sm.code, sm.name
       ) item
     ), '[]'::jsonb)
   );

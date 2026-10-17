@@ -58,7 +58,7 @@ export default function OrganizationsPage() {
   const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) || organizations[0]
   const organizationId = activeOrganization?.id
 
-  return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10">
+  return <main className="min-h-screen bg-transparent px-5 py-8 text-white lg:ml-64 lg:px-10">
     <div className="mx-auto max-w-6xl space-y-6">
       <header><p className="font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Estructura institucional</p><h1 className="mt-2 font-heading text-5xl font-black uppercase">Organización</h1><p className="mt-2 max-w-3xl text-slate-400">Administra la jerarquía, las afiliaciones directas y las organizaciones que forman parte de tu autoridad institucional.</p></header>
       {organizations.length > 1 && <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-5"><StyledSelect label="Organización activa" value={organizationId || ''} onChange={setActiveOrganizationId} options={[{ value: '', label: 'Seleccionar organización' }, ...organizations.map((organization) => ({ value: organization.id, label: organization.name }))]} /></section>}

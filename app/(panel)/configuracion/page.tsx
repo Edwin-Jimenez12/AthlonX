@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { AccountMenu } from '../../../Components/account-menu'
 import { LogoutAction } from '../../../Components/logout-confirmation'
 import { supabase } from '../../../lib/supabase'
+import { useThemeMode, type ThemeMode } from '../../../lib/theme'
 import { NotificationsMenu } from '../../../Components/notifications-menu'
 import { TeamProfileSettings } from '../../../Components/team-profile-settings'
 import { TeamDivisionSettings } from '../../../Components/team-division-settings'
@@ -56,18 +57,12 @@ export default function SettingsPage() {
   const [personalTeamsLoading, setPersonalTeamsLoading] = useState(false)
   const [personalRoles, setPersonalRoles] = useState<PersonalRole[]>([])
   const [activeSection, setActiveSection] = useState<Section>('personal')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [theme, setThemeMode] = useThemeMode()
   const [allowAthleteInvitations, setAllowAthleteInvitations] = useState(true)
   const [profileOpen, setProfileOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notice, setNotice] = useState('')
-
-  useEffect(() => {
-    const storedTheme = window.localStorage.getItem('athlonx-theme') === 'light' ? 'light' : 'dark'
-    setTheme(storedTheme)
-    document.documentElement.dataset.theme = storedTheme
-  }, [])
 
   useEffect(() => {
     async function loadSettings() {
@@ -167,12 +162,8 @@ export default function SettingsPage() {
   const name = isOrganization ? organizationName || profile?.full_name || 'Organización AthlonX' : profile?.full_name || 'Usuario AthlonX'
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
 
-  function changeTheme() {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(nextTheme)
-    document.documentElement.dataset.theme = nextTheme
-    window.localStorage.setItem('athlonx-theme', nextTheme)
-    setProfileOpen(false)
+  function changeTheme(mode: ThemeMode) {
+    void setThemeMode(mode)
   }
 
   async function changeAthleteInvitationPreference(nextValue: boolean) {
@@ -188,7 +179,7 @@ export default function SettingsPage() {
     setNotice(nextValue ? 'Ahora puedes recibir invitaciones como atleta.' : 'Se desactivaron las invitaciones como atleta.')
   }
 
-  return <main className="min-h-screen bg-[#07131e] text-white">
+  return <main className="min-h-screen bg-transparent text-white">
     <div className="grid min-h-screen lg:grid-cols-[256px_1fr]">
       {menuOpen && <button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú lateral" className="fixed inset-0 z-30 cursor-pointer bg-[#020a11]/70 lg:hidden" />}
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-[#061b2b] px-7 py-8 shadow-2xl transition-transform duration-200 lg:static lg:min-h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>

@@ -1,0 +1,18 @@
+app/(panel)/organizaciones/[id]/page.tsx(24,43): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+app/(panel)/organizaciones/[id]/page.tsx(25,41): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+app/(panel)/organizaciones/[id]/page.tsx(26,37): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+app/(panel)/organizaciones/[id]/page.tsx(27,37): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+app/(panel)/organizaciones/[id]/page.tsx(28,39): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+app/(panel)/organizaciones/[id]/page.tsx(29,41): error TS2322: Type 'IconType' is not assignable to type 'SocialIcon'.
+  Type 'ReactNode' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.
+    Type 'string' is not assignable to type 'ReactElement<unknown, string | JSXElementConstructor<any>>'.

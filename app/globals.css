@@ -33,6 +33,10 @@ body:has(main) {
   --ax-line: #29485d;
   --ax-text: #e8eef3;
   --ax-muted: #91a8ba;
+  --ax-accent: #b4ff45;
+  --ax-accent-text: #b4ff45;
+  --ax-on-accent: #07131e;
+  --ax-watermark: rgba(180, 255, 69, .05);
   min-height: 100vh;
   background:
     radial-gradient(circle at 86% 5%, rgba(180, 255, 69, .08), transparent 23rem),
@@ -120,6 +124,10 @@ html[data-theme='light'] .athlonx-dashboard {
   --ax-line: #d5dee7;
   --ax-text: #17212b;
   --ax-muted: #64748b;
+  --ax-accent: #b4ff45;
+  --ax-accent-text: #3f7d00;
+  --ax-on-accent: #07131e;
+  --ax-watermark: rgba(63, 125, 0, .07);
   background: var(--ax-bg);
 }
 
@@ -138,7 +146,7 @@ html[data-theme='light'] .athlonx-dashboard main [class*="bg-[#0d1d2b"] {
 }
 
 html[data-theme='dark'] .athlonx-dashboard main {
-  background-color: #07131e !important;
+  background-color: transparent !important;
   color: #e8eef3;
 }
 
@@ -202,6 +210,159 @@ article.overflow-hidden.rounded-3xl.border-slate-200.bg-\[\#081522\].text-white 
 
 article.overflow-hidden.rounded-3xl.border-slate-200.bg-\[\#081522\].text-white .border-white\/10 {
   border-color: #e2e8f0;
+}
+
+
+/* ==========================================================================
+   Modo claro del contenido del panel. Fondo frío, tarjetas blancas, texto azul
+   marino y verde lima como acento (oscurecido para leer sobre blanco). La
+   barra lateral tiene sus propios estilos en dashboard-sidebar.tsx.
+   ========================================================================== */
+
+html[data-theme='light'] .athlonx-dashboard {
+  --ax-bg: #eef3f7;
+  --ax-surface: #ffffff;
+  --ax-surface-raised: #f5f8fb;
+  --ax-line: #d3dde6;
+  --ax-text: #0b1d2c;
+  --ax-muted: #5b7185;
+  --ax-accent: #b4ff45;
+  --ax-accent-text: #3f7d00;
+  --ax-on-accent: #07131e;
+  --ax-watermark: rgba(63, 125, 0, .07);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(180, 255, 69, .20), transparent 26rem),
+    radial-gradient(circle at 6% 100%, rgba(19, 87, 125, .09), transparent 30rem),
+    var(--ax-bg);
+  color: var(--ax-text);
+}
+
+html[data-theme='light'] body {
+  background: #eef3f7;
+}
+
+html[data-theme='light'] select option {
+  background: #ffffff;
+  color: #0b1d2c;
+}
+html[data-theme='light'] [class*="bg-[#07131e]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#081522]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0b1d2c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0b1b29]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0b141e]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0d1d2b]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0d2232]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#0d2730]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#071d2c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  background-color: #ffffff;
+}
+html[data-theme='light'] [class*="bg-[#102536]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="bg-[#142332]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  background-color: #f5f8fb;
+}
+html[data-theme='light'] [class*="bg-white/" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  background-color: rgba(11, 29, 44, .05);
+}
+html[data-theme='light'] [class*="text-white" i]:not([class*="--mp-danger" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#e8eef3]" i]:not([class*="--mp-danger" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#f7fafc]" i]:not([class*="--mp-danger" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#17212b]" i]:not([class*="--mp-danger" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#081522]" i]:not([class*="--mp-danger" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #0b1d2c;
+}
+html[data-theme='light'] [class*="text-slate-100" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-slate-200" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-slate-300" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#c9d6e0]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#dbe5ed]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #26394a;
+}
+html[data-theme='light'] [class*="text-slate-400" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #4a6176;
+}
+html[data-theme='light'] [class*="text-slate-500" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-slate-600" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#91a8ba]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#70899b]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#9bb0c2]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #5b7185;
+}
+html[data-theme='light'] [class*="text-[#b4ff45]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#70b719]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#4c8500]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#cfff91]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#d0ff8c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#d8ffad]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#dfffba]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#d9ffb1]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #3f7d00;
+}
+html[data-theme='light'] [class*="text-[#ffb0b7]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#ff9ca5]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#ff7d88]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #b3263a;
+}
+html[data-theme='light'] [class*="text-[#ffd09b]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="text-[#ffb45c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  color: #94540a;
+}
+html[data-theme='light'] [class*="border-[#31556b]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#29485d]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#1f4057]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#263b4d]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#31485c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#294052]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-slate-200" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-slate-300" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-slate-800" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-white/10" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-white/15" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-white/20" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  border-color: #d3dde6;
+}
+html[data-theme='light'] [class*="border-white/30" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-white/50" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-slate-400" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  border-color: #bccad6;
+}
+html[data-theme='light'] [class*="border-[#b4ff45]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  border-color: #8fd63a;
+}
+html[data-theme='light'] [class*="border-[#ff7d88]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *),
+html[data-theme='light'] [class*="border-[#ff9ca5]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  border-color: #e0606d;
+}
+html[data-theme='light'] [class*="border-[#ffb45c]" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  border-color: #d98a2b;
+}
+
+html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *) {
+  background-color: #ffffff;
+  color: #0b1d2c;
+  border-color: #bccad6;
+}
+
+html[data-theme='light'] :is(input, textarea):not(.athlonx-dashboard > aside *)::placeholder {
+  color: #74899a;
+  opacity: 1;
+}
+
+html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *):focus-visible {
+  outline: none;
+  border-color: #7fcf2a;
+  box-shadow: 0 0 0 4px rgba(127, 207, 42, .18);
+}
+
+html[data-theme='light'] [class*="bg-[#b4ff45]" i]:not([class*="bg-[#b4ff45]/" i]):not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  box-shadow: inset 0 0 0 1px rgba(63, 125, 0, .28);
+}
+
+html[data-theme='light'] .athlonx-dashboard main article:not(.athlonx-dashboard > aside *) {
+  box-shadow: 0 1px 2px rgba(11, 29, 44, .05), 0 12px 32px -16px rgba(11, 29, 44, .18);
+}
+
+html[data-theme='light'] [class*="shadow-2xl" i]:not(.athlonx-dashboard > aside):not(.athlonx-dashboard > aside *) {
+  box-shadow: 0 24px 60px -20px rgba(11, 29, 44, .30), 0 2px 6px rgba(11, 29, 44, .06);
 }
 
 body {
@@ -285,5 +446,79 @@ h3 {
   body.print-fixture-document .fixture-print-document tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+}
+
+/* Entrada suave de las vistas del panel (atleta, entrenador, directivo, staff). */
+@keyframes ax-panel-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ax-panel-enter {
+  /* "backwards" no conserva el transform final: así los modales fijos de cada sección siguen centrados en la pantalla. */
+  animation: ax-panel-in 480ms cubic-bezier(.22, .61, .36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-panel-enter {
+    animation: none;
+  }
+}
+
+.font-barlow {
+  font-family: var(--font-barlow-condensed), sans-serif !important;
+}
+
+@keyframes ax-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ax-rise {
+  animation: ax-rise 520ms cubic-bezier(.22, .61, .36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-rise {
+    animation: none;
+  }
+}
+
+
+/* Lista desplegable de filtros: entrada y salida progresivas, con las opciones apareciendo en cascada. */
+@keyframes ax-drop-in {
+  from { opacity: 0; transform: translateY(-18px) scale(.92); filter: blur(4px); }
+  60% { filter: blur(0); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes ax-drop-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-10px) scale(.94); }
+}
+
+@keyframes ax-option-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.ax-drop-in {
+  animation: ax-drop-in 420ms cubic-bezier(.16, 1, .3, 1) backwards;
+}
+
+.ax-drop-out {
+  animation: ax-drop-out 200ms cubic-bezier(.4, 0, 1, 1) forwards;
+}
+
+.ax-option-in {
+  animation: ax-option-in 460ms cubic-bezier(.16, 1, .3, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-drop-in,
+  .ax-drop-out,
+  .ax-option-in {
+    animation: none;
   }
 }

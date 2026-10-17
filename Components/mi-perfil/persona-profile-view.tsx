@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LogoutAction } from '../logout-confirmation'
 import { supabase } from '../../lib/supabase'
+import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, phoneError } from '../../lib/mi-perfil'
 import type { PersonaProfile, PrivacyField, Theme, Visibility } from '../../lib/mi-perfil'
 import { Avatar, Card, ConfirmModal, Chip, DateField, Field, Hero, ListRow, Pending, PhoneField, ReadValue, SelectField, SettingRow, Segmented, Shell, Toggle, initialsOf } from './ui'
@@ -77,9 +78,15 @@ export function PersonaProfileView({
   const age = ageFrom(birthDate || null)
   const displayName = `${firstName} ${lastName}`.trim() || profile.fullName || 'Persona pendiente'
 
+  // Cambios sin guardar: se compara con la versión que había al empezar a editar.
+  const [baseline, setBaseline] = useState('')
+  const currentSnapshot = JSON.stringify([firstName, lastName, phone, bloodType, birthDate, allowInvitations, privacy, tournaments])
+  const unsaved = editing && currentSnapshot !== baseline
+
   function startEdit() {
     if (!editableSections.includes(section)) onSection('identidad')
     setNotice(null)
+    setBaseline(currentSnapshot)
     setEditing(true)
   }
 
@@ -143,14 +150,19 @@ export function PersonaProfileView({
     onProfileSaved()
   }
 
+  // Guardado desde el aviso de salida. Devuelve el error o vacío si se guardó.
+  async function saveFromNavigation(): Promise<string> {
+    const failure = await saveAll()
+    if (failure) return failure
+    setEditing(false)
+    setNotice({ type: 'ok', text: 'Cambios guardados.' })
+    onProfileSaved()
+    return ''
+  }
+
   async function saveTheme(next: Theme) {
     onTheme(next)
-    try {
-      window.localStorage.setItem('athlonx-theme', next === 'claro' ? 'light' : 'dark')
-    } catch {
-      // Sin almacenamiento local: el tema igual se guarda en la cuenta.
-    }
-    document.documentElement.dataset.theme = next === 'claro' ? 'light' : 'dark'
+    applyTheme(next === 'claro' ? 'light' : 'dark')
     if (supabase) {
       await supabase.from('account_preferences').upsert({ user_id: profile.userId, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
     }
@@ -166,7 +178,7 @@ export function PersonaProfileView({
   const sectionLabel = personaSections.find((item) => item.id === section)?.label ?? personaSections[0].label
 
   return (
-    <Shell theme={theme} sectionLabel={sectionLabel} sections={personaSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/perfil/${profile.userId}`}>
+    <Shell theme={theme} sectionLabel={sectionLabel} sections={personaSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/perfil/${profile.userId}`} unsaved={unsaved} onDiscardChanges={cancelEdit} onSaveChanges={saveFromNavigation}>
       <Hero
         initials={initialsOf(displayName)}
         kindLabel="Perfil de persona"
