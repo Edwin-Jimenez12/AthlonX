@@ -34,6 +34,8 @@ import { StyledSelect } from '../../../../../Components/styled-select'
 import { TournamentCallupsPanel } from '../../../../../Components/tournament-callups-panel'
 import { TournamentFixtureGenerator } from '../../../../../Components/tournament-fixture-generator'
 import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
+import { BasketballTournamentPanels } from '../../../../../Components/basketball-tournament-panels'
+import { basketball } from '../../../../../lib/basketball'
 import { supabase } from '../../../../../lib/supabase'
 import {
   footballEightNextPhase,
@@ -344,6 +346,7 @@ export default function PublicTournamentPage() {
   const isFootballEightKnockout = competitionFormat === 'knockout'
     && data?.tournament?.discipline?.code === 'futbol'
     && data?.tournament?.modality?.code === 'futbol-8'
+  const isBasketball = data?.tournament?.discipline?.code === 'baloncesto' && data?.tournament?.modality?.code === '3x3'
 
   async function loadTournament() {
     if (!supabase || !params.id) {
@@ -445,8 +448,9 @@ export default function PublicTournamentPage() {
       court_number: courtByMatch.get(match.id) ?? null,
     })) as Match[]
     setData(normalizedPayload)
-    setMaxTeamsLimit(Number(competitionSettings?.max_teams) || null)
-    setMaxRosterLimit(Number(competitionSettings?.max_roster_size) || null)
+    const basketballTournament = normalizedPayload.tournament?.discipline?.code === 'baloncesto' && normalizedPayload.tournament?.modality?.code === '3x3'
+    setMaxTeamsLimit(basketballTournament ? basketball.teams : Number(competitionSettings?.max_teams) || null)
+    setMaxRosterLimit(basketballTournament ? basketball.maxRoster : Number(competitionSettings?.max_roster_size) || null)
     setCompetitionFormat(competitionSettings?.competition_format || '')
     setStoredFixtureDates(Array.from(new Set(
       (fixtureRows ?? []).map((fixture) => Number(fixture.date_number)),
@@ -590,6 +594,7 @@ export default function PublicTournamentPage() {
 
   if (loading) return <TournamentShell><p className="text-slate-400">Cargando torneo...</p></TournamentShell>
   if (error || !data?.tournament) return <TournamentShell><div className="rounded-[5px] border border-red-400/30 bg-red-500/10 p-5 text-red-200">{error || 'Este torneo no está disponible.'}</div></TournamentShell>
+  if (data.tournament.discipline?.code === 'baloncesto' && data.tournament.modality?.code !== '3x3') return <TournamentShell><p className="text-slate-300">La gestión de baloncesto está disponible para la modalidad 3x3. Esta modalidad todavía no tiene reglas habilitadas.</p></TournamentShell>
 
   const tournament = { ...data.tournament, fixtureMatches: data.matches ?? [] }
   const teams = data.teams ?? []
@@ -603,6 +608,7 @@ export default function PublicTournamentPage() {
   const showKnockout = competitionFormat !== 'quick_league'
   const showFixtureSections = !isFootballEightKnockout
   const canManage = Boolean(currentUserId && currentUserId === ownerId)
+  const basketballPanel = (value: 'resumen' | 'tablas' | 'fixtures' | 'partidos' | 'equipos' | 'general') => <BasketballTournamentPanels tournamentId={tournament.id} tournamentName={tournament.name} section={value} canManage={canManage && (value !== 'partidos' || editMode)} />
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
 
@@ -754,6 +760,7 @@ export default function PublicTournamentPage() {
   }
 
   async function performGenerateFixture(operation: PendingOperation): Promise<string | null> {
+    if (isBasketball) return 'Publica el cuadro desde Llaves para generar el fixture 3x3.'
     if (!supabase || !canManage) return 'No tienes permisos para generar fixtures.'
     if (uniqueTeams.length < 2) return 'Agrega al menos dos equipos antes de generar un fixture.'
     const selectedTeamIds = operation.payload.teamIds ? operation.payload.teamIds.split(',').filter(Boolean) : teams.map((team) => team.id)
@@ -809,9 +816,9 @@ export default function PublicTournamentPage() {
         }
         const minimumDates = requestedMatches > 0 ? 1 : 0
         if (requestedDateCount < minimumDates) return `${division.name} necesita al menos ${minimumDates} fechas.`
-        const scheduleBuilder = data.tournament?.discipline?.code === 'futbol'
-          ? buildFootballDivisionSchedule
-          : buildRugbyDivisionSchedule
+        const sportCode = data.tournament?.discipline?.code
+        const scheduleBuilder = sportCode === 'futbol' ? buildFootballDivisionSchedule : sportCode === 'rugby' ? buildRugbyDivisionSchedule : null
+        if (!scheduleBuilder) return 'Esta disciplina todavía no tiene generador de fixtures.'
         const schedule = scheduleBuilder(
           division.id,
           divisionTeams.map((team) => team.id),
@@ -1142,7 +1149,7 @@ export default function PublicTournamentPage() {
           ['historial', 'Historial'],
         ] as const)
           .filter(([value]) => (
-            (value !== 'generador' || canManage)
+            (value !== 'generador' || (canManage && !isBasketball))
             && (value !== 'llaves' || showKnockout)
             && (value !== 'convocatorias' || !tournament.is_quick)
             && (
@@ -1166,12 +1173,16 @@ export default function PublicTournamentPage() {
                   : 'hover:border-[#b4ff45] hover:text-white',
               ].join(' ')}
             >
-              {label}
+              {isBasketball && value === 'tablas' ? 'Clasificación' : label}
             </button>
           ))}
       </nav>
 
-      {section === 'resumen' && <SummarySection
+      {isBasketball && (section === 'resumen' || section === 'tablas' || section === 'fixtures' || section === 'partidos') && basketballPanel(section)}
+      {isBasketball && section === 'equipos' && basketballPanel('equipos')}
+      {isBasketball && section === 'general' && basketballPanel('general')}
+
+      {section === 'resumen' && !isBasketball && <SummarySection
         tournament={tournament}
         divisions={data.divisions ?? []}
         teams={teams}
@@ -1185,7 +1196,7 @@ export default function PublicTournamentPage() {
         canManage={canManage && editMode}
       />}
 
-      {section === 'tablas' && <StandingsSection
+      {section === 'tablas' && !isBasketball && <StandingsSection
         teams={teams}
         matches={matches}
       />}
@@ -1197,6 +1208,8 @@ export default function PublicTournamentPage() {
         events={matchEvents}
         canManage={canManage}
         footballEight={isFootballEightKnockout}
+        discipline={tournament.discipline?.code}
+        tournamentName={tournament.name}
       />}
 
       {section === 'equipos' && (tournament.is_quick
@@ -1205,6 +1218,7 @@ export default function PublicTournamentPage() {
           rosters={rosters}
           divisions={data.divisions ?? []}
           availableTeams={availableTeams.filter((team) => (
+            (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
             !teams.some((current) => (
               teamIdentityKey(current) === teamIdentityKey(team)
             ))
@@ -1213,6 +1227,7 @@ export default function PublicTournamentPage() {
           modality={tournament.modality}
           officialPlayerId={officialPlayerId}
           maxTeams={maxTeamsLimit}
+          maxRoster={isBasketball ? basketball.maxRoster : undefined}
           canManage={canManage}
           editMode={editMode}
           currentUserId={currentUserId}
@@ -1231,6 +1246,7 @@ export default function PublicTournamentPage() {
           fixtureDates={fixtureDates}
           divisions={data.divisions ?? []}
           availableTeams={availableTeams.filter((team) => (
+            (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
             !teams.some((current) => (
               teamIdentityKey(current) === teamIdentityKey(team)
             ))
@@ -1258,7 +1274,7 @@ export default function PublicTournamentPage() {
           initialTeamId={searchParams.get('teamId') || undefined}
         />}
 
-      {section === 'fixtures' && showFixtureSections && <FixtureListSection
+      {section === 'fixtures' && showFixtureSections && !isBasketball && <FixtureListSection
         tournament={tournament}
         teams={teams}
         dates={dates}
@@ -1271,6 +1287,7 @@ export default function PublicTournamentPage() {
           tournamentStatus={tournament.status}
           competitionFormat={competitionFormat}
           footballEight={tournament.modality?.code === 'futbol-8'}
+          discipline={tournament.discipline?.code}
           divisions={data.divisions ?? []}
           teams={teams}
           dates={dates}
@@ -1279,7 +1296,7 @@ export default function PublicTournamentPage() {
           onGenerate={requestGenerateFixture}
         />}
 
-      {section === 'partidos' && <MatchesSection
+      {section === 'partidos' && !isBasketball && <MatchesSection
         matches={matches}
         dates={dates}
         events={matchEvents}

@@ -246,10 +246,20 @@ export default function TournamentPage() {
       setCurrentUserId(userData.user?.id ?? null);
       const { data } = await supabase
         .from("tournaments")
-        .select("id,name,status,season,start_date,end_date,cover_url,location,created_by")
+        .select("id,name,status,season,start_date,end_date,cover_url,location,created_by,discipline_id,modality_id")
         .eq("slug", params.torneo)
         .maybeSingle();
       if (!data) return;
+      if (data.discipline_id && data.modality_id) {
+        const [{ data: sport }, { data: modality }] = await Promise.all([
+          supabase.from('disciplines').select('code').eq('id', data.discipline_id).maybeSingle(),
+          supabase.from('sport_modalities').select('code').eq('id', data.modality_id).maybeSingle(),
+        ]);
+        if (sport?.code === 'baloncesto' && modality?.code === '3x3') {
+          router.replace(`/torneos/ver/${data.id}`);
+          return;
+        }
+      }
       const { data: divisionRows } = await supabase
         .from("tournament_divisions")
         .select("id,name,sort_order")
