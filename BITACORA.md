@@ -5,6 +5,27 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Rediseño "Mi equipo" en Figma
+
+**Qué se hizo**
+- Se analizó la sección Mi equipo de la cuenta de equipo: `app/(panel)/equipo/page.tsx`, `Components/team-roster-panel.tsx`, `team-division-settings.tsx` y `team-callups-panel.tsx`.
+- Decisiones con el usuario: se mantiene la identidad visual y la sección pasa a ser una sola vista de resumen.
+- En Figma (página `Claude`, `954:56`):
+  - Colección de variables `AthlonX` con modos Oscuro y Claro.
+  - Componentes locales: botones, insignias, avatar, segmentos, buscador, filas de jugador (escritorio y móvil), fila de persona, partido, menú de acciones y logo.
+  - 6 pantallas: escritorio, tablet y móvil, en oscuro y en claro.
+  - Tablero de estados: hover y menú ⋯, división vacía y carga.
+- Las decisiones y la especificación para implementar quedaron en `documentos/rediseno-mi-equipo.md`.
+
+**Verificación**
+- Capturas de Figma revisadas para las 6 pantallas y el tablero de estados. Se corrigió la insignia recortada en móvil y el contraste del bloque de fecha en modo claro.
+
+**Pendiente**
+- Implementar el diseño en la web, a la espera de que el usuario apruebe el diseño de Figma.
+- Los datos de las pantallas son de ejemplo.
+
+---
+
 ## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube
 
 **Qué se hizo**
