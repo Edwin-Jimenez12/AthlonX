@@ -5,6 +5,22 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Convocatorias por fecha
+
+**Qué se hizo**
+- A pedido del usuario, las convocatorias pasan a agruparse por fecha (jornada) y no por enfrentamiento.
+- Nuevo componente `Jornada` en Figma: día, "Fecha N", torneo, hora de cierre, estado por división, progreso y acción.
+- Reemplazó al componente `Partido` en las 6 pantallas; `Partido` se eliminó.
+- Se actualizó `documentos/rediseno-mi-equipo.md`.
+
+**Verificación**
+- Capturas de escritorio oscuro y móvil claro revisadas.
+
+**Pendiente**
+- Lo mismo que en la entrada anterior: implementar en web cuando el usuario apruebe.
+
+---
+
 ## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Rediseño "Mi equipo" en Figma
 
 **Qué se hizo**

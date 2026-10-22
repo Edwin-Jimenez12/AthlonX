@@ -31,9 +31,10 @@ La identidad visual se mantiene: azul marino, verde lima, Bebas Neue en los tít
    - Tabla compacta con #, Jugador (avatar, nombre, @usuario), Posición, Estado (Activo / Invitación pendiente) y menú ⋯.
    - Pie: "Mostrando N de M" y "Ver todos".
 3. **Cuerpo técnico y directiva**: una lista agrupada (Cuerpo técnico / Directiva). Si una persona tiene varios roles, se muestran en un solo chip (por ejemplo, "Presidente · Jugador").
-4. **Convocatorias**: los próximos partidos con fecha, rival, torneo, hora y división.
-   - Estado "Sin convocar", con la acción **Convocar**.
-   - Estado "Convocatoria lista", con la acción **Revisar**.
+4. **Convocatorias por fecha (jornada)**: igual que en `Components/tournament-callups-panel.tsx`, hay una convocatoria por fecha del torneo y por división del equipo.
+   - Cada tarjeta muestra el día calendario, "Fecha N", el torneo y el cierre (24 h antes, según `lock_hours_before`).
+   - Debajo, una línea por división con su estado: Pendiente, En edición, Enviada, Bloqueada o Reabierta.
+   - Pie con el progreso ("1 de 2 enviadas") y la acción **Preparar convocatoria** o **Continuar convocatoria**.
 
 El menú ⋯ de cada persona tiene: Ver perfil, Editar rol y cargo, Mover a otra división y Quitar del equipo. La opción de quitar va al final, separada y en rojo, con confirmación inline (sin `window.confirm`).
 
