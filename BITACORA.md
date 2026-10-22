@@ -5,6 +5,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Pantalla de convocatoria en Figma
+
+**Qué se hizo**
+- Se diseñó la pantalla que abre "Preparar convocatoria":
+  - Plazo con cuenta regresiva (cierre 24 h antes) y selector de división.
+  - Plantilla disponible con selector Titular/Reserva por jugador.
+  - Lista de la jornada: conteos, aviso, dorsal editable, enviar, borrador y PDF.
+- Se crearon 8 frames: escritorio, tablet y móvil, más la hoja "Revisar lista" en móvil, en oscuro y en claro.
+- Componentes nuevos: `Asignación/*`, `Fila/Convocable`, `Fila/Convocable móvil`, `Fila/Convocado`, `Botón/Enviar deshabilitado`, `Botón/Guardar`, `Botón/Descargar` y `Botón/Primario texto`.
+- En Mi equipo se ajustaron las cifras de ejemplo (Primera división 26, Segunda 18) para que encajen con una lista de rugby de 15 titulares y 8 reservas.
+
+**Verificación**
+- Capturas revisadas: escritorio oscuro y claro, tablet oscuro, móvil oscuro y la hoja en claro. Se corrigió el fondo oscuro de la hoja en modo claro.
+
+**Pendiente**
+- Separar titular y reserva en Supabase (ver `documentos/rediseno-mi-equipo.md`).
+- Implementar en web cuando el usuario apruebe.
+
+---
+
 ## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Convocatorias por fecha
 
 **Qué se hizo**

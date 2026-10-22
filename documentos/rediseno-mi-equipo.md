@@ -38,6 +38,28 @@ La identidad visual se mantiene: azul marino, verde lima, Bebas Neue en los tít
 
 El menú ⋯ de cada persona tiene: Ver perfil, Editar rol y cargo, Mover a otra división y Quitar del equipo. La opción de quitar va al final, separada y en rojo, con confirmación inline (sin `window.confirm`).
 
+## Pantalla de convocatoria (al pulsar "Preparar convocatoria")
+
+Frames: `Convocatoria · {Escritorio | Tablet | Móvil} · {Oscuro | Claro}` y `Convocatoria · Móvil · Revisar lista · {Oscuro | Claro}`.
+
+- **Cabecera:**
+  - Enlace "← Mi equipo", el título "Convocatoria · Fecha N", y el torneo, día y partido.
+  - Tarjeta de plazo con cuenta regresiva ("La lista cierra en 1d 14:32:08 · vie 25 oct · 10:00 (24 h antes)"). Ya existe `useCountdown`; al vencer, la tarjeta pasa a "Lista bloqueada".
+- **Selector de división** con el estado de cada lista (En edición, Enviada…).
+- **Plantilla disponible:**
+  - Filtros Todos, Titulares, Reservas y Sin asignar, con su conteo, y un buscador.
+  - Cada jugador tiene un selector **Titular / Reserva**: un toque lo agrega a la lista y volver a tocarlo lo quita.
+- **Lista de la jornada:** en escritorio es una columna lateral; en tablet y móvil es una hoja inferior que se abre con **Revisar lista** desde una barra fija con los conteos.
+  - Contadores "Titulares 13 / 15" y "Reservas 6 / 8".
+  - Aviso de lo que falta.
+  - Dorsal editable por jugador para esa jornada (ya existe `shirt_number` por convocatoria).
+  - Botón para quitar a un jugador.
+  - **Enviar lista**: deshabilitado hasta cumplir la regla del torneo.
+  - **Guardar borrador** y **Descargar PDF**.
+  - Nota: tras el cierre, solo el organizador puede reabrir la lista.
+
+**Requiere un cambio de datos:** hoy `tournament_fixture_callup_players.state` solo admite `convocado`, `no_participante` y `no_convocado`, y `tournament_callup_rules` guarda `max_players`, `active_players` e `inactive_players`. Para separar titulares y reservas hay que añadir un estado `reserva` (o una columna `is_substitute`) y definir la regla del torneo como número de titulares y máximo de reservas. Además, el mínimo de 5 jugadores para enviar está fijo en el código y debería salir de esa regla.
+
 ## Responsive
 
 | Ancho | Layout |
