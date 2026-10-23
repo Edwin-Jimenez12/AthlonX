@@ -5,6 +5,43 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `claude/great-ritchie-2n8uq9` · nube · Mi equipo rediseñado en código
+
+**Qué se hizo**
+- `app/(panel)/equipo/page.tsx` se reescribió según Figma:
+  - Cabecera compacta: escudo, nombre, disciplina, "Añadir ubicación" (→ `/configuracion`), "Perfil activo", Editar perfil e Invitar persona.
+  - Rejilla responsive: Plantilla y una columna lateral en xl; Plantilla y dos tarjetas en md; una columna en móvil.
+- Se quitó de Mi equipo el bloque **Miembros del equipo** (`TeamRosterPanel`). El componente se conserva porque lo usa `app/(panel)/entrenador/equipo/[id]`.
+- `TeamDivisionSettings` no se tocó: sigue en Configuración, sin cambios.
+- Nuevos componentes en `Components/mi-equipo/`:
+  - `ui.tsx`: piezas base del diseño.
+  - `use-team-roster.ts`: datos de divisiones, `team_players` con dorsal y posición reales, miembros e invitaciones pendientes.
+  - `team-roster-card.tsx`: Plantilla. Divisiones con conteo, buscador y tabla. Menú ⋯ con Ver perfil, Editar rol, Mover de división (`set_team_player_division`) y Quitar (confirmación inline). Panel de divisiones (`save_team_divisions`) y "Añadir jugador".
+  - `team-people-card.tsx`: Cuerpo técnico y directiva. La directiva ya no se pierde y la edición de roles se movió aquí.
+  - `invite-panel.tsx`: invitación con cualquier rol. Directivo va al equipo y el resto a una división.
+  - `member-role-editor.tsx`: editor de rol y cargo, y confirmación inline para quitar.
+  - `team-callups-card.tsx`: convocatorias por fecha con el estado de cada división.
+- Nueva ruta `app/(panel)/equipo/convocatoria`: abre el panel de convocatorias existente para esa fecha, hasta el rediseño de titulares y reservas.
+- `team-callups-panel.tsx`: se extrajo el hook `useTeamTournaments`; `TeamCallupsPanel` funciona igual.
+- `globals.css`:
+  - Tokens nuevos `--ax-*` (los mismos de Figma) en claro y oscuro.
+  - Los overrides globales heredados se excluyen del subárbol `.ax-v2` con `:where(:not(.ax-v2 *))`, que no cambia la especificidad para el resto de la app.
+- `CLAUDE.md`: comando de pruebas corregido (`node --test tests/*.mjs`), regla de diseño y nota sobre `.next` versionado.
+
+**Verificación**
+- `tsc --noEmit` sin errores. `next build` compila. `node --test tests/*.mjs`: 13 de 13.
+- Capturas con Playwright en 1440, 834 y 390 px, en oscuro y claro, usando una ruta temporal con datos de ejemplo (borrada antes del commit). Se corrigió el chip cortado por el buscador, el texto de la acción y el plural.
+- Interacciones probadas sin errores de consola: menú ⋯, mover de división, quitar, panel de divisiones y añadir jugador.
+- No se probó contra Supabase real: en la nube no hay sesión ni `.env.local`. Falta probarlo con una cuenta de equipo.
+- ESLint no tiene `eslint.config.*` en el repo (ya pasaba antes), así que no hay lint.
+
+**Pendiente**
+- Probar con una cuenta de equipo real: invitaciones, mover y quitar jugadores, divisiones y convocatorias.
+- Las invitaciones pendientes solo muestran las que creó la persona actual (política RLS de `affiliation_requests`).
+- Rediseño de la pantalla de convocatoria (titulares y reservas) y su cambio en Supabase.
+
+---
+
 ## 2026-10-23 · `claude/great-ritchie-2n8uq9` · nube · Estados de la convocatoria en Figma
 
 **Qué se hizo**

@@ -51,18 +51,18 @@ body:has(main) {
   color: var(--ax-text) !important;
 }
 
-.athlonx-dashboard section,
-.athlonx-dashboard article,
-.athlonx-dashboard aside,
-.athlonx-dashboard fieldset,
-.athlonx-dashboard button,
-.athlonx-dashboard input,
-.athlonx-dashboard select,
-.athlonx-dashboard textarea {
+.athlonx-dashboard section:where(:not(.ax-v2 *)),
+.athlonx-dashboard article:where(:not(.ax-v2 *)),
+.athlonx-dashboard aside:where(:not(.ax-v2 *)),
+.athlonx-dashboard fieldset:where(:not(.ax-v2 *)),
+.athlonx-dashboard button:where(:not(.ax-v2 *)),
+.athlonx-dashboard input:where(:not(.ax-v2 *)),
+.athlonx-dashboard select:where(:not(.ax-v2 *)),
+.athlonx-dashboard textarea:where(:not(.ax-v2 *)) {
   border-radius: 5px;
 }
 
-.athlonx-dashboard [class*="rounded-"] {
+.athlonx-dashboard [class*="rounded-"]:where(:not(.ax-v2 *)) {
   border-radius: 5px !important;
 }
 
@@ -99,16 +99,16 @@ body:has(main) {
   color: var(--ax-muted) !important;
 }
 
-.athlonx-dashboard main input,
-.athlonx-dashboard main select,
-.athlonx-dashboard main textarea {
+.athlonx-dashboard main input:where(:not(.ax-v2 *)),
+.athlonx-dashboard main select:where(:not(.ax-v2 *)),
+.athlonx-dashboard main textarea:where(:not(.ax-v2 *)) {
   border-color: var(--ax-line);
   background-color: #081522;
   color: var(--ax-text);
 }
 
-.athlonx-dashboard main input::placeholder,
-.athlonx-dashboard main textarea::placeholder {
+.athlonx-dashboard main input:where(:not(.ax-v2 *))::placeholder,
+.athlonx-dashboard main textarea:where(:not(.ax-v2 *))::placeholder {
   color: #70899b;
 }
 
@@ -131,9 +131,9 @@ html[data-theme='light'] .athlonx-dashboard {
   background: var(--ax-bg);
 }
 
-html[data-theme='light'] .athlonx-dashboard main input,
-html[data-theme='light'] .athlonx-dashboard main select,
-html[data-theme='light'] .athlonx-dashboard main textarea {
+html[data-theme='light'] .athlonx-dashboard main input:where(:not(.ax-v2 *)),
+html[data-theme='light'] .athlonx-dashboard main select:where(:not(.ax-v2 *)),
+html[data-theme='light'] .athlonx-dashboard main textarea:where(:not(.ax-v2 *)) {
   background-color: #ffffff;
   color: var(--ax-text);
 }
@@ -150,14 +150,14 @@ html[data-theme='dark'] .athlonx-dashboard main {
   color: #e8eef3;
 }
 
-html[data-theme='dark'] .athlonx-dashboard main section,
-html[data-theme='dark'] .athlonx-dashboard main article {
+html[data-theme='dark'] .athlonx-dashboard main section:where(:not(.ax-v2 *)),
+html[data-theme='dark'] .athlonx-dashboard main article:where(:not(.ax-v2 *)) {
   border-color: #263b4d !important;
 }
 
-html[data-theme='dark'] .athlonx-dashboard main input,
-html[data-theme='dark'] .athlonx-dashboard main select,
-html[data-theme='dark'] .athlonx-dashboard main textarea {
+html[data-theme='dark'] .athlonx-dashboard main input:where(:not(.ax-v2 *)),
+html[data-theme='dark'] .athlonx-dashboard main select:where(:not(.ax-v2 *)),
+html[data-theme='dark'] .athlonx-dashboard main textarea:where(:not(.ax-v2 *)) {
   border-color: #31485c !important;
   background-color: #0d1d2b !important;
   color: #f7fafc !important;
@@ -336,18 +336,18 @@ html[data-theme='light'] [class*="border-[#ffb45c]" i]:not(.athlonx-dashboard > 
   border-color: #d98a2b;
 }
 
-html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *) {
+html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *):where(:not(.ax-v2 *)) {
   background-color: #ffffff;
   color: #0b1d2c;
   border-color: #bccad6;
 }
 
-html[data-theme='light'] :is(input, textarea):not(.athlonx-dashboard > aside *)::placeholder {
+html[data-theme='light'] :is(input, textarea):not(.athlonx-dashboard > aside *):where(:not(.ax-v2 *))::placeholder {
   color: #74899a;
   opacity: 1;
 }
 
-html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *):focus-visible {
+html[data-theme='light'] :is(input, select, textarea):not(.athlonx-dashboard > aside *):where(:not(.ax-v2 *)):focus-visible {
   outline: none;
   border-color: #7fcf2a;
   box-shadow: 0 0 0 4px rgba(127, 207, 42, .18);
@@ -357,7 +357,7 @@ html[data-theme='light'] [class*="bg-[#b4ff45]" i]:not([class*="bg-[#b4ff45]/" i
   box-shadow: inset 0 0 0 1px rgba(63, 125, 0, .28);
 }
 
-html[data-theme='light'] .athlonx-dashboard main article:not(.athlonx-dashboard > aside *) {
+html[data-theme='light'] .athlonx-dashboard main article:not(.athlonx-dashboard > aside *):where(:not(.ax-v2 *)) {
   box-shadow: 0 1px 2px rgba(11, 29, 44, .05), 0 12px 32px -16px rgba(11, 29, 44, .18);
 }
 
@@ -521,4 +521,61 @@ h3 {
   .ax-option-in {
     animation: none;
   }
+}
+
+/* ==========================================================================
+   Tokens del rediseño (Mi equipo y convocatorias). Mismos valores que la
+   colección "AthlonX" de Figma (modos Oscuro y Claro). Las pantallas nuevas
+   van dentro de .ax-v2, que queda fuera de los overrides globales de arriba.
+   ========================================================================== */
+
+.athlonx-dashboard {
+  --ax-surface-sunken: #07131e;
+  --ax-sidebar: #081522;
+  --ax-line-soft: #1f4057;
+  --ax-line-strong: #31556b;
+  --ax-text-secondary: #c9d6e0;
+  --ax-accent-soft: rgba(180, 255, 69, .12);
+  --ax-accent-line: rgba(180, 255, 69, .35);
+  --ax-warning-text: #ffcf70;
+  --ax-warning-soft: rgba(255, 191, 64, .12);
+  --ax-danger-text: #ff9ca5;
+  --ax-danger-soft: rgba(255, 125, 136, .12);
+  --ax-danger-line: rgba(255, 125, 136, .40);
+  --ax-hover: rgba(255, 255, 255, .05);
+  --ax-shadow-pop: 0 12px 32px -8px rgba(2, 11, 18, .55);
+}
+
+html[data-theme='light'] .athlonx-dashboard {
+  --ax-surface-sunken: #f5f8fb;
+  --ax-sidebar: #ffffff;
+  --ax-line-soft: #d3dde6;
+  --ax-line-strong: #bccad6;
+  --ax-text-secondary: #26394a;
+  --ax-accent-soft: rgba(63, 125, 0, .10);
+  --ax-accent-line: rgba(63, 125, 0, .30);
+  --ax-warning-text: #8a5a00;
+  --ax-warning-soft: rgba(255, 170, 0, .14);
+  --ax-danger-text: #b4232f;
+  --ax-danger-soft: rgba(180, 35, 47, .08);
+  --ax-danger-line: rgba(180, 35, 47, .30);
+  --ax-hover: rgba(11, 29, 44, .04);
+  --ax-shadow-pop: 0 12px 32px -10px rgba(11, 29, 44, .22);
+}
+
+/* En el rediseño, la línea de tarjetas usa el tono de Figma (#1f4057 / #d3dde6). */
+.ax-v2 {
+  --ax-line: var(--ax-line-soft);
+}
+
+.ax-v2 ::selection {
+  background: var(--ax-accent-soft);
+}
+
+.ax-scroll-x {
+  scrollbar-width: none;
+}
+
+.ax-scroll-x::-webkit-scrollbar {
+  display: none;
 }
