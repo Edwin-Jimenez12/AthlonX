@@ -107,6 +107,6 @@ Aprobado por Edwin: barra de cambios en vez de los modales, configuración que s
 
 - Ya existen las tablas `profiles`, `profile_privacy_settings`, `profile_tournament_visibility`, `account_preferences`, `team_division_catalog`, `organization_disciplines`, `organization_modalities` y `staff_positions`.
 - Ya existen las funciones `update_team_profile`, `update_organization_public_profile`, `update_team_member_role`, `remove_team_member_role`, `get_team_members_for_manager`, `is_organization_manager` y `ensure_my_organization`.
-- **Falta `request_account_deletion`** (`supabase/cuenta-eliminacion-migration.sql`). Sin ella, eliminar la cuenta muestra el error de Supabase.
+- **`request_account_deletion`:** se aplicó el 2026-10-23 con `supabase/cuenta-eliminacion-migration.sql` y `supabase/cuenta-eliminacion-auth-migration.sql`. Las cuentas vencidas se borran de Supabase Auth cada hora con `pg_cron`.
 - **Falta `athlonx_countries`** (`supabase/paises-athlonx-migration.sql`). Sin ella, el teléfono usa Panamá como único país (`fallbackCountries`). Esta migración también cambia el país de todos los equipos y organizaciones a Panamá.
 - Ninguna de las dos se aplicó: esperan la autorización de Edwin.

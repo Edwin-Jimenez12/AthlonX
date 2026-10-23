@@ -5,6 +5,45 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Eliminación de cuentas en Supabase Auth
+
+**Qué se hizo**
+- Se aplicaron en el proyecto `mlvtsgseneqzihwkiatg`, en este orden:
+  1. `supabase/cuenta-eliminacion-migration.sql`: agrega `profiles.deletion_scheduled_at` y las funciones `request_account_deletion`, `cancel_account_deletion` y `purge_expired_account_deletions`.
+  2. `supabase/cuenta-eliminacion-auth-migration.sql` (nueva).
+- **Problema que se corrigió:** 36 referencias de `public.*` a `auth.users` no tenían regla de borrado o usaban RESTRICT. Entre ellas, `created_by` de `tournaments`, `teams` y `organizations`, `match_events`, las auditorías y los eventos de calendario. Con eso, borrar de Auth a alguien que creó algo habría fallado.
+- La nueva migración las pasa a `ON DELETE SET NULL` y quita el NOT NULL de esas columnas. Se conserva el historial deportivo sin autor. Las 15 que ya borraban en cascada no cambian (perfil, roles, membresías, privacidad, preferencias).
+- **Purga automática:** se activó `pg_cron` y el trabajo `athlonx-purge-expired-account-deletions` (cada hora) borra de `auth.users` las cuentas con el plazo de 15 días vencido. El perfil y los datos personales se van en cascada.
+- `purge_expired_account_deletions` solo la puede ejecutar `service_role`.
+- **Flujo completo:**
+  - "Eliminar cuenta" en Mi perfil llama a `request_account_deletion` con la contraseña y programa la eliminación a 15 días.
+  - Iniciar sesión antes del plazo llama a `cancel_account_deletion` (`Components/auth-panel.tsx`) y recupera la cuenta.
+  - Si nadie inicia sesión, la purga la borra de Auth.
+
+**Archivos**
+- `supabase/cuenta-eliminacion-auth-migration.sql` (nuevo).
+- `documentos/rediseno-mi-perfil.md`, en el estado de Supabase.
+
+**Verificación**
+- Antes de aplicar, consultas de solo lectura:
+  - `pgcrypto` está en `extensions`.
+  - `pg_cron` estaba disponible pero sin instalar.
+  - `profiles.updated_at` existe.
+  - Ninguna de las 36 columnas está en una clave primaria ni en un CHECK.
+- Después de aplicar:
+  - Existen las tres funciones y la columna.
+  - Las referencias a `auth.users` quedaron en 15 en cascada y 36 en `SET NULL`.
+  - El trabajo de cron está activo.
+- Pruebas dentro de transacciones revertidas (no quedó ningún usuario de prueba):
+  - Un usuario de prueba, autor de un torneo real y con el plazo vencido, se purgó: se borró de Auth y de `profiles`; el torneo se conservó con autor `null`.
+  - `request_account_deletion` con la contraseña incorrecta devuelve "La contraseña no es correcta.". Con la correcta, programa a 15 días, y `cancel_account_deletion` lo deja en `null`.
+
+**Pendiente**
+- Decidir qué pasa con los equipos y organizaciones creados por cuentas de Equipo u Organización eliminadas: hoy se conservan sin autor.
+- No se aplicó `supabase/paises-athlonx-migration.sql`. Edwin todavía decide si los teléfonos aceptan otros países.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Mi perfil pasado a código
 
 **Qué se hizo**
