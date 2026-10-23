@@ -5,6 +5,42 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Rediseño del gestor de torneos en Figma
+
+**Qué se hizo**
+- Diseño completo del gestor de torneos en Figma, página `Claude`, desde y = 33 000. Aún no está en código.
+- Hay versiones propias para rugby, fútbol 8 y baloncesto 3x3. Cambian las tablas, la llave, la programación, las acciones en vivo, el reloj y el arte del banner.
+- No hay vóleibol en la base de datos; se tomó "voleyball" como baloncesto.
+- **Torneo oficial:** equipos solo por invitación y con Convocatorias.
+- **Torneo rápido:**
+  - Sin Convocatorias.
+  - Equipos registrados o temporales.
+  - Jugadores invitados con código para reclamar su perfil.
+- **Foto y banner:**
+  - Aparecen en la cabecera de todas las pantallas y se editan en Información general.
+  - Si faltan, se usa el arte de la disciplina y las iniciales.
+- **PDF:** 5 PDF en A4 con tema claro (tabla, fixture con plantillas, convocatoria, llave horizontal y reporte de 3x3).
+- **Responsive y temas:** pantallas de móvil para cada disciplina y clones en tema claro.
+- **Estados:** tablero con sin banner, sin equipos, cargando, error y confirmación.
+- **Guardar cambios:** una barra inline reemplaza el modal de contraseña y el panel de cambios pendientes.
+- En total son 40 frames. La lista, con ids, está en `documentos/rediseno-gestor-torneos.md`.
+
+**Archivos**
+- `documentos/rediseno-gestor-torneos.md`. No se cambió código.
+
+**Verificación**
+- Capturas de Figma de cada frame. Se corrigieron:
+  - Opacidad del banner, que se perdía al clonar.
+  - Espaciadores con alto de 100 px.
+  - Cabecera móvil recortada.
+  - Textos desbordados.
+
+**Pendiente**
+- Que Edwin apruebe el diseño antes de pasarlo a código.
+- Al implementarlo, crear la migración del campo del banner (por ejemplo `tournaments.banner_url`) y su almacenamiento. La foto usa `cover_url`, que ya existe.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Menú de cuenta pasado a código
 
 **Qué se hizo**
