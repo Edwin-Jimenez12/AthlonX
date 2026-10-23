@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Migración del dorsal aplicada en Supabase
+
+**Qué se hizo**
+- Se configuró el acceso a Supabase desde la nube:
+  - Edwin creó un token personal con alcance a las organizaciones AthlonX, Desarrollador-dkgroup y ndavis@daxis.lat (Database en escritura, el resto en lectura).
+  - El token se guardó como secreto de red Bearer del entorno "AthlonX Nube" para `api.supabase.com`.
+  - El conector MCP de Supabase solo admite una organización por autorización, por eso se usó la API de gestión.
+- Se aplicó `supabase/team-player-details-migration.sql` en el proyecto **AthlonX (`mlvtsgseneqzihwkiatg`)**.
+  - Antes se comprobó, con una consulta de solo lectura, que existían `players` (id, shirt_number, position, user_id), `team_players` (team_id, player_id, division_id), `teams` (id, created_by) y `team_user_memberships` (team_id, user_id, role, status), y que la función no existía.
+- Se recargó la caché de esquema de PostgREST (`notify pgrst, 'reload schema'`).
+- `CLAUDE.md`: se agregó el ref del proyecto y cómo se aplican migraciones desde la nube.
+
+**Verificación**
+- `set_team_player_details(uuid, uuid, integer, text)` existe, es `security definer`, la puede ejecutar `authenticated` y no `anon`.
+- Una llamada sin sesión responde "No tienes permisos para editar la plantilla del equipo" y no modifica nada.
+- No se probó contra la API pública (`mlvtsgseneqzihwkiatg.supabase.co`), porque ese dominio no está permitido en el entorno.
+
+**Pendiente**
+- Probar en athlonx.world/equipo con la cuenta del equipo: asignar un dorsal y una posición, y comprobar que rechaza un dorsal repetido en la misma división.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Menú lateral en móvil no se abría
 
 **Qué pasó**

@@ -39,6 +39,9 @@ Las variables van en `.env.local` (no se sube a git); toma `.env.example` como b
 - `Components/`: componentes compartidos. **La C es mayúscula.**
 - `lib/`: lógica de dominio. Las reglas de cada deporte van separadas: `basketball.ts`, `football-eight.ts`.
 - `supabase/`: migraciones SQL sueltas, idempotentes, que se ejecutan a mano en orden. No se ejecuta SQL contra el proyecto real sin pedirlo.
+  - Proyecto de AthlonX en Supabase: `mlvtsgseneqzihwkiatg` (organización AthlonX). Hay otros proyectos en la misma cuenta (Panama viajero): confirma siempre el ref antes de ejecutar algo.
+  - En la nube, el entorno "AthlonX Nube" tiene un secreto de red Bearer para `api.supabase.com/v1/` (token personal de Supabase con Database en escritura). Las migraciones se aplican con `POST https://api.supabase.com/v1/projects/mlvtsgseneqzihwkiatg/database/query` y el cuerpo `{"query": "..."}`; para consultas de solo lectura, agrega `"read_only": true`. El token nunca se escribe en el repo ni en el chat.
+  - Antes de aplicar una migración, verifica con una consulta de solo lectura que existan las tablas y funciones de las que depende. Después, comprueba que quedó creada y registra en la bitácora qué se aplicó.
 - `documentos/`: documentación de implementación (por ejemplo, `implementacion-baloncesto-3x3.md`).
 - Los archivos `*.before-*.tsx` / `*.before-*.css` son respaldos de versiones anteriores. No se editan ni se importan.
 
