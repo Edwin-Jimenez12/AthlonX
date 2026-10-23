@@ -286,8 +286,12 @@ function LegacyTournamentKnockoutBracket({
   // Genera la llave de fútbol 8 con los cruces definidos por el organizador.
   async function generateManualBracket() {
     if (!supabase || !canManage || !selectedDivision) return
+    // Con una sola cancha, todos los cruces van a la cancha 1.
+    const pairings = courtsCount === 1
+      ? manualPairings.map((pairing) => ({ ...pairing, courtNumber: '1' }))
+      : manualPairings
     const divisionTeams = teams.filter((team) => team.division_id === selectedDivision)
-    const selectedTeamIds = manualPairings.flatMap((pairing) => [
+    const selectedTeamIds = pairings.flatMap((pairing) => [
       pairing.localTeamId,
       pairing.visitorTeamId,
     ])
@@ -297,7 +301,7 @@ function LegacyTournamentKnockoutBracket({
       setMessage('La división debe tener exactamente 16 equipos para crear la llave.')
       return
     }
-    if (manualPairings.some((pairing) => (
+    if (pairings.some((pairing) => (
       !pairing.localTeamId
       || !pairing.visitorTeamId
       || !pairing.scheduledTime
@@ -314,11 +318,11 @@ function LegacyTournamentKnockoutBracket({
       setMessage('Cada equipo debe aparecer exactamente una vez en los octavos.')
       return
     }
-    if (manualPairings.some((pairing) => pairing.localTeamId === pairing.visitorTeamId)) {
+    if (pairings.some((pairing) => pairing.localTeamId === pairing.visitorTeamId)) {
       setMessage('Un equipo no puede enfrentarse a sí mismo.')
       return
     }
-    if (manualPairings.some((pairing) => {
+    if (pairings.some((pairing) => {
       const court = Number(pairing.courtNumber)
       return !Number.isInteger(court) || court < 1 || court > courtsCount
     })) {
@@ -326,7 +330,7 @@ function LegacyTournamentKnockoutBracket({
       return
     }
     const occupiedSlots = new Set<string>()
-    for (const pairing of manualPairings) {
+    for (const pairing of pairings) {
       const slot = `${pairing.scheduledTime}:${pairing.courtNumber}`
       if (occupiedSlots.has(slot)) {
         setMessage('No puedes programar dos cruces a la misma hora en la misma cancha.')
@@ -339,7 +343,7 @@ function LegacyTournamentKnockoutBracket({
     const { error } = await supabase.rpc('generate_football_eight_manual_bracket', {
       p_tournament_id: tournamentId,
       p_division_id: selectedDivision,
-      p_pairings: manualPairings.map((pairing) => ({
+      p_pairings: pairings.map((pairing) => ({
         local_team_id: pairing.localTeamId,
         visitor_team_id: pairing.visitorTeamId,
         scheduled_time: pairing.scheduledTime,
@@ -545,7 +549,7 @@ function LegacyTournamentKnockoutBracket({
           {generationMode === 'manual' && (
             <div className="mt-5 space-y-3">
               <p className="text-sm font-bold text-[#dfffba]">
-                Octavos de final · 8 cruces · {courtsCount} cancha{courtsCount === 1 ? '' : 's'}
+                Octavos de final · 8 cruces{courtsCount > 1 ? ` · ${courtsCount} canchas` : ''}
               </p>
               {manualPairings.map((pairing, index) => (
                 <div
@@ -598,7 +602,7 @@ function LegacyTournamentKnockoutBracket({
                     )}
                     className="rounded border border-[#31556b] bg-[#0b1d2c] px-2 py-2 text-sm"
                   />
-                  <select
+                  {courtsCount > 1 && <select
                     value={pairing.courtNumber}
                     onChange={(event) => updateManualPairing(
                       index,
@@ -614,7 +618,7 @@ function LegacyTournamentKnockoutBracket({
                           Cancha {court}
                         </option>
                       ))}
-                  </select>
+                  </select>}
                 </div>
               ))}
               <button

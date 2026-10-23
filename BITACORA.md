@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Una sola cancha y Rugby 15s inactivo
+
+**Qué se hizo**
+- Con una sola cancha, los fixtures ya no muestran "Asignación de canchas", ni la columna Cancha en el PDF del fixture, ni las etiquetas de cancha por fecha.
+- En los cruces manuales de la llave de fútbol 8 no aparece el selector de cancha y todos los cruces van a la cancha 1.
+- Rugby 15s (`xv`) quedó inactivo en Supabase, como pidió Edwin ("por ahora"). No se borró: los formularios solo listan modalidades activas.
+  - Antes se comprobó que no hay torneos ni equipos con esa modalidad.
+
+**Archivos**
+- `app/(panel)/torneos/ver/[id]/page.tsx`.
+- `Components/tournament-knockout-bracket.tsx`.
+- `supabase/rugby-xv-desactivar-migration.sql`: aplicada en `mlvtsgseneqzihwkiatg`; queda `xv` con `is_active = false` y `seven` activa.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (16 de 16).
+- Consulta después de la migración: `xv` inactiva.
+
+**Pendiente**
+- Para volver a habilitar Rugby 15s: `update sport_modalities set is_active = true where code = 'xv'`.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Gestor de torneos en código (primera parte) y tarjeta amarilla
 
 **Qué se hizo**

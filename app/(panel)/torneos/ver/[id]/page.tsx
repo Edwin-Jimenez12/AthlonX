@@ -2231,7 +2231,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     const matchMarkup = fixture.matches.map((match, index) => `<tr>
       <td>Partido ${index + 1}</td>
       <td>${escapePrintValue(match.scheduled_time?.slice(0, 5) || 'Hora por definir')}</td>
-      <td>${match.court_number ? `Cancha ${match.court_number}` : 'Sin cancha'}</td>
+      ${courtsCount > 1 ? `<td>${match.court_number ? `Cancha ${match.court_number}` : 'Sin cancha'}</td>` : ''}
       <td>${escapePrintValue(match.division_name || 'General')}</td>
       <td class="bold">${escapePrintValue(match.local_team_name)} vs. ${escapePrintValue(match.visitor_team_name)}</td>
     </tr>`).join('')
@@ -2289,7 +2289,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
       <p class="subtitle">${escapePrintValue(tournament.modality?.name || 'Competencia')} · Fecha ${date} · ${escapePrintValue(calendarDate)}</p>
       ${showListings ? `<div class="divisions">${divisionMarkup}</div>` : ''}
       <h2 class="schedule-title">Cronograma de partidos</h2>
-      <table><thead><tr><th>Partido</th><th>Horario</th><th>Cancha</th><th>División</th><th>Enfrentamiento</th></tr></thead>
+      <table><thead><tr><th>Partido</th><th>Horario</th>${courtsCount > 1 ? '<th>Cancha</th>' : ''}<th>División</th><th>Enfrentamiento</th></tr></thead>
       <tbody>${matchMarkup}</tbody></table>${recessMarkup}</main></body></html>`)
     printWindow.document.close()
     printWindow.focus()
@@ -2304,7 +2304,8 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     matches: matches.filter((match) => match.date_number === date),
   }))
 
-  return <><CourtEditor matches={matches} courtsCount={courtsCount} draftCourts={draftCourts} onChange={(matchId, value) => setDraftCourts((current) => ({ ...current, [matchId]: value }))} /><section className="pt-6 print:hidden">
+  // Con una sola cancha no hay nada que asignar.
+  return <>{courtsCount > 1 && <CourtEditor matches={matches} courtsCount={courtsCount} draftCourts={draftCourts} onChange={(matchId, value) => setDraftCourts((current) => ({ ...current, [matchId]: value }))} />}<section className="pt-6 print:hidden">
     <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Consulta</p><h2 className="mt-2 font-display text-3xl uppercase">Fixtures</h2><p className="mt-2 max-w-2xl text-sm text-slate-400">Edita partidos, horarios, fechas y recesos. Los cambios se guardan directamente en Supabase.</p></div></div>
     {!fixtureDateNumbers.length && <div className="mt-6 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6 text-sm text-slate-400">Todavía no hay fixtures creados.</div>}
     <div className="mt-6 space-y-5">{fixtureGroups.map((fixture) => {
@@ -2387,7 +2388,7 @@ function ReadOnlyFixtureListSection({ tournament, teams, dates, matches }: { tou
 <button type="button" onClick={() => printFixture(fixture.date)} data-viewer-fixture="true" className="inline-flex items-center justify-center gap-2 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-200 hover:border-[#b4ff45]"><FileDown size={15} />Generar PDF</button>
               </div>
             </div>
-            <div className="mb-2 flex flex-wrap gap-2 text-xs text-slate-400">{Array.from(new Set(fixture.matches.map((match) => match.court_number).filter(Boolean))).map((court) => <span key={court} className="rounded border border-[#31556b] px-2 py-1">Cancha {court}</span>)}</div>
+            {new Set(fixture.matches.map((match) => match.court_number).filter(Boolean)).size > 1 && <div className="mb-2 flex flex-wrap gap-2 text-xs text-slate-400">{Array.from(new Set(fixture.matches.map((match) => match.court_number).filter(Boolean))).map((court) => <span key={court} className="rounded border border-[#31556b] px-2 py-1">Cancha {court}</span>)}</div>}
             <div className="mt-3 divide-y divide-white/10">{fixture.matches.map((match) => {
               const pair = draftPairs[match.id] || { localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }
               const divisionId = teams.find((team) => team.id === match.local_team_id)?.division_id || teams.find((team) => team.id === match.visitor_team_id)?.division_id
