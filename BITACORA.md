@@ -5,6 +5,45 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma de Mi perfil
+
+**Qué se hizo**
+- Se diseñó en Figma (página `Claude`, desde y≈24 000) toda la configuración de Mi perfil para Persona, Equipo y Organización, con el mismo lenguaje de Mi equipo, Búsqueda y Eventos.
+- El gestor de torneos queda fuera, como pidió Edwin.
+- **Frames de escritorio:**
+  - Persona: Información personal (lectura y edición), Equipo y roles, Configuración, Seguridad y Cuenta.
+  - Equipo: Información y Roles.
+  - Organización: Información, Equipos y roles, y Configuración.
+- **Tablet y móvil:** Información personal, edición, Configuración y Cuenta.
+- **Tablero de estados:**
+  - Salir con cambios sin guardar.
+  - Confirmación inline para eliminar la cuenta.
+  - Errores de contraseña, guardado y error.
+  - Enlace de correo enviado y código copiado.
+  - Datos sin registrar, carga y sin permiso de edición.
+- Cada frame tiene su versión en claro, en x+8000.
+- Componentes nuevos en `Componentes · Mi perfil`: 25 iconos, botones con icono intercambiable, `Dato/Lectura`, `Campo/Texto` (cuatro estados), interruptores, segmentados (privacidad y tema), insignias y elementos del menú de perfil.
+- Los iconos antiguos (`Icono/users`, `trophy`, `shield`, `building`, `bell`, etc.) ahora escalan sus vectores al cambiar de tamaño: antes se encimaban con el texto.
+
+**Archivos**
+- `documentos/rediseno-mi-perfil.md`: frames, componentes, estructura, secciones por cuenta, cambios de comportamiento propuestos y lo pendiente para el código.
+
+**Verificación**
+- Capturas de Figma de cada pantalla en escritorio, tablet, móvil y claro.
+- Se corrigió durante la revisión:
+  - Los espacios vacíos de las rejillas, que agregaban 100 px.
+  - La etiqueta del menú de organización, que se cortaba (ahora dice "Información general").
+  - La fila del escudo, que estaba apretada.
+
+**Pendiente**
+- Pasarlo a código cuando Edwin lo apruebe.
+- Confirmar los cambios de comportamiento propuestos:
+  - Barra de cambios en vez de los modales.
+  - La configuración se guarda al momento.
+  - La confirmación para eliminar la cuenta es inline.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Búsqueda, Notificaciones y Eventos pasados a código
 
 **Qué se hizo**
