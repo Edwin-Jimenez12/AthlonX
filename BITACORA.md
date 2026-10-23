@@ -5,6 +5,31 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma del menú de cuenta
+
+**Qué se hizo**
+- Se diseñó en Figma (página `Claude`, desde y≈31 000) el menú que se abre desde el avatar de la barra superior.
+- **Botón que abre el menú:** muestra el nombre de la cuenta activa y su tipo.
+- **Cabecera del menú:** avatar, nombre, tipo, código AthlonX con botón de copiar y correo.
+- **Accesos:** Mi perfil, Ver perfil público y Configuración.
+- **Tema:** una fila con el selector Oscuro/Claro.
+- **Cerrar sesión:** separado y en rojo, con la confirmación dentro del menú en vez de una ventana aparte.
+- **Frames:** escritorio oscuro y claro (Persona), Equipo con avatar cuadrado, cerrar sesión en oscuro y claro, y móvil.
+- **Componentes nuevos:** `Menú cuenta/Ítem` (normal, hover y peligro) y `Cuenta/Disparador` (cerrado y abierto).
+
+**Archivos**
+- `documentos/rediseno-menu-cuenta.md`.
+
+**Verificación**
+- Capturas de Figma de los frames.
+- Se corrigió que la etiqueta "Tema" se partía en dos líneas por falta de espacio.
+
+**Pendiente**
+- Pasarlo a código cuando Edwin lo apruebe.
+- En el código actual, las cuentas de equipo muestran el nombre del perfil (por ejemplo "equipo") en vez del nombre del equipo: se corrige al implementarlo.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Teléfonos de cualquier país y eliminación solo para Persona y Equipo
 
 **Qué se hizo**
