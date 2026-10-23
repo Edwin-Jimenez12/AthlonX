@@ -5,6 +5,51 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Gestor de torneos en código (primera parte) y tarjeta amarilla
+
+**Qué se hizo**
+- **Rugby:** ya no tiene la pestaña Llaves (se juega por tabla). Si alguien llega a Llaves en rugby, se le manda a Tablas.
+- **Generador:** está en todas las disciplinas, con modo automático o manual.
+  - En fútbol 8 se fija el modo de la llave existente (`generationMode`).
+  - En 3x3, el sorteo o los cruces manuales (`drawMode`).
+- **Tarjetas en el partido en vivo:** se registran con un panel inline.
+  - Muestra el minuto y la lista de jugadores con dorsal y estado.
+  - Explica la regla antes de confirmar.
+  - **Rugby:** la amarilla expulsa 2 min en sevens y 10 en XV, con contador "vuelve en" junto al marcador.
+  - **Fútbol:** la segunda amarilla registra también la roja.
+- **Página del torneo con el rediseño (`.ax-v2`):**
+  - Cabecera con banner y foto, datos y pestañas.
+  - Barra de guardado inline con contraseña: se quitaron el modal de confirmación, el panel de cambios pendientes y el modal de cambios sin guardar.
+  - Resumen, Partidos (marcador, acciones, cronología, estadísticas y lista por fecha), Generador e Historial.
+- **Avisos:** los `window.alert`, `confirm` y `prompt` del partido en vivo pasaron a avisos y confirmaciones inline.
+
+**Archivos**
+- `app/(panel)/torneos/ver/[id]/page.tsx`.
+- `Components/torneo/ui.tsx` (nuevo).
+- `Components/tournament-fixture-generator.tsx`, `tournament-knockout-bracket.tsx` y `basketball-tournament-panels.tsx`.
+- `lib/rugby.ts` y `lib/football.ts` (nuevos), y `tests/match-cards.test.mjs`.
+- `app/globals.css`: tokens de tarjeta.
+- `documentos/rediseno-gestor-torneos.md`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (16 de 16).
+- Capturas con Playwright en 1440 y 390 px, en tema oscuro y claro, con datos de ejemplo inyectados por un parche temporal que ya se quitó. En este entorno no hay Supabase.
+- Se revisaron:
+  - Resumen y Partidos.
+  - El panel de amarilla en rugby y la segunda amarilla en fútbol.
+  - El generador de rugby (automático y manual) y el de fútbol 8 (cruces manuales).
+
+**Pendiente**
+- Probar con una cuenta real que las tarjetas se guardan en `match_events`.
+- Pasar al rediseño:
+  - Tablas, Llaves, Equipos, Convocatorias, Fixtures e Información.
+  - Los paneles 3x3.
+  - Los PDF.
+- Foto y banner: falta la migración de `banner_url`.
+- En Figma, quitar Llaves de las pantallas de rugby y agregar el selector de modo del generador.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Rediseño del gestor de torneos en Figma
 
 **Qué se hizo**

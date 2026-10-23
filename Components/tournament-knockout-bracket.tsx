@@ -85,6 +85,7 @@ function LegacyTournamentKnockoutBracket({
   events,
   canManage,
   footballEight = false,
+  generationMode: forcedMode,
 }: {
   tournamentId: string
   teams: Team[]
@@ -92,13 +93,16 @@ function LegacyTournamentKnockoutBracket({
   events: MatchEvent[]
   canManage: boolean
   footballEight?: boolean
+  // Lo fija el Generador; sin este valor la llave muestra su propio selector.
+  generationMode?: 'automatic' | 'manual'
 }) {
   const [stages, setStages] = useState<Stage[]>([])
   const [bracketMatches, setBracketMatches] = useState<BracketMatch[]>([])
   const [selectedDivision, setSelectedDivision] = useState(teams[0]?.division_id || '')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [generationMode, setGenerationMode] = useState<'automatic' | 'manual'>('automatic')
+  const [internalMode, setGenerationMode] = useState<'automatic' | 'manual'>('automatic')
+  const generationMode = forcedMode ?? internalMode
   const [manualPairings, setManualPairings] = useState<ManualPairing[]>(
     createManualPairings,
   )
@@ -517,7 +521,7 @@ function LegacyTournamentKnockoutBracket({
                 Elige si los cruces se ordenan automáticamente o se registran manualmente.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            {!forcedMode && <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setGenerationMode('automatic')}
@@ -536,7 +540,7 @@ function LegacyTournamentKnockoutBracket({
               >
                 Manual
               </button>
-            </div>
+            </div>}
           </div>
           {generationMode === 'manual' && (
             <div className="mt-5 space-y-3">

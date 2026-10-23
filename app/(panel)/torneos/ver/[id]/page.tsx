@@ -8,21 +8,17 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  CircleAlert,
   Clock3,
   Cog,
   FileDown,
   HeartPulse,
-  LockKeyhole,
-  MapPin,
   Pencil,
-  Plus,
+  Play,
   Search,
   ShieldCheck,
-  Square,
   Table2,
   Trash2,
-  Trophy,
-  UserPlus,
   Users,
   Wand2,
   X,
@@ -36,6 +32,10 @@ import { TournamentFixtureGenerator } from '../../../../../Components/tournament
 import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
 import { BasketballTournamentPanels } from '../../../../../Components/basketball-tournament-panels'
 import { basketball } from '../../../../../lib/basketball'
+import { Badge, Button, buttonClass, Card, initialsOf, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../../../../../Components/mi-equipo/ui'
+import { footballNextYellowIsRed, footballPlayerCards } from '../../../../../lib/football'
+import { rugbyActiveSinBins, rugbySinBinSeconds } from '../../../../../lib/rugby'
+import { SaveBar, StatTile, StatusBadge, TournamentHero, TournamentTabs, defaultMeta, sportOf, type SaveBarItem } from '../../../../../Components/torneo/ui'
 import { supabase } from '../../../../../lib/supabase'
 import {
   footballEightNextPhase,
@@ -577,24 +577,25 @@ export default function PublicTournamentPage() {
 
   // Redirige a las tablas cuando el formato no utiliza eliminación directa.
   useEffect(() => {
-    if (competitionFormat === 'quick_league' && section === 'llaves') {
+    // Rugby se juega por tabla; solo fútbol y baloncesto usan llaves.
+    if ((competitionFormat === 'quick_league' || data?.tournament?.discipline?.code === 'rugby') && section === 'llaves') {
       setSection('tablas')
     }
-    if (isFootballEightKnockout && (section === 'fixtures' || section === 'generador')) {
+    if (isFootballEightKnockout && section === 'fixtures') {
       setSection('llaves')
     }
     if (data?.tournament?.is_quick && section === 'convocatorias') {
       setSection('resumen')
     }
-  }, [competitionFormat, data?.tournament?.is_quick, isFootballEightKnockout, section])
+  }, [competitionFormat, data?.tournament?.discipline?.code, data?.tournament?.is_quick, isFootballEightKnockout, section])
 
   useEffect(() => {
     if (!currentUserId || currentUserId !== ownerId) setEditMode(false)
   }, [currentUserId, ownerId])
 
-  if (loading) return <TournamentShell><p className="text-slate-400">Cargando torneo...</p></TournamentShell>
-  if (error || !data?.tournament) return <TournamentShell><div className="rounded-[5px] border border-red-400/30 bg-red-500/10 p-5 text-red-200">{error || 'Este torneo no está disponible.'}</div></TournamentShell>
-  if (data.tournament.discipline?.code === 'baloncesto' && data.tournament.modality?.code !== '3x3') return <TournamentShell><p className="text-slate-300">La gestión de baloncesto está disponible para la modalidad 3x3. Esta modalidad todavía no tiene reglas habilitadas.</p></TournamentShell>
+  if (loading) return <TournamentShell><div aria-busy="true" aria-label="Cargando torneo" className="space-y-5"><div className="h-[120px] animate-pulse rounded-2xl bg-[var(--ax-surface-raised)] sm:h-[200px] sm:rounded-[20px]" /><div className="flex gap-5 px-4 sm:px-6"><div className="-mt-10 h-[76px] w-[76px] shrink-0 animate-pulse rounded-[14px] bg-[var(--ax-surface)] ring-4 ring-[var(--ax-bg)] sm:-mt-16 sm:h-[120px] sm:w-[120px]" /><div className="flex-1 space-y-3 pt-3"><div className="h-4 w-40 animate-pulse rounded-md bg-[var(--ax-surface-raised)]" /><div className="h-8 w-72 max-w-full animate-pulse rounded-md bg-[var(--ax-surface-raised)]" /></div></div><div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-[104px] animate-pulse rounded-[14px] bg-[var(--ax-surface)]" />)}</div></div></TournamentShell>
+  if (error || !data?.tournament) return <TournamentShell><Notice tone="danger" icon={CircleAlert}>{error || 'Este torneo no está disponible.'}</Notice></TournamentShell>
+  if (data.tournament.discipline?.code === 'baloncesto' && data.tournament.modality?.code !== '3x3') return <TournamentShell><Notice icon={CircleAlert}>La gestión de baloncesto está disponible para la modalidad 3x3. Esta modalidad todavía no tiene reglas habilitadas.</Notice></TournamentShell>
 
   const tournament = { ...data.tournament, fixtureMatches: data.matches ?? [] }
   const teams = data.teams ?? []
@@ -1127,249 +1128,273 @@ export default function PublicTournamentPage() {
     setMessage(`Solicitud enviada para cambiar el número de ${playerName}.`)
   }
 
-  return <main className="min-h-screen bg-transparent px-5 py-8 text-white lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl space-y-6">
-    <button type="button" onClick={() => router.back()} className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-[#b4ff45]"><ArrowLeft size={18} />Volver</button>
+  const sport = sportOf(tournament.discipline?.code)
+  const isKnockoutFormat = isFootballEightKnockout || isBasketball
+  const finishedMatches = matches.filter((match) => match.status === 'finished').length
+  const liveMatches = matches.filter((match) => match.status === 'live').length
+  const activeMatchEvents = matchEvents.filter((event) => !event.is_corrected)
+  const scoringTotal = sport === 'baloncesto'
+    ? activeMatchEvents.reduce((total, event) => total + (event.points || 0), 0)
+    : activeMatchEvents.filter((event) => (sport === 'rugby' ? ['try'] : ['goal', 'penalty_kick']).includes(event.event_type)).length
+  const divisionCount = data.divisions?.length ?? 0
+  const stats = [
+    { label: 'Equipos', value: String(uniqueTeams.length), detail: maxTeamsLimit ? `de ${maxTeamsLimit} cupos` : `${divisionCount} división${divisionCount === 1 ? '' : 'es'}` },
+    isKnockoutFormat
+      ? { label: 'Formato', value: 'Llave', detail: 'eliminación directa' }
+      : { label: 'Fechas', value: String(dates.length), detail: dates.length ? `${divisionCount} división${divisionCount === 1 ? '' : 'es'}` : 'sin fixture' },
+    { label: 'Partidos', value: matches.length ? `${finishedMatches} de ${matches.length}` : '0', detail: liveMatches ? `${liveMatches} en vivo` : 'jugados' },
+    { label: sport === 'rugby' ? 'Tries' : sport === 'futbol' ? 'Goles' : 'Puntos', value: String(scoringTotal), detail: finishedMatches ? `${(scoringTotal / finishedMatches).toLocaleString('es-PA', { maximumFractionDigits: 1 })} por partido` : 'registrados' },
+  ]
+  // Rugby se juega todos contra todos: no muestra llaves. Fútbol y baloncesto sí.
+  const showBracketTab = showKnockout && sport !== 'rugby'
+  const tabs = ([
+    ['resumen', 'Resumen'],
+    ['tablas', isBasketball ? 'Clasificación' : 'Tablas'],
+    ['llaves', 'Llaves'],
+    ['equipos', 'Equipos y plantillas'],
+    ['convocatorias', 'Convocatorias'],
+    ['fixtures', isBasketball ? 'Cronograma' : 'Fixtures'],
+    ['generador', 'Generador'],
+    ['partidos', 'Partidos'],
+    ['general', 'Información'],
+    ['historial', 'Historial'],
+  ] as const)
+    .filter(([value]) => (
+      (value !== 'generador' || canManage)
+      && (value !== 'llaves' || showBracketTab)
+      && (value !== 'convocatorias' || !tournament.is_quick)
+      && (value !== 'fixtures' || showFixtureSections)
+    ))
+    .map(([value, label]) => ({ value, label }))
+  const operationItems: SaveBarItem[] = pendingOperations.map((operation) => ({
+    id: operation.id,
+    label: operation.title,
+    detail: operation.changes.map((change) => change.after).join(' · '),
+    onRemove: () => setPendingOperations((current) => current.filter((item) => item.id !== operation.id)),
+  }))
+  const generalItems: SaveBarItem[] = Object.entries(pendingChanges ?? {}).map(([key, change]) => ({ id: key, label: change.label, detail: `${change.before} → ${change.after}` }))
+  const legacyPanel = 'rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-4 sm:p-6'
 
-    <section className="overflow-hidden rounded-[5px] border border-[#29485d] bg-[#0b1d2c]"><div className="grid gap-0 lg:grid-cols-[.8fr_1.2fr]"><div className="flex min-h-64 items-center justify-center bg-[#102a3d] p-6">{tournament.cover_url ? <img src={tournament.cover_url} alt={`Portada de ${tournament.name}`} className="max-h-72 w-full rounded-[5px] object-contain" /> : <Trophy className="text-[#b4ff45]" size={92} />}</div><div className="p-6 sm:p-8"><div className="flex flex-wrap items-center gap-2"><span className="rounded-[5px] bg-[#b4ff45] px-3 py-1 text-xs font-bold uppercase text-[#07131e]">{statusNames[tournament.status] || tournament.status}</span>{tournament.is_quick && <span className="rounded-[5px] border border-[#f5c542]/60 bg-[#f5c542]/10 px-3 py-1 text-xs font-bold uppercase text-[#f5c542]">Torneo rápido</span>}{tournament.discipline && <span className="rounded-[5px] border border-[#b4ff45]/40 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.discipline.name}</span>}{tournament.modality && <span className="rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/10 px-3 py-1 text-xs font-semibold text-[#dcffb6]">{tournament.modality.name}</span>}</div><p className="mt-5 text-xs font-bold uppercase tracking-[.24em] text-[#b4ff45]">Información pública del torneo</p><h1 className="mt-2 font-display text-4xl uppercase sm:text-5xl">{tournament.name}</h1><p className="mt-3 text-lg text-slate-400">Temporada {tournament.season || 'pendiente'}</p><div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-300"><span className="inline-flex items-center gap-2"><CalendarDays size={17} className="text-[#b4ff45]" />{formatDateRange(tournament.start_date, tournament.end_date)}</span>{tournament.location && <span className="inline-flex items-center gap-2"><MapPin size={17} className="text-[#b4ff45]" />{tournament.location}</span>}</div><p className="mt-5 font-mono text-xs text-[#b4ff45]">{tournament.athlonx_code || 'Código pendiente'}</p></div></div></section>
+  function exitEditMode() {
+    if (pendingOperations.length || dirtySection || pendingChanges) return setMessage('Guarda o descarta los cambios antes de salir del modo edición.')
+    setEditMode(false)
+    setMessage('')
+  }
 
-    <div className="grid gap-4 sm:grid-cols-4"><StatCard title="Equipos" value={String(uniqueTeams.length)} icon={<Users size={20} />} /><StatCard title="Divisiones" value={String(data.divisions?.length ?? 0)} icon={<Trophy size={20} />} /><StatCard title="Partidos" value={String(matches.length)} icon={<CalendarDays size={20} />} /><StatCard title="Fechas" value={String(dates.length)} icon={<Table2 size={20} />} /></div>
+  return <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl space-y-5">
+    <div className="ax-v2 space-y-5">
+      <button type="button" onClick={() => router.back()} className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[var(--ax-muted)] transition-colors hover:text-[var(--ax-text)]"><ArrowLeft size={17} aria-hidden="true" />Volver</button>
+      <TournamentHero
+        name={tournament.name}
+        sport={sport}
+        photoUrl={tournament.cover_url}
+        code={tournament.athlonx_code}
+        badges={<>
+          <StatusBadge status={tournament.status} />
+          {tournament.modality && <Badge tone="success" dot={false}>{tournament.modality.name}</Badge>}
+          {tournament.is_quick ? <Badge tone="warning">Torneo rápido</Badge> : <Badge>Oficial</Badge>}
+          {tournament.season && <Badge>Temporada {tournament.season}</Badge>}
+        </>}
+        meta={defaultMeta(formatDateRange(tournament.start_date, tournament.end_date), [tournament.location, tournament.country].filter(Boolean).join(', '), tournament.organization?.name || tournament.organizer_team?.name)}
+        actions={canManage && (editMode
+          ? <><Badge tone="warning">Modo edición</Badge><Button variant="ghost" icon={X} onClick={exitEditMode}>Salir de edición</Button></>
+          : <Button variant="primary" icon={Pencil} onClick={() => { setEditMode(true); setMessage('') }}>Editar torneo</Button>)}
+      />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">{stats.map((stat) => <StatTile key={stat.label} {...stat} />)}</div>
+      <TournamentTabs tabs={tabs} active={section} onChange={(value) => requestSection(value)} />
+      {pendingSection && <Notice tone="warning" icon={CircleAlert} action={<div className="flex shrink-0 gap-2"><Button size="sm" variant="ghost" onClick={() => setPendingSection(null)}>Seguir editando</Button><Button size="sm" variant="danger" onClick={discardUnsavedChanges}>Descartar</Button><Button size="sm" variant="primary" onClick={saveBeforeNavigate}>Guardar</Button></div>}>Tienes cambios sin guardar en esta sección. Guárdalos o descártalos antes de cambiar de pestaña.</Notice>}
+      {message && !pendingChanges && !showOperationSave && <Notice tone={/no se|no es|no puede|no hay|error|debe|necesita|máximo|completa|selecciona|guarda o descarta/i.test(message) ? 'warning' : 'success'} icon={/no se|no es|no puede|error/i.test(message) ? CircleAlert : Check}>{message}</Notice>}
+    </div>
 
-    <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8">
-      <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-5">
-        {([
-          ['resumen', 'Resumen'],
-          ['tablas', 'Tablas'],
-          ['llaves', 'Llaves'],
-          ['equipos', 'Equipos y plantillas'],
-          ['convocatorias', 'Convocatorias'],
-          ['fixtures', 'Fixtures'],
-          ['generador', 'Generador de fixtures'],
-          ['partidos', 'Partidos'],
-          ['general', 'Información general'],
-          ['historial', 'Historial'],
-        ] as const)
-          .filter(([value]) => (
-            (value !== 'generador' || (canManage && !isBasketball))
-            && (value !== 'llaves' || showKnockout)
-            && (value !== 'convocatorias' || !tournament.is_quick)
-            && (
-              showFixtureSections
-              || (value !== 'fixtures' && value !== 'generador')
-            )
+    {isBasketball && (section === 'resumen' || section === 'tablas' || section === 'fixtures' || section === 'partidos') && <div className={legacyPanel}>{basketballPanel(section)}</div>}
+    {isBasketball && section === 'equipos' && <div className={legacyPanel}>{basketballPanel('equipos')}</div>}
+    {isBasketball && section === 'general' && <div className={legacyPanel}>{basketballPanel('general')}</div>}
+
+    {section === 'resumen' && !isBasketball && <SummarySection
+      tournament={tournament}
+      divisions={data.divisions ?? []}
+      teams={teams}
+      matches={matches}
+      events={matchEvents}
+      corrections={matchEventCorrections}
+      rosters={rosters}
+      onOpenFixtures={() => requestSection(canManage ? 'generador' : isFootballEightKnockout ? 'llaves' : 'fixtures')}
+      directKnockout={isFootballEightKnockout}
+      canManage={canManage && editMode}
+    />}
+
+    {section === 'tablas' && !isBasketball && <div className={legacyPanel}><StandingsSection
+      teams={teams}
+      matches={matches}
+    /></div>}
+
+    {section === 'llaves' && showBracketTab && <TournamentKnockoutBracket
+      tournamentId={tournament.id}
+      teams={teams}
+      matches={matches}
+      events={matchEvents}
+      canManage={canManage}
+      footballEight={isFootballEightKnockout}
+      discipline={tournament.discipline?.code}
+      tournamentName={tournament.name}
+    />}
+
+    {section === 'equipos' && <div className={legacyPanel}>{tournament.is_quick
+      ? <QuickTournamentTeamsSection
+        teams={teams}
+        rosters={rosters}
+        divisions={data.divisions ?? []}
+        availableTeams={availableTeams.filter((team) => (
+          (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
+          !teams.some((current) => (
+            teamIdentityKey(current) === teamIdentityKey(team)
           ))
-          .map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => requestSection(value)}
-              className={[
-                'cursor-pointer rounded-[5px] px-4 py-2.5 text-sm font-bold',
-                'transition',
-                section === value
-                  ? 'bg-[#b4ff45] text-[#07131e]'
-                  : 'border border-[#29485d] text-slate-300',
-                section === value
-                  ? ''
-                  : 'hover:border-[#b4ff45] hover:text-white',
-              ].join(' ')}
-            >
-              {isBasketball && value === 'tablas' ? 'Clasificación' : label}
-            </button>
-          ))}
-      </nav>
+        ))}
+        availablePlayers={availablePlayers}
+        modality={tournament.modality}
+        officialPlayerId={officialPlayerId}
+        maxTeams={maxTeamsLimit}
+        maxRoster={isBasketball ? basketball.maxRoster : undefined}
+        canManage={canManage}
+        editMode={editMode}
+        currentUserId={currentUserId}
+        onAddTeam={requestAddTeam}
+        onAddQuickTeam={requestAddQuickTeam}
+        onRemoveTeam={requestRemoveTeam}
+        onAddQuickPlayer={requestAddQuickPlayer}
+        onAddExistingPlayer={requestAddExistingPlayer}
+        onClaimGuestPlayer={requestClaimGuestPlayer}
+        onNumberRequest={(request) => setNumberRequest(request)}
+      />
+      : <TeamsSection
+        teams={teams}
+        rosters={rosters}
+        dates={dates}
+        fixtureDates={fixtureDates}
+        divisions={data.divisions ?? []}
+        availableTeams={availableTeams.filter((team) => (
+          (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
+          !teams.some((current) => (
+            teamIdentityKey(current) === teamIdentityKey(team)
+          ))
+        ))}
+        maxTeams={maxTeamsLimit}
+        callups={fixtureCallups}
+        callupPlayers={fixtureCallupPlayers}
+        canManage={canManage}
+        editMode={editMode}
+        currentUserId={currentUserId}
+        onAddTeam={requestAddTeam}
+        onRemoveTeam={requestRemoveTeam}
+        onNumberRequest={(request) => setNumberRequest(request)}
+      />}</div>}
 
-      {isBasketball && (section === 'resumen' || section === 'tablas' || section === 'fixtures' || section === 'partidos') && basketballPanel(section)}
-      {isBasketball && section === 'equipos' && basketballPanel('equipos')}
-      {isBasketball && section === 'general' && basketballPanel('general')}
-
-      {section === 'resumen' && !isBasketball && <SummarySection
-        tournament={tournament}
+    {section === 'convocatorias' && !tournament.is_quick
+      && <div className={legacyPanel}><TournamentCallupsPanel
+        tournamentId={tournament.id}
         divisions={data.divisions ?? []}
         teams={teams}
         matches={matches}
-        events={matchEvents}
-        corrections={matchEventCorrections}
-        onOpenFixtures={() => requestSection(
-          isFootballEightKnockout ? 'llaves' : 'fixtures',
-        )}
-        directKnockout={isFootballEightKnockout}
-        canManage={canManage && editMode}
-      />}
+        rosters={rosters}
+        isOwner={canManage}
+        initialMatchId={searchParams.get('matchId') || undefined}
+        initialTeamId={searchParams.get('teamId') || undefined}
+      /></div>}
 
-      {section === 'tablas' && !isBasketball && <StandingsSection
-        teams={teams}
-        matches={matches}
-      />}
+    {section === 'fixtures' && showFixtureSections && !isBasketball && <div className={legacyPanel}><FixtureListSection
+      tournament={tournament}
+      teams={teams}
+      dates={dates}
+      matches={matches}
+    /></div>}
 
-      {section === 'llaves' && showKnockout && <TournamentKnockoutBracket
+    {section === 'generador' && canManage
+      && <TournamentFixtureGenerator
         tournamentId={tournament.id}
-        teams={teams}
-        matches={matches}
-        events={matchEvents}
-        canManage={canManage}
+        tournamentName={tournament.name}
+        tournamentStatus={tournament.status}
+        competitionFormat={competitionFormat}
         footballEight={isFootballEightKnockout}
         discipline={tournament.discipline?.code}
-        tournamentName={tournament.name}
-      />}
-
-      {section === 'equipos' && (tournament.is_quick
-        ? <QuickTournamentTeamsSection
-          teams={teams}
-          rosters={rosters}
-          divisions={data.divisions ?? []}
-          availableTeams={availableTeams.filter((team) => (
-            (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
-            !teams.some((current) => (
-              teamIdentityKey(current) === teamIdentityKey(team)
-            ))
-          ))}
-          availablePlayers={availablePlayers}
-          modality={tournament.modality}
-          officialPlayerId={officialPlayerId}
-          maxTeams={maxTeamsLimit}
-          maxRoster={isBasketball ? basketball.maxRoster : undefined}
-          canManage={canManage}
-          editMode={editMode}
-          currentUserId={currentUserId}
-          onAddTeam={requestAddTeam}
-          onAddQuickTeam={requestAddQuickTeam}
-          onRemoveTeam={requestRemoveTeam}
-          onAddQuickPlayer={requestAddQuickPlayer}
-          onAddExistingPlayer={requestAddExistingPlayer}
-          onClaimGuestPlayer={requestClaimGuestPlayer}
-          onNumberRequest={(request) => setNumberRequest(request)}
-        />
-        : <TeamsSection
-          teams={teams}
-          rosters={rosters}
-          dates={dates}
-          fixtureDates={fixtureDates}
-          divisions={data.divisions ?? []}
-          availableTeams={availableTeams.filter((team) => (
-            (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
-            !teams.some((current) => (
-              teamIdentityKey(current) === teamIdentityKey(team)
-            ))
-          ))}
-          maxTeams={maxTeamsLimit}
-          callups={fixtureCallups}
-          callupPlayers={fixtureCallupPlayers}
-          canManage={canManage}
-          editMode={editMode}
-          currentUserId={currentUserId}
-          onAddTeam={requestAddTeam}
-          onRemoveTeam={requestRemoveTeam}
-          onNumberRequest={(request) => setNumberRequest(request)}
-        />)}
-
-      {section === 'convocatorias' && !tournament.is_quick
-        && <TournamentCallupsPanel
-          tournamentId={tournament.id}
-          divisions={data.divisions ?? []}
-          teams={teams}
-          matches={matches}
-          rosters={rosters}
-          isOwner={canManage}
-          initialMatchId={searchParams.get('matchId') || undefined}
-          initialTeamId={searchParams.get('teamId') || undefined}
-        />}
-
-      {section === 'fixtures' && showFixtureSections && !isBasketball && <FixtureListSection
-        tournament={tournament}
+        divisions={data.divisions ?? []}
         teams={teams}
         dates={dates}
         matches={matches}
-      />}
-
-      {section === 'generador' && showFixtureSections && canManage
-        && <TournamentFixtureGenerator
-          tournamentName={tournament.name}
-          tournamentStatus={tournament.status}
-          competitionFormat={competitionFormat}
-          footballEight={tournament.modality?.code === 'futbol-8'}
-          discipline={tournament.discipline?.code}
-          divisions={data.divisions ?? []}
-          teams={teams}
-          dates={dates}
-          matches={matches}
-          canManage={canManage}
-          onGenerate={requestGenerateFixture}
-        />}
-
-      {section === 'partidos' && !isBasketball && <MatchesSection
-        matches={matches}
-        dates={dates}
         events={matchEvents}
-        corrections={matchEventCorrections}
-        rosters={rosters}
-        onOpenFixtures={() => requestSection('fixtures')}
-        canManage={canManage && editMode}
-      />}
-
-      {section === 'general' && <GeneralInfoSection
-        tournament={tournament}
-        divisions={data.divisions ?? []}
-        disciplines={disciplines}
-        modalities={modalities}
         canManage={canManage}
-        editMode={editMode && canManage}
-        onRequestSave={requestSave}
-        onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)}
-        onCancel={() => {
-          setEditMode(false)
-          setDirtySection(null)
-          setMessage('')
-        }}
-        onEdit={() => {
-          if (canManage) setEditMode(true)
-        }}
+        onGenerate={requestGenerateFixture}
+        onOpenCalendar={() => requestSection(isKnockoutFormat ? (isBasketball ? 'fixtures' : 'llaves') : 'fixtures')}
       />}
 
-      {section === 'historial' && <EditHistorySection history={history} />}
-    </section>
+    {section === 'partidos' && !isBasketball && <MatchesSection
+      matches={matches}
+      dates={dates}
+      events={matchEvents}
+      corrections={matchEventCorrections}
+      rosters={rosters}
+      onOpenFixtures={() => requestSection(canManage ? 'generador' : 'fixtures')}
+      canManage={canManage && editMode}
+    />}
 
-    {message && <p role="status" className="rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-4 text-sm text-[#dfffba]">{message}</p>}
-    {pendingOperations.length > 0 && <PendingOperationsPanel operations={pendingOperations} onRemove={(operationId) => setPendingOperations((current) => current.filter((operation) => operation.id !== operationId))} onSave={() => { setMessage(''); setShowOperationSave(true) }} />}
-  </div>{pendingChanges && Object.keys(pendingChanges).length > 0 && <EditConfirmationOverlay changes={pendingChanges} onCancel={() => { setPendingChanges(null); setPendingDivisionNames(null) }} onConfirm={confirmSave} message={message} />}{showOperationSave && pendingOperations.length > 0 && <EditConfirmationOverlay title="Guardar cambios" changes={Object.fromEntries(pendingOperations.flatMap((operation) => operation.changes.map((change, index) => [`${operation.id}-${index}`, { ...change, label: `${operation.title}: ${change.label}` }])))} onCancel={() => { setShowOperationSave(false); setMessage('') }} onConfirm={confirmOperations} message={message} />}{pendingSection && <UnsavedChangesOverlay onCancel={() => setPendingSection(null)} onDiscard={discardUnsavedChanges} onSave={saveBeforeNavigate} />}{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
+    {section === 'general' && <div className={legacyPanel}><GeneralInfoSection
+      tournament={tournament}
+      divisions={data.divisions ?? []}
+      disciplines={disciplines}
+      modalities={modalities}
+      canManage={canManage}
+      editMode={editMode && canManage}
+      onRequestSave={requestSave}
+      onDirtyChange={(dirty) => setDirtySection(dirty ? 'general' : null)}
+      onCancel={() => {
+        setEditMode(false)
+        setDirtySection(null)
+        setMessage('')
+      }}
+      onEdit={() => {
+        if (canManage) setEditMode(true)
+      }}
+    /></div>}
+
+    {section === 'historial' && <EditHistorySection history={history} />}
+
+    {pendingChanges && Object.keys(pendingChanges).length > 0 && <div className="ax-v2"><SaveBar key="general" initiallyConfirming items={generalItems} error={message} onDiscard={() => { setPendingChanges(null); setPendingDivisionNames(null); setMessage('') }} onConfirm={confirmSave} /></div>}
+    {!pendingChanges && pendingOperations.length > 0 && <div className="ax-v2"><SaveBar key={`operations-${showOperationSave}`} initiallyConfirming={showOperationSave} items={operationItems} error={showOperationSave ? message : ''} saving={savingOperations} onDiscard={() => { setPendingOperations([]); setShowOperationSave(false); setMessage('') }} onConfirm={(password) => { setShowOperationSave(true); return confirmOperations(password) }} /></div>}
+  </div>{numberRequest && <PlayerNumberRequestModal request={numberRequest} onCancel={() => setNumberRequest(null)} onSubmit={(requestedNumber) => void requestPlayerNumber(numberRequest.teamId, numberRequest.playerId, numberRequest.playerName, numberRequest.currentNumber, requestedNumber)} />}</main>
 }
 
-function PendingOperationsPanel({ operations, onRemove, onSave }: { operations: PendingOperation[]; onRemove: (operationId: string) => void; onSave: () => void }) {
-  return (
-    <section className="rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Cambios pendientes</p>
-          <h2 className="mt-2 font-display text-2xl uppercase">Cambios pendientes</h2>
-          <p className="mt-2 text-sm text-slate-400">Revisa los cambios. La contraseña se solicitará únicamente al guardar.</p>
-        </div>
-        <button type="button" onClick={onSave} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]">
-          <Check size={17} />
-          Guardar cambios
-        </button>
-      </div>
-      <div className="mt-5 space-y-2">
-        {operations.map((operation) => (
-          <div key={operation.id} className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 bg-[#07131e] px-3 py-3 text-sm">
-            <span className="min-w-0 truncate text-slate-200">{operation.title}</span>
-            <button type="button" onClick={() => onRemove(operation.id)} className="shrink-0 cursor-pointer rounded-[5px] border border-[#ff7d88]/50 px-3 py-1.5 text-xs font-bold text-[#ff9ca5]">
-              Quitar
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function SummarySection({ tournament, divisions, teams, matches, events, corrections, onOpenFixtures, directKnockout, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; corrections: MatchEventCorrection[]; onOpenFixtures: () => void; directKnockout: boolean; canManage: boolean }) {
+function SummarySection({ tournament, divisions, teams, matches, events, corrections, rosters, onOpenFixtures, directKnockout, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; corrections: MatchEventCorrection[]; rosters: RosterEntry[]; onOpenFixtures: () => void; directKnockout: boolean; canManage: boolean }) {
   const featuredMatch = getFeaturedMatch(matches)
   const uniqueTeamCount = new Set(teams.map((team) => team.id)).size
-  const emptyStateText = directKnockout
-    ? 'Todavía no hay partidos porque la llave aún no ha sido generada.'
-    : 'No hay partidos programados porque todavía no se ha generado un fixture.'
-  const emptyStateAction = directKnockout ? 'Generar llave' : 'Generar fixture'
-
-  return <div className="space-y-8 pt-6"><div className="grid gap-6 lg:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Resumen del torneo</p><h2 className="mt-2 font-display text-3xl uppercase">Actividad competitiva</h2><p className="mt-3 text-sm leading-6 text-slate-400">Consulta la estructura, el partido prioritario y la actividad registrada de esta competencia.</p><div className="mt-6 space-y-3"><InfoRow label="Tipo de torneo" value={tournament.is_quick ? 'Torneo rápido · No oficial' : 'Torneo normal · Oficial'} /><InfoRow label="Organización responsable" value={tournament.organization?.name || 'Torneo independiente'} /><InfoRow label="Equipo organizador" value={tournament.organizer_team?.name || 'No especificado'} /></div></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración deportiva</p><div className="mt-3 space-y-3"><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Divisiones" value={divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'} /><InfoRow label="Equipos inscritos" value={`${uniqueTeamCount} equipos · ${matches.length} partidos`} /></div></div></div><div><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Estado competitivo</p><h2 className="mt-2 font-display text-3xl uppercase">Partido destacado</h2></div>{featuredMatch && <span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{featuredMatch.status === 'live' ? 'En vivo' : featuredMatch.status === 'finished' ? 'Último partido' : 'Próximo partido'}</span>}</div>{featuredMatch ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} /> : <div className="mt-5 rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm leading-6 text-slate-400">{emptyStateText}</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">{emptyStateAction}</button>}</div>}</div></div>
+  const upcoming = matches.filter((match) => match.status === 'scheduled' && match.id !== featuredMatch?.id)
+    .sort((left, right) => left.date_number - right.date_number || (left.scheduled_time || '').localeCompare(right.scheduled_time || '')).slice(0, 5)
+  const recent = matches.filter((match) => match.status === 'finished' && match.id !== featuredMatch?.id)
+    .sort((left, right) => right.date_number - left.date_number || (right.scheduled_time || '').localeCompare(left.scheduled_time || '')).slice(0, 5)
+  const facts = [
+    ['Tipo', tournament.is_quick ? 'Torneo rápido · por invitación o equipos creados aquí' : 'Oficial · solo por invitación'],
+    ['Organiza', tournament.organization?.name || tournament.organizer_team?.name || 'Torneo independiente'],
+    ['Disciplina', [tournament.discipline?.name, tournament.modality?.name].filter(Boolean).join(' · ') || 'No especificada'],
+    ['Divisiones', divisions.map((division) => division.name).join(' · ') || 'Sin divisiones'],
+    ['Participación', `${uniqueTeamCount} equipos · ${matches.length} partidos`],
+  ]
+  const list = (title: string, id: string, rows: Match[], empty: string) => <Card labelledBy={id}>
+    <CardHeader id={id} title={title} />
+    {rows.length ? <div className="mt-3 space-y-0.5">{rows.map((match) => <MatchRow key={match.id} match={match} selected={false} onPreview={onOpenFixtures} />)}</div> : <p className="mt-3 text-[13px] text-[var(--ax-muted)]">{empty}</p>}
+  </Card>
+  return <div className="ax-v2 space-y-5">
+    {featuredMatch
+      ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} rosters={rosters} />
+      : <Card><EmptyState icon={CalendarDays} title="Aún no hay partidos" description={directKnockout ? 'La llave todavía no se ha generado.' : 'Todavía no se ha generado el fixture.'} action={canManage ? <Button variant="primary" onClick={onOpenFixtures}>{directKnockout ? 'Generar llave' : 'Generar fixture'}</Button> : undefined} /></Card>}
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+      <div className="space-y-5">
+        {list('Próximos partidos', 'summary-upcoming', upcoming, 'No hay partidos programados.')}
+        {list('Últimos resultados', 'summary-recent', recent, 'Todavía no hay resultados.')}
+      </div>
+      <Card labelledBy="summary-facts">
+        <CardHeader id="summary-facts" title="Datos del torneo" />
+        <dl className="mt-3 divide-y divide-[var(--ax-line)]">{facts.map(([label, value]) => <div key={label} className="py-2.5"><dt className="text-xs text-[var(--ax-muted)]">{label}</dt><dd className="mt-0.5 text-sm font-medium text-[var(--ax-text)]">{value}</dd></div>)}</dl>
+      </Card>
+    </div>
+  </div>
 }
 
 function StandingsSection({ teams, matches }: { teams: TournamentTeam[]; matches: Match[] }) {
@@ -2630,8 +2655,33 @@ function MatchesSection({ matches, dates, events, corrections, rosters, onOpenFi
   const featuredMatch = getFeaturedMatch(matches)
   const [selectedMatchId, setSelectedMatchId] = useState(featuredMatch?.id || '')
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) || featuredMatch || null
+  const [openDate, setOpenDate] = useState<number | null>(selectedMatch?.date_number ?? dates[0] ?? null)
   useEffect(() => { if (selectedMatch && !matches.some((match) => match.id === selectedMatch.id)) setSelectedMatchId(featuredMatch?.id || '') }, [featuredMatch, matches, selectedMatch])
-  return <div className="space-y-8 pt-6"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Seguimiento</p><h2 className="mt-2 font-display text-3xl uppercase">Partidos</h2><p className="mt-2 text-sm text-slate-400">Selecciona un enfrentamiento para ver su vista previa, cronómetro, estadísticas y acciones.</p></div>{selectedMatch ? <MatchHighlight match={selectedMatch} events={events.filter((event) => event.match_id === selectedMatch.id)} corrections={corrections.filter((correction) => correction.match_id === selectedMatch.id)} rosters={rosters} canManage={canManage} /> : <div className="rounded-[5px] border border-dashed border-[#31556b] bg-[#07131e] p-6"><p className="text-sm text-slate-400">No hay partidos programados porque todavía no se ha generado un fixture.</p>{canManage && <button type="button" onClick={onOpenFixtures} className="mt-4 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Generar fixture</button>}</div>}<div><div className="flex items-center gap-2 border-b border-white/10 pb-3"><CalendarDays className="text-[#b4ff45]" size={18} /><h3 className="font-heading text-xl uppercase">Cronograma por fecha</h3></div>{matches.length ? <div className="mt-5 space-y-6">{dates.map((date) => <details key={date} open={date === dates[0]} className="group"><summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-[.2em] text-slate-500">Fecha {date}</summary><div className="mt-3 grid gap-3 lg:grid-cols-2">{matches.filter((match) => match.date_number === date).map((match) => <MatchCard key={match.id} match={match} selected={match.id === selectedMatch?.id} onPreview={() => setSelectedMatchId(match.id)} />)}</div></details>)}</div> : <p className="mt-5 text-sm text-slate-500">Genera un fixture para ver el cronograma.</p>}</div></div>
+  return <div className="ax-v2 space-y-5">
+    {selectedMatch
+      ? <MatchHighlight match={selectedMatch} events={events.filter((event) => event.match_id === selectedMatch.id)} corrections={corrections.filter((correction) => correction.match_id === selectedMatch.id)} rosters={rosters} canManage={canManage} />
+      : <Card><EmptyState icon={CalendarDays} title="Sin partidos todavía" description="Los partidos aparecen aquí cuando generas el fixture o la llave." action={canManage ? <Button variant="primary" onClick={onOpenFixtures}>Ir al generador</Button> : undefined} /></Card>}
+    {matches.length > 0 && <Card labelledBy="matches-by-date">
+      <CardHeader id="matches-by-date" title="Partidos por fecha" subtitle="Elige un partido para ver su marcador y registrar acciones." />
+      <div className="mt-3 divide-y divide-[var(--ax-line)]">
+        {dates.map((date) => {
+          const dateMatches = matches.filter((match) => match.date_number === date)
+          if (!dateMatches.length) return null
+          const open = openDate === date
+          const live = dateMatches.some((match) => match.status === 'live')
+          return <div key={date} className="py-1">
+            <button type="button" aria-expanded={open} onClick={() => setOpenDate(open ? null : date)} className="flex w-full cursor-pointer items-center gap-3 py-2.5 text-left">
+              <span className="text-sm font-semibold text-[var(--ax-text)]">Fecha {date}</span>
+              <span className="text-xs text-[var(--ax-muted)]">{dateMatches[0]?.calendar_date ? new Date(`${dateMatches[0].calendar_date}T00:00:00`).toLocaleDateString('es-PA', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Sin día asignado'} · {dateMatches.length} partido{dateMatches.length === 1 ? '' : 's'}</span>
+              {live && <Badge tone="success">En vivo</Badge>}
+              <ChevronDown size={16} aria-hidden="true" className={cx('ml-auto shrink-0 text-[var(--ax-muted)] transition-transform duration-150', open && 'rotate-180')} />
+            </button>
+            {open && <div className="pb-2">{dateMatches.map((match) => <MatchRow key={match.id} match={match} selected={match.id === selectedMatch?.id} onPreview={() => setSelectedMatchId(match.id)} />)}</div>}
+          </div>
+        })}
+      </div>
+    </Card>}
+  </div>
 }
 
 function MatchHighlight({ match, events: initialEvents = [], corrections = [], rosters = [], canManage = false, rules = null }: { match: Match; events?: MatchEvent[]; corrections?: MatchEventCorrection[]; rosters?: RosterEntry[]; canManage?: boolean; rules?: MatchRules | null }) {
@@ -2654,6 +2704,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const [eventCorrections, setEventCorrections] = useState<MatchEventCorrection[]>(corrections)
   const [pendingScoreAction, setPendingScoreAction] = useState<{
     teamId: string
+    playerId: string | null
     label: string
     eventType: 'try' | 'conversion' | 'penalty' | 'goal' | 'penalty_kick'
     points: number
@@ -2661,6 +2712,14 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const [correctionEvent, setCorrectionEvent] = useState<MatchEvent | null>(null)
   const [correctionReason, setCorrectionReason] = useState('')
   const [correctionMode, setCorrectionMode] = useState(false)
+  const [modalityCode, setModalityCode] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [confirmEarlyFinish, setConfirmEarlyFinish] = useState<string | null>(null)
+  const [selectedPlayers, setSelectedPlayers] = useState<Record<string, string>>({})
+  const [mobileTeam, setMobileTeam] = useState<'local' | 'visitor'>('local')
+  const [shootoutDraft, setShootoutDraft] = useState<{ local: string; visitor: string } | null>(null)
+  // Tarjeta o incidencia que se está registrando: abre el panel inline del equipo.
+  const [cardDraft, setCardDraft] = useState<{ teamId: string; type: 'yellow_card' | 'red_card' | 'injured' | 'concussion'; playerId: string } | null>(null)
   const scoringEventTypes = isFootball
     ? ['goal', 'penalty_kick']
     : ['try', 'conversion', 'penalty']
@@ -2735,6 +2794,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       if (active) {
         const football8 = modality?.code === 'futbol-8'
         setIsFootball8(football8)
+        setModalityCode(modality?.code || '')
         setLoadedRules(modalityRules ? {
           ...modalityRules,
           half_duration_minutes: settings?.half_duration_minutes
@@ -2788,11 +2848,11 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     setSaving(true)
     const { error } = await supabase.from('matches').update({ status, period: 'first_half', is_paused: status === 'finished', elapsed_seconds: secondsRef.current, started_at: status === 'live' ? new Date().toISOString() : match.started_at }).eq('id', match.id)
     setSaving(false)
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
-  async function transitionPeriod() {
+  async function transitionPeriod(earlyFinishApproved = false) {
     if (!supabase || !canManage || match.status !== 'live') return
     if (isFootball8) {
       if (!loadedRules || matchPhase === 'penalty_shootout') return
@@ -2802,17 +2862,11 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       const isEarlyFinish = !isExtraTime
         && !match.is_paused
         && elapsedSeconds < periodLimit
-      let earlyFinishConfirmed = false
-      if (isEarlyFinish) {
-        const remainingSeconds = Math.max(0, periodLimit - elapsedSeconds)
-        const remainingMinutes = Math.floor(remainingSeconds / 60)
-        const remainingRemainder = String(remainingSeconds % 60).padStart(2, '0')
-        const remainingLabel = `${remainingMinutes}:${remainingRemainder}`
-        earlyFinishConfirmed = window.confirm(
-          `Este tiempo aún no ha terminado. Faltan ${remainingLabel}. ` +
-          '¿Deseas finalizarlo ahora?',
-        )
-        if (!earlyFinishConfirmed) return
+      const earlyFinishConfirmed = isEarlyFinish && earlyFinishApproved
+      if (isEarlyFinish && !earlyFinishApproved) {
+        // Pide confirmación inline antes de cortar un tiempo que no ha terminado.
+        setConfirmEarlyFinish(formatSeconds(Math.max(0, periodLimit - elapsedSeconds)))
+        return
       }
       const { data: scoringEvents, error: scoreError } = await supabase
         .from('match_events')
@@ -2821,7 +2875,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         .eq('is_corrected', false)
         .in('event_type', ['goal', 'penalty_kick'])
       if (scoreError) {
-        return window.alert(scoreError.message || 'No se pudo consultar el marcador.')
+        return setActionError(scoreError.message || 'No se pudo consultar el marcador.')
       }
       const currentScore = footballEightScoreFromEvents(
         (scoringEvents || []).map((event) => ({
@@ -2902,7 +2956,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       setSaving(true)
       const { error } = await supabase.from('matches').update(next).eq('id', match.id)
       setSaving(false)
-      if (error) return window.alert(error.message)
+      if (error) return setActionError(error.message)
       window.location.reload()
       return
     }
@@ -2934,7 +2988,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: 0, period: 'extra_first_half' }
         : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
@@ -2942,7 +2996,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     if (!supabase || !canManage || match.status !== 'live') return
     const paused = !match.is_paused
     const { error } = await supabase.from('matches').update({ is_paused: paused, elapsed_seconds: secondsRef.current, started_at: paused ? match.started_at : new Date().toISOString() }).eq('id', match.id)
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
@@ -2950,14 +3004,11 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   async function registerShootout() {
     if (!supabase || !canManage || !loadedRules?.penalty_shootout_allowed) return
     if (isFootball8 && (matchPhase !== 'penalty_shootout' || match.status !== 'live')) return
-    const localInput = window.prompt('Penales anotados por el equipo local', '0')
-    if (localInput === null || !localInput.trim()) return
-    const visitorInput = window.prompt('Penales anotados por el equipo visitante', '0')
-    if (visitorInput === null || !visitorInput.trim()) return
-    const local = Number(localInput)
-    const visitor = Number(visitorInput)
+    if (!shootoutDraft) return
+    const local = Number(shootoutDraft.local)
+    const visitor = Number(shootoutDraft.visitor)
     if (!Number.isInteger(local) || !Number.isInteger(visitor) || local < 0 || visitor < 0 || local === visitor) {
-      window.alert('La tanda debe tener marcadores enteros y un ganador.')
+      setActionError('La tanda debe tener marcadores enteros y un ganador.')
       return
     }
     const { error } = await supabase.from('matches').update({
@@ -2968,7 +3019,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       is_paused: true,
       finished_at: new Date().toISOString(),
     }).eq('id', match.id)
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
     window.location.reload()
   }
@@ -2992,7 +3043,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     )
     setSaving(false)
 
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
 
     const { data: kickData, error: kickError } = await supabase
       .from('match_shootout_kicks')
@@ -3000,7 +3051,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       .eq('match_id', match.id)
       .order('round_number', { ascending: true })
       .order('created_at', { ascending: true })
-    if (kickError) return window.alert(kickError.message)
+    if (kickError) return setActionError(kickError.message)
 
     setShootoutKicks((kickData || []) as ShootoutKick[])
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
@@ -3029,7 +3080,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       )
       .single()
     setSaving(false)
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
     if (isScoringEvent(eventType)) {
       const nextLocalScore = events
         .filter((event) => !event.is_corrected
@@ -3044,7 +3095,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         .reduce((total, event) => total + (event.points || 0), 0)
         + (teamId === match.visitor_team_id ? points : 0)
       const { error: scoreError } = await supabase.from('matches').update({ local_score: nextLocalScore, visitor_score: nextVisitorScore }).eq('id', match.id)
-      if (scoreError) return window.alert(scoreError.message)
+      if (scoreError) return setActionError(scoreError.message)
     }
     setEvents((current) => [...current, (savedEvent ?? newEvent) as MatchEvent])
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
@@ -3053,7 +3104,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   // Corrige un evento de puntuacion sin borrar su registro original.
   async function correctScoringEvent() {
     if (!supabase || !canManage || !correctionEvent) return
-    if (!correctionReason.trim()) return window.alert('Indica el motivo de la correccion.')
+    if (!correctionReason.trim()) return setActionError('Indica el motivo de la correccion.')
 
     setSaving(true)
     const { error } = await supabase.rpc('correct_match_scoring_event', {
@@ -3062,7 +3113,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     })
     setSaving(false)
 
-    if (error) return window.alert(error.message)
+    if (error) return setActionError(error.message)
 
     const correctedAt = new Date().toISOString()
     setEvents((current) => current.map((event) => (
@@ -3094,8 +3145,20 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   }
   function confirmScoreAction() {
     if (!pendingScoreAction) return
-    void recordEvent(pendingScoreAction.teamId, null, pendingScoreAction.eventType, pendingScoreAction.points)
+    void recordEvent(pendingScoreAction.teamId, pendingScoreAction.playerId, pendingScoreAction.eventType, pendingScoreAction.points)
     setPendingScoreAction(null)
+  }
+
+  // Registra la tarjeta o incidencia elegida. En fútbol, la segunda amarilla suma también la roja.
+  async function confirmCard() {
+    if (!cardDraft) return
+    const { teamId, type, playerId } = cardDraft
+    const secondYellow = isFootball && type === 'yellow_card' && playerId
+      ? footballNextYellowIsRed(events.filter((event) => !event.is_corrected), playerId)
+      : false
+    await recordEvent(teamId, playerId || null, type, 0)
+    if (secondYellow) await recordEvent(teamId, playerId, 'red_card', 0)
+    setCardDraft(null)
   }
   const status = match.status === 'live' ? 'En vivo' : match.status === 'finished' ? 'Finalizado' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
   const activeEvents = events.filter((event) => !event.is_corrected)
@@ -3129,191 +3192,6 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       : match.visitor_team_name
   }
 
-  // Permite corregir un evento sin eliminar su registro original.
-  function renderCorrectionPanel() {
-    return <section className="mt-6 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">
-            Correcciones del marcador
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Los eventos corregidos no se eliminan y quedan registrados.
-          </p>
-        </div>
-        <span className="text-xs text-slate-500">{scoringEvents.length} eventos activos</span>
-      </div>
-      {canManage && scoringEvents.length > 0 && <div className="mt-4 space-y-2">
-        {scoringEvents.map((event) => <div
-          key={event.id || `${event.event_type}-${event.match_second}`}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[5px] border border-white/10 p-3"
-        >
-          <div className="text-sm">
-            <span className="font-semibold text-white">{getEventTeamName(event.team_id)}</span>
-            <span className="ml-2 text-slate-400">
-              {getEventTypeLabel(event.event_type)} · {event.points} pts
-            </span>
-          </div>
-          <button
-            type="button"
-            disabled={saving || !event.id}
-            onClick={() => {
-              setCorrectionEvent(event)
-              setCorrectionReason('')
-            }}
-            className="rounded-[5px] border border-[#ff9ca5]/60 px-3 py-2 text-xs font-bold text-[#ffb0b7]"
-          >
-            Corregir
-          </button>
-        </div>)}
-      </div>}
-      {correctionEvent && <div className="mt-4 rounded-[5px] border border-[#ff9ca5]/40 bg-[#ff9ca5]/5 p-4">
-        <p className="text-sm font-bold text-[#ffb0b7]">
-          Corregir {getEventTypeLabel(correctionEvent.event_type).toLowerCase()} de{' '}
-          {getEventTeamName(correctionEvent.team_id)}
-        </p>
-        <label className="mt-3 block text-sm font-semibold">
-          Motivo de la corrección
-          <textarea
-            value={correctionReason}
-            onChange={(event) => setCorrectionReason(event.target.value)}
-            placeholder="Ejemplo: conversión registrada por error"
-            className="mt-2 min-h-20 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 outline-none focus:border-[#b4ff45]"
-          />
-        </label>
-        <div className="mt-3 flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setCorrectionEvent(null)}
-            className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={saving || !correctionReason.trim()}
-            onClick={() => void correctScoringEvent()}
-            className="rounded-[5px] bg-[#ff9ca5] px-3 py-2 text-xs font-bold text-[#07131e]"
-          >
-            Confirmar corrección
-          </button>
-        </div>
-      </div>}
-      {eventCorrections.length > 0 && <div className="mt-4 border-t border-white/10 pt-4">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-500">
-          Historial debajo del marcador
-        </p>
-        <div className="mt-3 space-y-2">
-          {eventCorrections.map((correction) => <div
-            key={correction.id}
-            className="rounded-[5px] border border-white/10 p-3 text-xs text-slate-400"
-          >
-            <p>
-              {getEventTypeLabel(correction.event_type)} corregido · -
-              {correction.points_removed} pts ·{' '}
-              {new Date(correction.created_at).toLocaleString('es-PA')}
-            </p>
-            <p className="mt-1 text-slate-300">Motivo: {correction.reason}</p>
-          </div>)}
-        </div>
-      </div>}
-    </section>
-  }
-
-  // Muestra el control compacto para abrir y guardar correcciones del marcador.
-  function renderCompactCorrectionPanel() {
-    return <section className="mt-4">
-      <div className="flex items-center justify-end gap-3">
-        {canManage && <button
-          type="button"
-          title={correctionMode ? 'Cerrar correcciones' : 'Editar marcador'}
-          aria-label={correctionMode ? 'Cerrar correcciones' : 'Editar marcador'}
-          onClick={() => {
-            setCorrectionMode((current) => !current)
-            setCorrectionEvent(null)
-            setCorrectionReason('')
-          }}
-          className="rounded-[5px] border border-[#31556b] p-2 text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]"
-        >
-          <Pencil size={16} />
-        </button>}
-      </div>
-      {correctionMode && canManage && <div className="mt-3 rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
-        <div className="space-y-2">
-          {scoringEvents.map((event) => <div
-            key={event.id || `${event.event_type}-${event.match_second}`}
-            className="flex items-center justify-between gap-3 rounded-[5px] border border-white/10 p-3"
-          >
-            <div className="text-sm">
-              <span className="font-semibold text-white">{getEventTeamName(event.team_id)}</span>
-              <span className="ml-2 text-slate-400">
-                {getEventTypeLabel(event.event_type)} · {event.points} pts
-              </span>
-            </div>
-            <button
-              type="button"
-              disabled={saving || !event.id}
-              onClick={() => {
-                setCorrectionEvent(event)
-                setCorrectionReason('')
-              }}
-              className={`rounded-[5px] p-2 ${correctionEvent?.id === event.id
-                ? 'bg-[#ff9ca5] text-[#07131e]'
-                : 'border border-[#ff9ca5]/60 text-[#ffb0b7]'}`}
-              title={`Corregir ${getEventTypeLabel(event.event_type)}`}
-              aria-label={`Corregir ${getEventTypeLabel(event.event_type)}`}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>)}
-        </div>
-        {correctionEvent && <div className="mt-4 border-t border-white/10 pt-4">
-          <p className="text-sm text-slate-300">
-            Se corregirá el evento {getEventTypeLabel(correctionEvent.event_type)} de{' '}
-            <span className="font-bold text-white">{getEventTeamName(correctionEvent.team_id)}</span>.
-          </p>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="block flex-1 text-sm font-semibold">
-              Motivo de la corrección
-              <textarea
-                value={correctionReason}
-                onChange={(event) => setCorrectionReason(event.target.value)}
-                placeholder="Ejemplo: conversión registrada por error"
-                className="mt-2 min-h-16 w-full rounded-[5px] border border-[#31556b] bg-[#07131e] p-3 outline-none focus:border-[#b4ff45]"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={saving || !correctionReason.trim()}
-              onClick={() => void correctScoringEvent()}
-              className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Guardar corrección
-            </button>
-          </div>
-        </div>}
-      </div>}
-      {eventCorrections.length > 0 && <div className="mt-3 border-t border-white/10 pt-3">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-500">
-          Historial de correcciones
-        </p>
-        <div className="mt-2 space-y-2">
-          {eventCorrections.map((correction) => <div
-            key={correction.id}
-            className="rounded-[5px] border border-white/10 p-3 text-xs text-slate-400"
-          >
-            <p>
-              {getEventTypeLabel(correction.event_type)} corregido · -
-              {correction.points_removed} pts ·{' '}
-              {new Date(correction.created_at).toLocaleString('es-PA')}
-            </p>
-            <p className="mt-1 text-slate-300">Motivo: {correction.reason}</p>
-          </div>)}
-        </div>
-      </div>}
-    </section>
-  }
-
   const localScore = activeEvents
     .filter((event) => event.team_id === match.local_team_id
       && isScoringEvent(event.event_type))
@@ -3345,166 +3223,286 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     ).length
   }
 
-  return <article className="mt-5 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className={`rounded-[5px] px-3 py-1 text-xs font-bold uppercase ${match.status === 'live' ? 'bg-[#ff7d88] text-[#07131e]' : 'bg-[#b4ff45] text-[#07131e]'}`}>
-        {status}
-      </span>
-      <span className="text-xs text-slate-400">
-        Fecha {match.date_number}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}
-      </span>
-    </div>
-    <div className="mt-5 text-center">
-      <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Cronómetro</p>
-      <p className="mt-1 font-display text-4xl tracking-wider text-white">{timer}</p>
-      {stoppageSeconds > 0 && <p className="mt-1 text-xl font-bold text-[#ff7d88]">{stoppageTimer}</p>}
-    </div>
-    <p className="mt-6 mb-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">
-      Registrar puntos
-    </p>
-    <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center">
-      <div>
-        <TeamMatchName name={match.local_team_name} logo={match.local_logo_url} />
-        {canManage && match.status === 'live' && <div className={`mt-3 grid gap-2 ${isFootball ? 'grid-cols-2' : 'grid-cols-3'}`}>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.local_team_id,
-              label: isFootball ? 'Gol' : 'Try',
-              eventType: isFootball ? 'goal' : 'try',
-              points: isFootball ? 1 : 5,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            {isFootball ? 'Gol' : 'Try'}
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.local_team_id,
-              label: isFootball ? 'Penal' : 'Conversión',
-              eventType: isFootball ? 'penalty_kick' : 'conversion',
-              points: isFootball ? 1 : 2,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            {isFootball ? 'Penal' : 'Conversión'}
-          </button>
-          {!isFootball && <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.local_team_id,
-              label: 'Penal',
-              eventType: 'penalty',
-              points: 3,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            Penal
-          </button>}
-        </div>}
-      </div>
-      <div>
-        <p className="font-display text-3xl text-[#b4ff45]">{scoreLabel}</p>
-        <p className="mt-2 text-xs text-slate-400">
-          {activeEvents.length} eventos · {points} puntos registrados
-        </p>
-      </div>
-      <div>
-        <TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} />
-        {canManage && match.status === 'live' && <div className={`mt-3 grid gap-2 ${isFootball ? 'grid-cols-2' : 'grid-cols-3'}`}>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.visitor_team_id,
-              label: isFootball ? 'Gol' : 'Try',
-              eventType: isFootball ? 'goal' : 'try',
-              points: isFootball ? 1 : 5,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            {isFootball ? 'Gol' : 'Try'}
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.visitor_team_id,
-              label: isFootball ? 'Penal' : 'Conversión',
-              eventType: isFootball ? 'penalty_kick' : 'conversion',
-              points: isFootball ? 1 : 2,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            {isFootball ? 'Penal' : 'Conversión'}
-          </button>
-          {!isFootball && <button
-            type="button"
-            disabled={saving}
-            onClick={() => setPendingScoreAction({
-              teamId: match.visitor_team_id,
-              label: 'Penal',
-              eventType: 'penalty',
-              points: 3,
-            })}
-            className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]"
-          >
-            Penal
-          </button>}
-        </div>}
-      </div>
-    </div>
-    {renderCompactCorrectionPanel()}
-    {isFootball8 && <p className="mt-4 text-sm text-[#d8ffad]">
-      {matchPhase === 'penalty_shootout'
+  const isRugby = !isFootball
+  const sinBinSeconds = rugbySinBinSeconds(modalityCode)
+  const live = match.status === 'live'
+  const inShootout = isFootball8 && matchPhase === 'penalty_shootout'
+  const canRecord = canManage && live && !inShootout
+  const sides = [
+    { id: match.local_team_id, name: match.local_team_name, logo: match.local_logo_url, score: localScore, role: 'Local' },
+    { id: match.visitor_team_id, name: match.visitor_team_name, logo: match.visitor_logo_url, score: visitorScore, role: 'Visitante' },
+  ]
+  const rosterOf = (teamId: string) => rosters.filter((player) => player.team_id === teamId)
+    .sort((left, right) => (left.shirt_number ?? 999) - (right.shirt_number ?? 999))
+  const playerById = (playerId?: string | null) => rosters.find((player) => player.player_id === playerId)
+  const playerLabel = (playerId?: string | null) => {
+    const player = playerById(playerId)
+    return player ? `${player.shirt_number != null ? `#${player.shirt_number} ` : ''}${player.full_name}` : ''
+  }
+  const activeSinBins = isRugby && live ? rugbyActiveSinBins(activeEvents, seconds, sinBinSeconds) : []
+  const isSentOff = (playerId: string) => isFootball
+    ? footballPlayerCards(activeEvents, playerId).sentOff
+    : activeEvents.some((event) => event.player_id === playerId && event.event_type === 'red_card')
+  const yellowCount = (playerId: string) => activeEvents.filter((event) => event.player_id === playerId && event.event_type === 'yellow_card').length
+  const minuteOf = (second?: number | null) => `${Math.floor((second ?? 0) / 60)}'`
+  const clockLabel = match.status === 'scheduled'
+    ? `Programado${match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}`
+    : match.status === 'finished'
+      ? 'Final'
+      : inShootout
         ? 'Tanda de penales'
-        : matchPhase === 'extra_time'
-          ? `Tiempo extra · ${loadedRules?.extra_time_half_minutes ?? 10} minutos`
-          : match.is_paused && match.period === 'second_half'
-            ? `Descanso · ${loadedRules?.halftime_duration_minutes ?? 5} minutos`
-            : `Dos tiempos de ${loadedRules?.half_duration_minutes ?? 20} minutos`}
-      {shootoutScore && ` · Penales: ${shootoutScore}`}
-    </p>}
-    {isHalftime && <div className="mt-3 flex items-center justify-center gap-3 text-xs">
-      <span className="uppercase tracking-[.16em] text-slate-400">Reloj del descanso</span>
-      <span className="font-display text-lg text-[#b4ff45]">{breakTimer}</span>
-      <span className="text-slate-400">
-        {breakRemainingSeconds === 0 ? 'Descanso completado' : 'Tiempo restante'}
-      </span>
-    </div>}
-    {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused
-      && isFootball8
-      && matchPhase === 'penalty_shootout'
-      && match.status === 'live'
-      && <button
-        type="button"
-        onClick={() => setShowShootout((current) => !current)}
-        className={[
-          'mt-4 rounded-[5px] border border-[#ffb45c]',
-          'px-4 py-2 text-sm font-bold text-[#ffd09b]',
-        ].join(' ')}
-      >
-        {showShootout ? 'Ocultar tanda de penales' : 'Registrar tanda de penales'}
-      </button>}
-    {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused
-      && !isFootball8
-      && (String(match.period) === 'second_half'
-        || String(match.period) === 'extra_second_half')
-      && <button
-        type="button"
-        onClick={() => void registerShootout()}
-        className={[
-          'mt-4 rounded-[5px] border border-[#ffb45c]',
-          'px-4 py-2 text-sm font-bold text-[#ffd09b]',
-        ].join(' ')}
-      >
-        Registrar tanda de penales
-      </button>}
-    {isFootball8 && showShootout && matchPhase === 'penalty_shootout' && <ShootoutPanel
+        : isHalftime
+          ? `Descanso · ${breakTimer}`
+          : match.is_paused
+            ? `Pausado · ${periodLabel}`
+            : `${periodLabel[0].toUpperCase()}${periodLabel.slice(1)} · ${timer}`
+  const scoreButtons = isFootball
+    ? [{ label: 'Gol', eventType: 'goal' as const, points: 1 }, { label: 'Gol de penal', eventType: 'penalty_kick' as const, points: 1 }]
+    : [{ label: 'Try', eventType: 'try' as const, points: 5 }, { label: 'Conversión', eventType: 'conversion' as const, points: 2 }, { label: 'Penal', eventType: 'penalty' as const, points: 3 }]
+  const disciplineButtons = [
+    { type: 'yellow_card' as const, label: 'Amarilla' },
+    { type: 'red_card' as const, label: 'Roja' },
+    { type: 'injured' as const, label: 'Lesión' },
+    ...(isRugby ? [{ type: 'concussion' as const, label: 'Conmoción' }] : []),
+  ]
+  // Recorre los eventos en orden para mostrar el marcador después de cada anotación.
+  const timeline = (() => {
+    let local = 0
+    let visitor = 0
+    const ordered = [...events].sort((left, right) => (Date.parse(left.created_at || '') || 0) - (Date.parse(right.created_at || '') || 0))
+    return ordered.map((event) => {
+      if (!event.is_corrected && isScoringEvent(event.event_type)) {
+        if (event.team_id === match.local_team_id) local += event.points || 0
+        if (event.team_id === match.visitor_team_id) visitor += event.points || 0
+      }
+      return { event, score: `${local} – ${visitor}` }
+    }).reverse()
+  })()
+  const phaseSteps = [
+    { label: '1.º tiempo', done: match.period !== 'first_half' || match.status === 'finished', current: live && match.period === 'first_half' },
+    { label: '2.º tiempo', done: String(match.period).startsWith('extra_') || matchPhase !== 'regular' || match.status === 'finished', current: live && match.period === 'second_half' && matchPhase === 'regular' },
+    { label: 'Tiempo extra', done: matchPhase === 'penalty_shootout', current: live && String(match.period).startsWith('extra_') && matchPhase === 'extra_time' },
+    { label: 'Penales', done: Boolean(shootoutScore) && match.status === 'finished', current: inShootout && live },
+  ]
+  const periodActionLabel = isFootball8 && String(match.period).startsWith('extra_')
+    ? (match.is_paused ? 'Iniciar tiempo extra' : 'Terminar tiempo extra')
+    : isHalftime
+      ? 'Iniciar 2.º tiempo'
+      : match.period === 'second_half'
+        ? (match.is_paused ? 'Iniciar 2.º tiempo' : 'Terminar 2.º tiempo')
+        : String(match.period).startsWith('extra_')
+          ? (match.is_paused ? 'Iniciar tiempo extra' : 'Terminar tiempo extra')
+          : 'Terminar 1.er tiempo'
+
+  function openCard(teamId: string, type: NonNullable<typeof cardDraft>['type']) {
+    setPendingScoreAction(null)
+    setCardDraft({ teamId, type, playerId: selectedPlayers[teamId] || '' })
+  }
+
+  function cardPanel(teamId: string, teamName: string) {
+    if (!cardDraft || cardDraft.teamId !== teamId) return null
+    const yellow = cardDraft.type === 'yellow_card'
+    const red = cardDraft.type === 'red_card'
+    const players = rosterOf(teamId)
+    const chosen = cardDraft.playerId
+    const secondYellow = yellow && isFootball && chosen ? footballNextYellowIsRed(activeEvents, chosen) : false
+    const title = yellow ? 'Tarjeta amarilla' : red ? 'Tarjeta roja' : cardDraft.type === 'injured' ? 'Jugador lesionado' : 'Conmoción cerebral'
+    const confirmLabel = yellow ? (secondYellow ? 'Mostrar amarilla y roja' : 'Mostrar amarilla') : red ? 'Mostrar roja' : 'Registrar'
+    const note = yellow
+      ? isRugby
+        ? `Expulsión temporal de ${sinBinSeconds / 60} minutos. ${teamName} juega con uno menos hasta que vuelva.`
+        : secondYellow ? 'Es su segunda amarilla: también se registra la roja y queda expulsado.' : 'Si recibe una segunda amarilla, queda expulsado.'
+      : red
+        ? 'Expulsión definitiva: no puede volver a este partido.'
+        : cardDraft.type === 'concussion'
+          ? 'Sale del campo para la evaluación médica (HIA) y queda registrado en su ficha.'
+          : 'Queda registrado en la ficha del jugador.'
+    return <div role="group" aria-label={`${title} para ${teamName}`} className={cx(
+      'ax-drop-in space-y-3 rounded-[14px] border p-3.5',
+      yellow ? 'border-[var(--ax-card-yellow-line)] bg-[var(--ax-card-yellow-soft)]' : red ? 'border-[var(--ax-danger-line)] bg-[var(--ax-danger-soft)]' : 'border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)]',
+    )}>
+      <div className="flex items-start gap-2.5">
+        {yellow || red
+          ? <span aria-hidden="true" className={cx('mt-0.5 h-[18px] w-[13px] shrink-0 rounded-[3px] shadow-sm', yellow ? 'bg-[var(--ax-card-yellow)]' : 'bg-[var(--ax-card-red)]')} />
+          : cardDraft.type === 'injured' ? <HeartPulse size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--ax-danger-text)]" /> : <Brain size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--ax-text-secondary)]" />}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-[var(--ax-text)]">{title}</p>
+          <p className="text-xs text-[var(--ax-muted)]">Minuto {minuteOf(seconds)} · {periodLabel}</p>
+        </div>
+        <button type="button" onClick={() => setCardDraft(null)} aria-label="Cerrar" className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><X size={15} /></button>
+      </div>
+      <div>
+        <FieldLabel>¿A qué jugador?</FieldLabel>
+        {players.length ? <div role="radiogroup" aria-label="Jugador" className="grid max-h-60 gap-1.5 overflow-y-auto">
+          {players.map((player) => {
+            const out = isSentOff(player.player_id)
+            const yellows = yellowCount(player.player_id)
+            const binned = activeSinBins.find((bin) => bin.player_id === player.player_id)
+            const selected = chosen === player.player_id
+            return <button key={player.player_id} type="button" role="radio" aria-checked={selected} disabled={out && (yellow || red)} onClick={() => setCardDraft({ ...cardDraft, playerId: player.player_id })} className={cx(
+              'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[10px] border px-2.5 py-1.5 text-left transition-[background-color,border-color] duration-150 disabled:cursor-not-allowed disabled:opacity-45',
+              selected ? 'border-[var(--ax-text)] bg-[var(--ax-surface)]' : 'border-transparent bg-[var(--ax-surface)]/60 hover:border-[var(--ax-line-strong)]',
+            )}>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--ax-surface-raised)] text-xs font-bold tabular-nums text-[var(--ax-text)]">{player.shirt_number ?? '–'}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold text-[var(--ax-text)]">{player.full_name}</span>
+                {(out || yellows > 0 || binned) && <span className="block truncate text-[11px] text-[var(--ax-muted)]">{out ? 'Expulsado' : binned ? `Fuera · vuelve en ${formatSeconds(binned.remaining)}` : `${yellows} amarilla${yellows === 1 ? '' : 's'}`}</span>}
+              </span>
+              {yellows > 0 && !out && <span aria-hidden="true" className="h-3.5 w-2.5 shrink-0 rounded-[2px] bg-[var(--ax-card-yellow)]" />}
+              {out && <span aria-hidden="true" className="h-3.5 w-2.5 shrink-0 rounded-[2px] bg-[var(--ax-card-red)]" />}
+            </button>
+          })}
+        </div> : <p className="rounded-[10px] bg-[var(--ax-surface)] px-3 py-2.5 text-[13px] text-[var(--ax-muted)]">La plantilla no tiene jugadores. Se registra para el equipo.</p>}
+      </div>
+      <p className={cx('text-xs leading-[18px]', secondYellow ? 'font-semibold text-[var(--ax-danger-text)]' : 'text-[var(--ax-text-secondary)]')}>{note}</p>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setCardDraft(null)}>Cancelar</Button>
+        <button type="button" disabled={saving || (players.length > 0 && !chosen)} onClick={() => void confirmCard()} className={cx(
+          buttonClass('primary', 'sm'),
+          yellow && 'bg-[var(--ax-card-yellow)] text-[#1b1400]',
+          red && 'bg-[var(--ax-card-red)] text-white',
+        )}>{saving ? 'Guardando…' : confirmLabel}</button>
+      </div>
+    </div>
+  }
+
+  function actionCard(side: (typeof sides)[number], index: number) {
+    const players = rosterOf(side.id)
+    const pending = pendingScoreAction?.teamId === side.id ? pendingScoreAction : null
+    return <div key={side.id} className={cx(index === 0 ? (mobileTeam === 'local' ? '' : 'hidden lg:block') : (mobileTeam === 'visitor' ? '' : 'hidden lg:block'), 'min-w-0')}>
+      <Card labelledBy={`actions-${side.id}`} className="h-full">
+        <CardHeader id={`actions-${side.id}`} title={side.name} subtitle="Registrar una acción" />
+        <div className="mt-4 space-y-3">
+          <Select label="Jugador" value={selectedPlayers[side.id] || ''} onChange={(value) => setSelectedPlayers((current) => ({ ...current, [side.id]: value }))} placeholder="Evento del equipo" options={[{ value: '', label: 'Evento del equipo' }, ...players.map((player) => ({ value: player.player_id, label: `${player.shirt_number != null ? `#${player.shirt_number} ` : ''}${player.full_name}` }))]} />
+          <div className={cx('grid gap-2', scoreButtons.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+            {scoreButtons.map((button, buttonIndex) => <button key={button.eventType} type="button" disabled={saving} onClick={() => { setCardDraft(null); setPendingScoreAction({ teamId: side.id, playerId: selectedPlayers[side.id] || null, label: button.label, eventType: button.eventType, points: button.points }) }} className={cx(
+              'flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-[12px] px-2 py-2 text-center transition-[background-color,border-color,transform] duration-150 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50',
+              buttonIndex === 0 ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)] hover:brightness-[1.05]' : 'border border-[var(--ax-line-strong)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)] hover:border-[var(--ax-accent-text)]',
+            )}>
+              <span className="text-[13px] font-semibold leading-4">{button.label}</span>
+              <span className="font-display text-xl leading-6">+{button.points}</span>
+            </button>)}
+          </div>
+          {pending && <div role="group" aria-label="Confirmar anotación" className="ax-drop-in flex flex-wrap items-center gap-2 rounded-[12px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] p-2.5 pl-3">
+            <p className="min-w-0 flex-1 text-[13px] text-[var(--ax-text)]"><span className="font-semibold">{pending.label} +{pending.points}</span>{pending.playerId ? ` · ${playerLabel(pending.playerId)}` : ` · ${side.name}`}</p>
+            <Button size="sm" variant="ghost" onClick={() => setPendingScoreAction(null)}>Cancelar</Button>
+            <Button size="sm" variant="primary" disabled={saving} onClick={confirmScoreAction}>Confirmar</Button>
+          </div>}
+          {cardDraft?.teamId === side.id ? cardPanel(side.id, side.name) : <div className="grid grid-cols-2 gap-2">
+            {disciplineButtons.map((button) => <button key={button.type} type="button" disabled={saving} onClick={() => openCard(side.id, button.type)} className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-[var(--ax-line-strong)] px-2 text-[13px] font-semibold text-[var(--ax-text)] transition-colors duration-150 hover:bg-[var(--ax-hover)] disabled:cursor-not-allowed disabled:opacity-50">
+              {button.type === 'yellow_card' && <span aria-hidden="true" className="h-3.5 w-2.5 rounded-[2px] bg-[var(--ax-card-yellow)]" />}
+              {button.type === 'red_card' && <span aria-hidden="true" className="h-3.5 w-2.5 rounded-[2px] bg-[var(--ax-card-red)]" />}
+              {button.type === 'injured' && <HeartPulse size={15} aria-hidden="true" className="text-[var(--ax-danger-text)]" />}
+              {button.type === 'concussion' && <Brain size={15} aria-hidden="true" className="text-[var(--ax-text-secondary)]" />}
+              {button.label}
+            </button>)}
+          </div>}
+        </div>
+      </Card>
+    </div>
+  }
+
+  const eventTile = (event: MatchEvent) => {
+    const base = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold'
+    if (event.is_corrected) return <span className={cx(base, 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]')}><X size={13} /></span>
+    if (event.event_type === 'yellow_card') return <span className={cx(base, 'bg-[var(--ax-card-yellow-soft)]')}><span className="h-3.5 w-2.5 rounded-[2px] bg-[var(--ax-card-yellow)]" /></span>
+    if (event.event_type === 'red_card') return <span className={cx(base, 'bg-[var(--ax-danger-soft)]')}><span className="h-3.5 w-2.5 rounded-[2px] bg-[var(--ax-card-red)]" /></span>
+    if (event.event_type === 'injured') return <span className={cx(base, 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]')}><HeartPulse size={14} /></span>
+    if (event.event_type === 'concussion') return <span className={cx(base, 'bg-[var(--ax-surface-raised)] text-[var(--ax-text-secondary)]')}><Brain size={14} /></span>
+    return <span className={cx(base, 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]')}>+{event.points}</span>
+  }
+  const eventName = (eventType: string) => ({ yellow_card: 'Amarilla', red_card: 'Roja', injured: 'Lesión', concussion: 'Conmoción' } as Record<string, string>)[eventType] || getEventTypeLabel(eventType)
+
+  const timelineCard = <Card labelledBy={`timeline-${match.id}`} className="min-w-0">
+    <CardHeader id={`timeline-${match.id}`} title="Cronología" subtitle={canManage ? 'Toca Anular en una anotación para corregirla con motivo.' : `${activeEvents.length} evento${activeEvents.length === 1 ? '' : 's'}`} />
+    {timeline.length ? <ul className="mt-3 divide-y divide-[var(--ax-line)]">
+      {timeline.map(({ event, score }) => {
+        const scoring = isScoringEvent(event.event_type)
+        const correcting = correctionEvent?.id === event.id
+        return <li key={event.id || `${event.event_type}-${event.match_second}`} className="py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="w-8 shrink-0 text-[13px] font-semibold tabular-nums text-[var(--ax-muted)]">{minuteOf(event.match_second)}</span>
+            {eventTile(event)}
+            <div className="min-w-0 flex-1">
+              <p className={cx('truncate text-[13px] font-semibold', event.is_corrected ? 'text-[var(--ax-muted)] line-through' : 'text-[var(--ax-text)]')}>{eventName(event.event_type)}{event.player_id ? ` · ${playerById(event.player_id)?.full_name || 'Jugador'}` : ''}</p>
+              <p className="truncate text-xs text-[var(--ax-muted)]">{event.is_corrected ? `Anulado${event.correction_reason ? ` · ${event.correction_reason}` : ''}` : `${event.team_id ? getEventTeamName(event.team_id) : ''}${scoring ? ` · ${score}` : ''}`}</p>
+            </div>
+            {canManage && scoring && !event.is_corrected && event.id && <button type="button" onClick={() => { setCorrectionEvent(correcting ? null : event); setCorrectionReason('') }} className="shrink-0 cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold text-[var(--ax-danger-text)] hover:bg-[var(--ax-danger-soft)]">{correcting ? 'Cerrar' : 'Anular'}</button>}
+          </div>
+          {correcting && <form onSubmit={(formEvent) => { formEvent.preventDefault(); void correctScoringEvent() }} className="ax-drop-in mt-2.5 flex flex-col gap-2 rounded-[12px] border border-[var(--ax-danger-line)] bg-[var(--ax-danger-soft)] p-2.5 sm:flex-row">
+            <label className="min-w-0 flex-1"><span className="sr-only">Motivo de la anulación</span><input autoFocus value={correctionReason} onChange={(changeEvent) => setCorrectionReason(changeEvent.target.value)} placeholder="Motivo: pase adelantado, error de registro…" className={inputClass} /></label>
+            <Button type="submit" size="md" variant="danger" disabled={saving || !correctionReason.trim()}>Anular {getEventTypeLabel(event.event_type).toLowerCase()}</Button>
+          </form>}
+        </li>
+      })}
+    </ul> : <p className="mt-4 rounded-[12px] bg-[var(--ax-surface-sunken)] px-4 py-6 text-center text-[13px] text-[var(--ax-muted)]">{match.status === 'scheduled' ? 'El partido todavía no empieza.' : 'Aún no hay acciones registradas.'}</p>}
+  </Card>
+
+  const statsCard = <Card labelledBy={`stats-${match.id}`}>
+    <CardHeader id={`stats-${match.id}`} title="Estadísticas" />
+    <table className="mt-3 w-full text-sm">
+      <thead><tr className="text-xs text-[var(--ax-muted)]"><th className="w-1/3 py-2 text-left font-semibold">{match.local_team_name}</th><th className="py-2 font-medium" /><th className="w-1/3 py-2 text-right font-semibold">{match.visitor_team_name}</th></tr></thead>
+      <tbody className="divide-y divide-[var(--ax-line)]">{statRows.map((row) => <tr key={row.type}><td className="py-2.5 font-display text-xl tabular-nums text-[var(--ax-text)]">{count(match.local_team_id, row.type)}</td><td className="py-2.5 text-center text-[13px] text-[var(--ax-muted)]">{row.label}</td><td className="py-2.5 text-right font-display text-xl tabular-nums text-[var(--ax-text)]">{count(match.visitor_team_id, row.type)}</td></tr>)}</tbody>
+    </table>
+  </Card>
+
+  return <article aria-label={`${match.local_team_name} contra ${match.visitor_team_name}`} className="ax-v2 space-y-5">
+    <section className={cx('rounded-2xl border bg-[var(--ax-surface)] p-4 sm:rounded-[20px] sm:p-7', live ? 'border-[var(--ax-accent-line)]' : 'border-[var(--ax-line)]')}>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ax-muted)]">
+        <span>Fecha {match.date_number}{match.division_name ? ` · ${match.division_name}` : ''}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}{match.court_number ? ` · Cancha ${match.court_number}` : ''}</span>
+        <Badge tone={live ? 'success' : match.status === 'finished' ? 'neutral' : 'warning'}>{status}</Badge>
+      </div>
+      {isFootball8 && <ol className="ax-scroll-x mt-4 flex justify-center gap-1.5 overflow-x-auto">
+        {phaseSteps.map((step) => <li key={step.label} className={cx('shrink-0 rounded-full px-3 py-1 text-xs font-semibold', step.current ? 'border border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : step.done ? 'bg-[var(--ax-surface-raised)] text-[var(--ax-text-secondary)]' : 'text-[var(--ax-muted)]')}>{step.label}</li>)}
+      </ol>}
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+        {sides.map((side, index) => <div key={side.id} className={cx('flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:gap-4', index === 0 ? 'sm:flex-row-reverse sm:text-right' : 'sm:text-left', index === 1 && 'order-3')}>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-sm font-bold text-[var(--ax-text)] sm:h-16 sm:w-16">{side.logo ? <img src={side.logo} alt="" className="h-full w-full object-cover" /> : initialsOf(side.name || 'Equipo')}</span>
+          <div className="min-w-0">
+            <p className="line-clamp-2 font-display text-lg uppercase leading-5 tracking-[.02em] text-[var(--ax-text)] sm:text-[30px] sm:leading-8">{side.name || 'Por definir'}</p>
+            <p className="mt-0.5 hidden text-[13px] text-[var(--ax-muted)] sm:block">{side.role}</p>
+          </div>
+        </div>)}
+        <div className="order-2 flex flex-col items-center gap-2">
+          <p className="font-display text-[48px] leading-none tracking-[.02em] text-[var(--ax-text)] tabular-nums sm:text-[76px]">{match.status === 'scheduled' ? 'VS' : `${localScore} – ${visitorScore}`}</p>
+          <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold sm:text-[13px]', live && !match.is_paused ? 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-text-secondary)]')}>
+            {live && !match.is_paused && <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
+            {clockLabel}{stoppageSeconds > 0 && live && <span className="text-[var(--ax-danger-text)]">{stoppageTimer}</span>}
+          </span>
+          {shootoutScore && <span className="text-xs font-semibold text-[var(--ax-warning-text)]">Penales {shootoutScore}</span>}
+        </div>
+      </div>
+      {activeSinBins.length > 0 && <ul aria-label="Expulsiones temporales" className="mt-5 flex flex-wrap justify-center gap-2">
+        {activeSinBins.map((bin) => <li key={bin.id || `${bin.player_id}-${bin.match_second}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--ax-card-yellow-line)] bg-[var(--ax-card-yellow-soft)] py-1 pl-2 pr-3 text-xs font-semibold text-[var(--ax-text)]">
+          <span aria-hidden="true" className="h-3.5 w-2.5 rounded-[2px] bg-[var(--ax-card-yellow)]" />
+          {playerLabel(bin.player_id) || 'Jugador'} · vuelve en <span className="tabular-nums">{formatSeconds(bin.remaining)}</span>
+        </li>)}
+      </ul>}
+      {canManage && (match.status === 'scheduled' || (live && !inShootout)) && <div className="mt-5 flex flex-wrap justify-center gap-2">
+        {match.status === 'scheduled' && <Button variant="primary" icon={Play} disabled={saving} onClick={() => void changeStatus('live')}>Iniciar primer tiempo</Button>}
+        {live && !inShootout && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionLabel}</Button>}
+        {live && <Button variant="ghost" icon={Pencil} onClick={() => { setCorrectionEvent(null); setCorrectionMode((current) => !current) }}>{correctionMode ? 'Cerrar corrección' : 'Corregir marcador'}</Button>}
+      </div>}
+      {confirmEarlyFinish && <div role="group" aria-label="Confirmar fin del tiempo" className="ax-drop-in mx-auto mt-4 flex max-w-lg flex-wrap items-center gap-2 rounded-[12px] border border-[var(--ax-card-yellow-line)] bg-[var(--ax-warning-soft)] p-3">
+        <p className="min-w-0 flex-1 text-[13px] text-[var(--ax-text)]">Este tiempo aún no termina: faltan <span className="font-semibold tabular-nums">{confirmEarlyFinish}</span>. ¿Terminarlo ahora?</p>
+        <Button size="sm" variant="ghost" onClick={() => setConfirmEarlyFinish(null)}>Seguir jugando</Button>
+        <Button size="sm" variant="primary" onClick={() => { setConfirmEarlyFinish(null); void transitionPeriod(true) }}>Terminar ahora</Button>
+      </div>}
+      {correctionMode && canManage && <p className="mx-auto mt-4 max-w-lg rounded-[12px] bg-[var(--ax-surface-sunken)] px-3 py-2.5 text-center text-[13px] text-[var(--ax-text-secondary)]">Elige en la cronología la anotación que quieres anular. Queda registrada con su motivo.</p>}
+      {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && isFootball8 && inShootout && live && <div className="mt-4 flex justify-center"><Button variant="accent" onClick={() => setShowShootout((current) => !current)}>{showShootout ? 'Ocultar tanda de penales' : 'Registrar tanda de penales'}</Button></div>}
+      {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && !isFootball8 && (String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <div className="mx-auto mt-4 max-w-lg">
+        {shootoutDraft
+          ? <form onSubmit={(formEvent) => { formEvent.preventDefault(); void registerShootout() }} className="ax-drop-in grid grid-cols-2 gap-2 rounded-[12px] border border-[var(--ax-line-strong)] p-3 sm:grid-cols-[1fr_1fr_auto]">
+            <label><FieldLabel>{match.local_team_name}</FieldLabel><input type="number" min="0" inputMode="numeric" required value={shootoutDraft.local} onChange={(changeEvent) => setShootoutDraft({ ...shootoutDraft, local: changeEvent.target.value })} className={inputClass} /></label>
+            <label><FieldLabel>{match.visitor_team_name}</FieldLabel><input type="number" min="0" inputMode="numeric" required value={shootoutDraft.visitor} onChange={(changeEvent) => setShootoutDraft({ ...shootoutDraft, visitor: changeEvent.target.value })} className={inputClass} /></label>
+            <div className="col-span-2 flex items-end justify-end gap-2 sm:col-span-1"><Button variant="ghost" onClick={() => setShootoutDraft(null)}>Cancelar</Button><Button type="submit" variant="primary" disabled={saving}>Guardar tanda</Button></div>
+          </form>
+          : <div className="flex justify-center"><Button variant="accent" onClick={() => setShootoutDraft({ local: '0', visitor: '0' })}>Registrar tanda de penales</Button></div>}
+      </div>}
+      {actionError && <div className="mx-auto mt-4 max-w-lg"><Notice tone="danger" icon={CircleAlert} action={<button type="button" onClick={() => setActionError('')} aria-label="Cerrar aviso" className="cursor-pointer"><X size={15} /></button>}>{actionError}</Notice></div>}
+    </section>
+
+    {isFootball8 && showShootout && inShootout && <ShootoutPanel
       localTeamId={match.local_team_id}
       localTeamName={match.local_team_name}
       visitorTeamId={match.visitor_team_id}
@@ -3514,121 +3512,23 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       saving={saving}
       onRecord={recordShootoutKick}
     />}
-    {pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">
-      Confirmar {pendingScoreAction.label}?
-      <button
-        type="button"
-        disabled={saving}
-        onClick={confirmScoreAction}
-        className="rounded-[5px] bg-[#b4ff45] px-3 py-1 font-bold text-[#07131e]"
-      >
-        Confirmar
-      </button>
-      <button
-        type="button"
-        onClick={() => setPendingScoreAction(null)}
-        className="rounded-[5px] border border-white/20 px-3 py-1"
-      >
-        Cancelar
-      </button>
-    </div>}
-    {canManage && <div className="mt-6 flex flex-wrap justify-center gap-3">
-      {match.status === 'scheduled' && <button
-        type="button"
-        disabled={saving}
-        onClick={() => void changeStatus('live')}
-        className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"
-      >
-        Iniciar primer tiempo
-      </button>}
-      {match.status === 'live' && !(isFootball8 && matchPhase === 'penalty_shootout') && <button
-        type="button"
-        disabled={saving}
-        onClick={() => void transitionPeriod()}
-        className={periodActionClass}
-      >
-        {isFootball8 && String(match.period).startsWith('extra_') ? (match.is_paused ? 'Iniciar tiempo extra' : 'Finalizar tiempo extra') : isHalftime
-          ? 'Finalizar descanso e iniciar segundo tiempo'
-          : match.period === 'second_half'
-            ? 'Finalizar segundo tiempo'
-            : isFootball8
-              ? 'Finalizar primer tiempo e iniciar descanso'
-              : 'Finalizar primer tiempo'}
-      </button>}
-    </div>}
-    <div className="mt-8 overflow-hidden rounded-[5px] border border-white/10 bg-[#07131e]">
-      <div className="border-b border-white/10 px-4 py-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">
-        Estadísticas
-      </div>
-      <div className="grid grid-cols-[1fr_1.5fr_1fr] bg-[#0d2637] px-4 py-3 text-center text-xs font-bold uppercase">
-        <span>{match.local_team_name}</span>
-        <span></span>
-        <span>{match.visitor_team_name}</span>
-      </div>
-      {statRows.map((row) => <div
-        key={row.type}
-        className="grid grid-cols-[1fr_1.5fr_1fr] border-t border-white/10 px-4 py-3 text-center text-sm"
-      >
-        <span>{count(match.local_team_id, row.type)}</span>
-        <span className="text-slate-400">{row.label}</span>
-        <span>{count(match.visitor_team_id, row.type)}</span>
-      </div>)}
-    </div>
-    <div className="mt-8 grid gap-5 lg:grid-cols-2">
-      <MatchPlayersColumn
-        title={match.local_team_name}
-        players={rosters.filter((player) => player.team_id === match.local_team_id)}
-        teamId={match.local_team_id}
-        events={events}
-        canManage={canManage && match.status === 'live'}
-        saving={saving}
-        onRecord={recordEvent}
-      />
-      <MatchPlayersColumn
-        title={match.visitor_team_name}
-        players={rosters.filter((player) => player.team_id === match.visitor_team_id)}
-        teamId={match.visitor_team_id}
-        events={events}
-        canManage={canManage && match.status === 'live'}
-        saving={saving}
-        onRecord={recordEvent}
-      />
-    </div>
+
+    {canRecord
+      ? <>
+        <div className="flex gap-2 lg:hidden" role="group" aria-label="Equipo">
+          {sides.map((side, index) => <button key={side.id} type="button" aria-pressed={(index === 0 ? 'local' : 'visitor') === mobileTeam} onClick={() => setMobileTeam(index === 0 ? 'local' : 'visitor')} className={cx('h-10 min-w-0 flex-1 cursor-pointer truncate rounded-full px-3 text-[13px] font-semibold', (index === 0 ? 'local' : 'visitor') === mobileTeam ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'border border-[var(--ax-line-strong)] text-[var(--ax-text-secondary)]')}>{side.name}</button>)}
+        </div>
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)_minmax(0,1fr)]">
+          {actionCard(sides[0], 0)}
+          <div className="order-last space-y-5 lg:order-none">{timelineCard}</div>
+          {actionCard(sides[1], 1)}
+        </div>
+        {statsCard}
+      </>
+      : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">{timelineCard}{statsCard}</div>}
   </article>
-
-  /*
-  const homePlayers = rosters.filter((player) => player.team_id === match.local_team_id)
-  const awayPlayers = rosters.filter((player) => player.team_id === match.visitor_team_id)
-  const statRows = isFootball
-    ? [{ label: 'Goles', type: 'goal' }, { label: 'Penales', type: 'penalty_kick' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
-    : [{ label: 'Tries', type: 'try' }, { label: 'Conversiones', type: 'conversion' }, { label: 'Tarjetas amarillas', type: 'yellow_card' }, { label: 'Tarjetas rojas', type: 'red_card' }]
-  const count = (teamId: string | null, type: string) => activeEvents.filter((event) => event.team_id === teamId && event.event_type === type).length
-  const localScore = activeEvents.filter((event) => event.team_id === match.local_team_id).reduce((total, event) => total + (event.points || 0), 0)
-  const visitorScore = activeEvents.filter((event) => event.team_id === match.visitor_team_id).reduce((total, event) => total + (event.points || 0), 0)
-  const scoreLabel = match.status === 'scheduled' ? 'VS' : `${localScore} - ${visitorScore}`
-  return <article className="mt-5 rounded-[5px] border border-[#b4ff45]/40 bg-[#b4ff45]/5 p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><span className={`rounded-[5px] px-3 py-1 text-xs font-bold uppercase ${match.status === 'live' ? 'bg-[#ff7d88] text-[#07131e]' : 'bg-[#b4ff45] text-[#07131e]'}`}>{status}</span><span className="text-xs text-slate-400">Fecha {match.date_number}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}</span></div><div className="mt-5 text-center"><p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Cronómetro</p><p className="mt-1 font-display text-4xl tracking-wider text-white">{timer}</p>{stoppageSeconds > 0 && <p className="mt-1 text-xl font-bold text-[#ff7d88]">{stoppageTimer}</p>}</div><div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-start gap-3 text-center"><div><TeamMatchName name={match.local_team_name} logo={match.local_logo_url} />{canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Try', points: 5 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Try</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.local_team_id, label: 'Conversión', points: 2 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Conversión</button></div>}</div><div><p className="font-display text-3xl text-[#b4ff45]">{scoreLabel}</p><p className="mt-2 text-xs text-slate-400">{events.length} eventos · {points} puntos registrados</p><div className="mt-2 text-xs text-slate-400"><p>1er tiempo: <span className="text-white">{firstHalfTimer}</span> {firstHalfSummary > periodLimit && <span className="text-[#ff7d88]">{firstHalfStoppage}</span>}</p><p className="mt-1">2do tiempo: <span className="text-white">{secondHalfLabel}</span></p></div></div><div><TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} />{canManage && match.status === 'live' && <div className="mt-3 flex justify-center gap-2"><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Try', points: 5 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Try</button><button type="button" disabled={saving} onClick={() => setPendingScoreAction({ teamId: match.visitor_team_id, label: 'Conversión', points: 2 })} className="rounded-[5px] border border-[#b4ff45]/60 px-3 py-1.5 text-xs font-bold text-[#dfffba]">Conversión</button></div>}</div></div>{pendingScoreAction && <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-300">Confirmar {pendingScoreAction.label}?<button type="button" disabled={saving} onClick={confirmScoreAction} className="rounded-[5px] bg-[#b4ff45] px-3 py-1 font-bold text-[#07131e]">Confirmar</button><button type="button" onClick={() => setPendingScoreAction(null)} className="rounded-[5px] border border-white/20 px-3 py-1">Cancelar</button></div>}{canManage && <div className="mt-6 flex flex-wrap justify-center gap-3">{match.status === 'scheduled' && <button type="button" disabled={saving} onClick={() => void changeStatus('live')} className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Iniciar primer tiempo</button>}{match.status === 'live' && <button type="button" disabled={saving} onClick={() => void transitionPeriod()} className={periodActionClass}>{match.is_paused && match.period === 'second_half' ? 'Iniciar segundo tiempo' : match.period === 'second_half' ? 'Finalizar segundo tiempo' : 'Finalizar primer tiempo'}</button>}</div>}<div className="mt-8 overflow-hidden rounded-[5px] border border-white/10 bg-[#07131e]"><div className="border-b border-white/10 px-4 py-3 text-center text-xs font-bold uppercase tracking-[.2em] text-slate-400">Estadísticas</div><div className="grid grid-cols-[1fr_1.5fr_1fr] bg-[#0d2637] px-4 py-3 text-center text-xs font-bold uppercase"><span>{match.local_team_name}</span><span></span><span>{match.visitor_team_name}</span></div>{statRows.map((row) => <div key={row.type} className="grid grid-cols-[1fr_1.5fr_1fr] border-t border-white/10 px-4 py-3 text-center text-sm"><span>{count(match.local_team_id, row.type)}</span><span className="text-slate-400">{row.label}</span><span>{count(match.visitor_team_id, row.type)}</span></div>)}</div><div className="mt-8 grid gap-5 lg:grid-cols-2"><MatchPlayersColumn title={match.local_team_name} players={homePlayers} teamId={match.local_team_id} events={events} canManage={canManage && match.status === 'live'} saving={saving} onRecord={recordEvent} /><MatchPlayersColumn title={match.visitor_team_name} players={awayPlayers} teamId={match.visitor_team_id} events={events} canManage={canManage && match.status === 'live'} saving={saving} onRecord={recordEvent} /></div></article>
 }
 
-  */
-}
-
-type MatchPlayersColumnProps = {
-  title: string
-  players: RosterEntry[]
-  teamId: string | null
-  events: MatchEvent[]
-  canManage: boolean
-  saving: boolean
-  onRecord: (
-    teamId: string,
-    playerId: string | null,
-    eventType: 'try' | 'conversion' | 'penalty' | 'goal' | 'penalty_kick'
-      | 'yellow_card' | 'red_card' | 'injured' | 'concussion',
-    points: number,
-  ) => void
-}
-
-// Administra los eventos individuales de los jugadores durante el partido.
 type ShootoutTeamColumnProps = {
   teamId: string
   teamName: string
@@ -3636,115 +3536,32 @@ type ShootoutTeamColumnProps = {
   rounds: number[]
   canManage: boolean
   saving: boolean
-  openMenu: string | null
-  setOpenMenu: (value: string | null) => void
   onRecord: (teamId: string, result: 'goal' | 'miss') => Promise<void>
 }
 
 // Muestra los tiros de un equipo y permite registrar el siguiente lanzamiento.
-function ShootoutTeamColumn({
-  teamId,
-  teamName,
-  kicks,
-  rounds,
-  canManage,
-  saving,
-  openMenu,
-  setOpenMenu,
-  onRecord,
-}: ShootoutTeamColumnProps) {
+function ShootoutTeamColumn({ teamId, teamName, kicks, rounds, canManage, saving, onRecord }: ShootoutTeamColumnProps) {
   const goals = kicks.filter((kick) => kick.result === 'goal').length
   const nextRound = kicks.length + 1
-
-  return (
-    <div className="rounded-[5px] border border-[#31556b] bg-[#07131e] p-4">
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
-        <p className="font-bold text-white">{teamName}</p>
-        <p className="text-sm font-bold text-[#b4ff45]">
-          {goals} gol{goals === 1 ? '' : 'es'} / {kicks.length} tiros
-        </p>
-      </div>
-      <div className="mt-3 space-y-2">
-        {rounds.map((round) => {
-          const kick = kicks.find((item) => item.round_number === round)
-          const canAddKick = canManage && !kick && round === nextRound
-          const menuKey = `${teamId}-${round}`
-
-          return (
-            <div
-              key={menuKey}
-              className="rounded-[5px] border border-white/10 p-3"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-400">
-                    {round <= 5 ? `Tiro ${round}` : `Muerte súbita ${round - 5}`}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-white">
-                    {kick
-                      ? kick.result === 'goal' ? 'Gol' : 'Fallo'
-                      : canAddKick ? 'Listo para registrar' : 'Pendiente'}
-                  </p>
-                </div>
-                {kick ? (
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                    kick.result === 'goal'
-                      ? 'bg-[#b4ff45] text-[#07131e]'
-                      : 'border border-[#ff9ca5]/60 text-[#ffb0b7]'
-                  }`}>
-                    {kick.result === 'goal' ? 'Gol' : 'Fallo'}
-                  </span>
-                ) : canAddKick ? (
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setOpenMenu(
-                      openMenu === menuKey ? null : menuKey,
-                    )}
-                    className="rounded-full border border-[#b4ff45] p-2 text-[#b4ff45]"
-                    title="Registrar tiro"
-                    aria-label={`Registrar tiro ${round} de ${teamName}`}
-                  >
-                    <Plus size={16} />
-                  </button>
-                ) : null}
-              </div>
-              {openMenu === menuKey && canAddKick && <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    setOpenMenu(null)
-                    void onRecord(teamId, 'goal')
-                  }}
-                  className={[
-                    'flex-1 rounded-[5px] bg-[#b4ff45]',
-                    'px-3 py-2 text-xs font-bold text-[#07131e]',
-                  ].join(' ')}
-                >
-                  Gol
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    setOpenMenu(null)
-                    void onRecord(teamId, 'miss')
-                  }}
-                  className={[
-                    'flex-1 rounded-[5px] border border-[#ff9ca5]/60',
-                    'px-3 py-2 text-xs font-bold text-[#ffb0b7]',
-                  ].join(' ')}
-                >
-                  Fallo
-                </button>
-              </div>}
-            </div>
-          )
-        })}
-      </div>
+  return <div className="min-w-0 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-3.5">
+    <div className="flex items-center justify-between gap-3">
+      <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{teamName}</p>
+      <p className="shrink-0 text-[13px] font-semibold tabular-nums text-[var(--ax-accent-text)]">{goals} / {kicks.length}</p>
     </div>
-  )
+    <ol className="mt-3 flex flex-wrap gap-1.5" aria-label={`Tiros de ${teamName}`}>
+      {rounds.map((round) => {
+        const kick = kicks.find((item) => item.round_number === round)
+        return <li key={round} title={round <= 5 ? `Tiro ${round}` : `Muerte súbita ${round - 5}`} className={cx(
+          'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold',
+          kick?.result === 'goal' ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : kick ? 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]' : round === nextRound ? 'border-2 border-dashed border-[var(--ax-accent-line)] text-[var(--ax-muted)]' : 'border border-[var(--ax-line-strong)] text-[var(--ax-muted)]',
+        )}>{kick ? (kick.result === 'goal' ? <Check size={14} aria-label="Gol" /> : <X size={14} aria-label="Fallo" />) : round}</li>
+      })}
+    </ol>
+    {canManage && <div className="mt-3 grid grid-cols-2 gap-2">
+      <Button size="sm" variant="primary" disabled={saving} onClick={() => void onRecord(teamId, 'goal')}>Gol</Button>
+      <Button size="sm" variant="danger" disabled={saving} onClick={() => void onRecord(teamId, 'miss')}>Fallo</Button>
+    </div>}
+  </div>
 }
 
 type ShootoutPanelProps = {
@@ -3759,125 +3576,76 @@ type ShootoutPanelProps = {
 }
 
 // Organiza los cinco tiros reglamentarios y las rondas de muerte súbita.
-function ShootoutPanel({
-  localTeamId,
-  localTeamName,
-  visitorTeamId,
-  visitorTeamName,
-  kicks,
-  canManage,
-  saving,
-  onRecord,
-}: ShootoutPanelProps) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+function ShootoutPanel({ localTeamId, localTeamName, visitorTeamId, visitorTeamName, kicks, canManage, saving, onRecord }: ShootoutPanelProps) {
   const localKicks = kicks.filter((kick) => kick.team_id === localTeamId)
   const visitorKicks = kicks.filter((kick) => kick.team_id === visitorTeamId)
   const localGoals = localKicks.filter((kick) => kick.result === 'goal').length
   const visitorGoals = visitorKicks.filter((kick) => kick.result === 'goal').length
-  const highestRound = kicks.reduce(
-    (highest, kick) => Math.max(highest, kick.round_number),
-    0,
-  )
-  const tiedAfterFive = localKicks.length >= 5
-    && visitorKicks.length >= 5
-    && localGoals === visitorGoals
-  const visibleRounds = Math.max(
-    5,
-    highestRound,
-    tiedAfterFive ? highestRound + 1 : 5,
-  )
-  const rounds = Array.from(
-    { length: visibleRounds },
-    (_, index) => index + 1,
-  )
-
-  return (
-    <section className="mt-4 rounded-[5px] border border-[#ffb45c]/60 bg-[#07131e] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#ffb45c]">
-            Tanda de penales
-          </p>
-          <p className="mt-1 text-sm text-slate-300">
-            Cinco tiros por equipo. Si continúan empatados, inicia la muerte súbita.
-          </p>
-        </div>
-        <p className="text-sm font-bold text-[#b4ff45]">
-          {localGoals} - {visitorGoals}
-        </p>
-      </div>
-      {tiedAfterFive && <p className={[
-        'mt-3 rounded-[5px] border border-[#b4ff45]/40',
-        'bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]',
-      ].join(' ')}>
-        Muerte súbita activa: se registra un tiro por equipo en cada ronda.
-      </p>}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <ShootoutTeamColumn
-          teamId={localTeamId}
-          teamName={localTeamName}
-          kicks={localKicks}
-          rounds={rounds}
-          canManage={canManage}
-          saving={saving}
-          openMenu={openMenu}
-          setOpenMenu={setOpenMenu}
-          onRecord={onRecord}
-        />
-        <ShootoutTeamColumn
-          teamId={visitorTeamId}
-          teamName={visitorTeamName}
-          kicks={visitorKicks}
-          rounds={rounds}
-          canManage={canManage}
-          saving={saving}
-          openMenu={openMenu}
-          setOpenMenu={setOpenMenu}
-          onRecord={onRecord}
-        />
-      </div>
-    </section>
-  )
+  const highestRound = kicks.reduce((highest, kick) => Math.max(highest, kick.round_number), 0)
+  const tiedAfterFive = localKicks.length >= 5 && visitorKicks.length >= 5 && localGoals === visitorGoals
+  const visibleRounds = Math.max(5, highestRound, tiedAfterFive ? highestRound + 1 : 5)
+  const rounds = Array.from({ length: visibleRounds }, (_, index) => index + 1)
+  return <Card labelledBy="shootout-title">
+    <CardHeader id="shootout-title" title="Tanda de penales" subtitle="Cinco tiros por equipo. Si siguen empatados, sigue la muerte súbita." actions={<span className="font-display text-[28px] leading-none tabular-nums text-[var(--ax-text)]">{localGoals} – {visitorGoals}</span>} />
+    {tiedAfterFive && <div className="mt-4"><Notice tone="warning" icon={CircleAlert}>Muerte súbita: un tiro por equipo en cada ronda.</Notice></div>}
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <ShootoutTeamColumn teamId={localTeamId} teamName={localTeamName} kicks={localKicks} rounds={rounds} canManage={canManage} saving={saving} onRecord={onRecord} />
+      <ShootoutTeamColumn teamId={visitorTeamId} teamName={visitorTeamName} kicks={visitorKicks} rounds={rounds} canManage={canManage} saving={saving} onRecord={onRecord} />
+    </div>
+  </Card>
 }
 
-function MatchPlayersColumn({
-  title,
-  players,
-  teamId,
-  events,
-  canManage,
-  saving,
-  onRecord,
-}: MatchPlayersColumnProps) {
-  const [open, setOpen] = useState(true)
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
-  const [pendingIndicator, setPendingIndicator] = useState<'yellow_card' | 'red_card' | 'injured' | 'concussion' | null>(null)
-  const selectedPlayer = players.find((player) => player.player_id === selectedPlayerId)
-  const confirmedIndicators = (playerId: string) => events.filter((event) => event.player_id === playerId && event.team_id === teamId).map((event) => event.event_type)
-  const indicatorConfig = [{ type: 'yellow_card' as const, label: 'Tarjeta amarilla', icon: <Square size={16} fill="#facc15" className="text-yellow-400" /> }, { type: 'red_card' as const, label: 'Tarjeta roja', icon: <Square size={16} fill="#ef4444" className="text-red-500" /> }, { type: 'injured' as const, label: 'Jugador lesionado', icon: <HeartPulse size={17} className="text-rose-400" /> }, { type: 'concussion' as const, label: 'Conmoción cerebral', icon: <Brain size={17} className="text-cyan-300" /> }]
-  return <section className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left"><h3 className="text-sm font-bold uppercase tracking-wider text-[#b4ff45]">Jugadores · {title}</h3><ChevronDown size={18} className={`transition ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="mt-3 space-y-2">{players.length ? players.map((player) => { const selected = selectedPlayerId === player.player_id; const indicators = confirmedIndicators(player.player_id); return <div key={player.player_id} className={`rounded-[5px] border px-3 py-2 ${selected ? 'border-[#b4ff45] bg-[#b4ff45]/10' : 'border-white/10'}`}><button type="button" onClick={() => { setSelectedPlayerId(selected ? null : player.player_id); setPendingIndicator(null) }} className="flex w-full items-center gap-2 text-left"><span className="text-sm font-semibold">{player.full_name}</span><span className="text-xs text-slate-400">#{player.shirt_number ?? '--'}</span><span className="ml-auto flex items-center gap-1">{indicators.includes('yellow_card') && <Square size={15} fill="#facc15" className="text-yellow-400" />}{indicators.includes('red_card') && <Square size={15} fill="#ef4444" className="text-red-500" />}{indicators.includes('injured') && <HeartPulse size={16} className="text-rose-400" />}{indicators.includes('concussion') && <Brain size={16} className="text-cyan-300" />}</span></button>{selected && canManage && teamId && <div className="mt-3 border-t border-white/10 pt-3"><div className="flex flex-wrap gap-2">{indicatorConfig.map((indicator) => <button key={indicator.type} type="button" onClick={() => setPendingIndicator(indicator.type)} className="inline-flex items-center gap-1 rounded-[5px] border border-[#31556b] px-2 py-1 text-xs text-slate-200 hover:border-[#b4ff45]">{indicator.icon}{indicator.label}</button>)}</div>{pendingIndicator && <div className="mt-3 flex items-center justify-between gap-3 rounded-[5px] bg-[#0d2637] p-3 text-xs"><span>¿Confirmar {indicatorConfig.find((item) => item.type === pendingIndicator)?.label.toLowerCase()}?</span><div className="flex gap-2"><button type="button" onClick={() => setPendingIndicator(null)} className="rounded-[5px] border border-white/20 px-2 py-1">Cancelar</button><button type="button" disabled={saving} onClick={() => { onRecord(teamId, player.player_id, pendingIndicator, 0); setPendingIndicator(null) }} className="rounded-[5px] bg-[#b4ff45] px-2 py-1 font-bold text-[#07131e]">Confirmar</button></div></div>}</div>}</div> }) : <p className="text-sm text-slate-500">No hay jugadores registrados.</p>}</div>}</section>
+function formatSeconds(totalSeconds: number) {
+  const value = Math.max(0, Math.floor(totalSeconds))
+  return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`
 }
 
-function MatchCard({ match, selected, onPreview }: { match: Match; selected: boolean; onPreview: () => void }) {
-  const status = match.status === 'finished' ? 'Finalizado' : match.status === 'live' ? 'En vivo' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
-  return <article className={`rounded-[5px] border p-5 ${selected ? 'border-[#b4ff45] bg-[#b4ff45]/5' : 'border-[#29485d] bg-[#07131e]'}`}><div className="flex items-center justify-between gap-3 text-xs text-slate-500"><span>{match.division_name || 'Sin división'}</span><span className="inline-flex items-center gap-1">{match.scheduled_time ? <><Clock3 size={13} />{match.scheduled_time.slice(0, 5)}</> : 'Horario pendiente'}</span></div><div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center"><TeamMatchName name={match.local_team_name} logo={match.local_logo_url} /><div><p className="font-display text-2xl text-[#b4ff45]">{match.status === 'scheduled' ? 'VS' : `${match.local_score} - ${match.visitor_score}`}</p><p className={`mt-1 text-[10px] uppercase tracking-wider ${statusTone(match.status)}`}>{status}</p></div><TeamMatchName name={match.visitor_team_name} logo={match.visitor_logo_url} /></div><button type="button" onClick={onPreview} className="mt-5 w-full rounded-[5px] border border-[#b4ff45]/60 px-3 py-2 text-xs font-bold text-[#dfffba] hover:bg-[#b4ff45]/10">{selected ? 'Vista previa seleccionada' : 'Vista previa'}</button></article>
+function MatchRow({ match, selected, onPreview }: { match: Match; selected: boolean; onPreview: () => void }) {
+  const status = match.status === 'finished' ? 'Final' : match.status === 'live' ? 'En vivo' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
+  return <button type="button" onClick={onPreview} aria-pressed={selected} className={cx(
+    'grid w-full cursor-pointer grid-cols-[48px_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-[12px] px-2 py-2.5 text-left transition-colors duration-150 sm:grid-cols-[64px_minmax(0,1fr)_auto_minmax(0,1fr)_96px] sm:gap-3 sm:px-3',
+    selected ? 'bg-[var(--ax-accent-soft)]' : 'hover:bg-[var(--ax-hover)]',
+  )}>
+    <span className="text-xs tabular-nums text-[var(--ax-muted)]">{match.scheduled_time?.slice(0, 5) || '--:--'}</span>
+    <span className="truncate text-right text-[13px] font-semibold text-[var(--ax-text)] sm:text-sm">{match.local_team_name}</span>
+    <span className={cx('min-w-[58px] rounded-[8px] px-2 py-1 text-center text-[13px] font-bold tabular-nums', match.status === 'live' ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : match.status === 'scheduled' ? 'bg-[var(--ax-surface-sunken)] font-medium text-[var(--ax-muted)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}>{match.status === 'scheduled' ? 'vs' : `${match.local_score} – ${match.visitor_score}`}</span>
+    <span className="truncate text-[13px] font-semibold text-[var(--ax-text)] sm:text-sm">{match.visitor_team_name}</span>
+    <span className="hidden justify-self-end sm:block"><Badge tone={match.status === 'live' ? 'success' : match.status === 'scheduled' ? 'neutral' : 'neutral'} dot={match.status === 'live'}>{status}</Badge></span>
+  </button>
 }
 
 function getFeaturedMatch(matches: Match[]) {
   return matches.find((match) => match.status === 'live') || [...matches].filter((match) => match.status === 'finished').sort((a, b) => b.date_number - a.date_number).at(0) || [...matches].filter((match) => match.status === 'scheduled').sort((a, b) => a.date_number - b.date_number).at(0) || null
 }
 
-function statusTone(status: string) {
-  if (status === 'finished') return 'text-[#ff7d88]'
-  if (status === 'live') return 'text-[#b4ff45]'
-  return 'text-slate-500'
-}
-
-function TeamMatchName({ name, logo }: { name: string; logo: string | null }) { return <div className="min-w-0"><div className="mx-auto flex h-11 w-11 items-center justify-center overflow-hidden rounded-[5px] bg-[#b4ff45]/15 font-bold text-[#b4ff45]">{logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}</div><p className="mt-2 truncate text-sm font-bold">{name || 'Equipo pendiente'}</p></div> }
-
 function EditHistorySection({ history }: { history: EditHistory[] }) {
-  const labels: Record<string, string> = { name: 'Nombre', season: 'Temporada', status: 'Estado', start_date: 'Fecha inicial', end_date: 'Fecha final', country: 'País', location: 'Ciudad', discipline_id: 'Disciplina', modality_id: 'Modalidad' }
-  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><Clock3 className="text-[#b4ff45]" size={20} /><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Transparencia</p><h2 className="mt-1 font-display text-2xl uppercase">Historial de ediciones</h2></div></div>{history.length ? <div className="mt-6 space-y-4">{history.map((entry) => { const adjustment = entry.changes.type === 'standing_adjustment'; const teams = Array.isArray(entry.changes.teams) ? entry.changes.teams : []; return <article key={entry.id} className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-white">{adjustment ? 'Ajuste administrativo de tabla' : 'Torneo actualizado'}</p><time className="text-xs text-slate-500">{new Date(entry.created_at).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' })}</time></div>{adjustment ? <><p className="mt-3 rounded-[5px] border border-[#b4ff45]/20 bg-[#b4ff45]/5 p-3 text-sm text-slate-300"><span className="font-bold text-[#dfffba]">Motivo:</span> {entry.changes.reason}</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{teams.map((change: { team_id: string; team_name?: string; before: number; after: number }) => <div key={change.team_id} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Equipo {change.team_name || change.team_id}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change.before > 0 ? `+${change.before}` : change.before}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change.after > 0 ? `+${change.after}` : change.after}</span></p></div>)}</div></> : <div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(entry.changes).map(([field, change]) => <div key={field} className="rounded-[5px] border border-white/10 p-3 text-sm"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{labels[field] || field}</p><p className="mt-1 text-slate-300"><span className="text-slate-500">{change?.before || 'Sin valor'}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-semibold text-white">{change?.after || 'Sin valor'}</span></p></div>)}</div>}</article> })}</div> : <p className="mt-6 text-sm text-slate-400">Todavía no se han registrado ediciones.</p>}</section>
+  const labels: Record<string, string> = { name: 'Nombre', season: 'Temporada', status: 'Estado', start_date: 'Fecha inicial', end_date: 'Fecha final', country: 'País', location: 'Ciudad', discipline_id: 'Disciplina', modality_id: 'Modalidad', divisions: 'Divisiones' }
+  const fieldLabel = (field: string) => labels[field] || field.replace(/_\d+$/, '').replace(/[-_]/g, ' ')
+  const delta = (value: number) => value > 0 ? `+${value}` : String(value)
+  return <div className="ax-v2"><Card labelledBy="history-title">
+    <CardHeader id="history-title" title="Historial de cambios" subtitle="Cada cambio queda registrado con su fecha y sus valores anteriores." />
+    {history.length ? <ol className="mt-4 divide-y divide-[var(--ax-line)]">
+      {history.map((entry) => {
+        const adjustment = entry.changes.type === 'standing_adjustment'
+        const teams = Array.isArray(entry.changes.teams) ? entry.changes.teams : []
+        return <li key={entry.id} className="flex gap-3 py-3.5">
+          <span aria-hidden="true" className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]', adjustment ? 'bg-[var(--ax-warning-soft)] text-[var(--ax-warning-text)]' : 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]')}>{adjustment ? <Table2 size={15} /> : <Pencil size={15} />}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <p className="text-sm font-semibold text-[var(--ax-text)]">{adjustment ? 'Ajuste de puntos en la tabla' : 'Torneo actualizado'}</p>
+              <time className="text-xs text-[var(--ax-muted)]">{new Date(entry.created_at).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' })}</time>
+            </div>
+            {adjustment
+              ? <>
+                <p className="mt-1 text-[13px] text-[var(--ax-text-secondary)]">Motivo: {entry.changes.reason}</p>
+                <ul className="mt-1.5 space-y-0.5">{teams.map((change: { team_id: string; team_name?: string; before: number; after: number }) => <li key={change.team_id} className="text-[13px] text-[var(--ax-muted)]">{change.team_name || 'Equipo'}: <span className="tabular-nums">{delta(change.before)}</span> → <span className="font-semibold tabular-nums text-[var(--ax-text)]">{delta(change.after)}</span></li>)}</ul>
+              </>
+              : <ul className="mt-1 space-y-0.5">{Object.entries(entry.changes).map(([field, change]) => <li key={field} className="text-[13px] text-[var(--ax-muted)]"><span className="font-medium text-[var(--ax-text-secondary)]">{fieldLabel(field)}:</span> {change?.before || 'Sin valor'} → <span className="font-semibold text-[var(--ax-text)]">{change?.after || 'Sin valor'}</span></li>)}</ul>}
+          </div>
+        </li>
+      })}
+    </ol> : <div className="mt-4"><EmptyState icon={Clock3} title="Sin cambios registrados" description="Aquí verás cada edición del torneo, de su fixture y de la tabla." /></div>}
+  </Card></div>
 }
 
 function GeneralInfoSection({ tournament, divisions, disciplines, modalities, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
@@ -4060,23 +3828,13 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
   return <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="mt-6"><div className="flex items-center gap-2 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]"><ShieldCheck size={17} />Los cambios se mostrarán antes de solicitar la contraseña.</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required /><StyledSelect label="Disciplina" value={values.discipline_id} onChange={(discipline_id) => setValues({ ...values, discipline_id, modality_id: '' })} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} required /><StyledSelect label="Modalidad" value={values.modality_id} onChange={(modality_id) => setValues({ ...values, modality_id })} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} disabled={!availableModalities.length} required /><LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" /><label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={values.start_date} onChange={(event) => setValues({ ...values, start_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Fecha final<input required type="date" value={values.end_date} onChange={(event) => setValues({ ...values, end_date: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><div className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-4 sm:col-span-2"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Selecciona las divisiones que podrán inscribirse en este torneo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedDivisionNames.length} divisiones</span></div><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={divisionToAdd} onChange={(event) => setDivisionToAdd(event.target.value)} className="min-w-0 flex-1 cursor-pointer rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="">Seleccionar división</option>{divisionOptions.filter((name) => !selectedDivisionNames.some((selected) => normalizeDivisionName(selected) === normalizeDivisionName(name))).map((name) => <option key={name} value={name}>{name}</option>)}</select><button type="button" onClick={addDivision} disabled={!divisionToAdd} className="cursor-pointer rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Agregar división</button></div><div className="mt-4 flex flex-wrap gap-2">{selectedDivisionNames.map((name) => <span key={name} className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{name}<button type="button" onClick={() => setSelectedDivisionNames(selectedDivisionNames.filter((current) => current !== name))} className="cursor-pointer text-[#ff9ca5]" aria-label={`Quitar división ${name}`}><X size={15} /></button></span>)}{!selectedDivisionNames.length && <p className="text-sm text-slate-500">No hay divisiones seleccionadas.</p>}</div></div></div><div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar edición</button><button type="submit" className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><Check size={17} />Guardar cambios</button></div></form>
 }
 
-function EditConfirmationOverlay({ title = 'Guardar cambios', changes, onCancel, onConfirm, message }: { title?: string; changes: Record<string, PendingChange>; onCancel: () => void; onConfirm: (password: string) => void; message: string }) {
-  const [password, setPassword] = useState('')
-  return <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#02070c]/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="confirm-tournament-changes"><div className="my-8 w-full max-w-xl rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-5 text-white shadow-2xl sm:p-7"><div className="flex items-start gap-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[5px] bg-[#b4ff45]/15 text-[#b4ff45]"><LockKeyhole size={21} /></div><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Confirmación segura</p><h2 id="confirm-tournament-changes" className="mt-1 font-display text-2xl uppercase">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">Revisa la acción. La contraseña confirma y registra esta operación.</p></div></div><div className="mt-6 space-y-2">{Object.values(changes).map((change) => <div key={change.label} className="rounded-[5px] border border-white/10 bg-[#07131e] p-3"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">{change.label}</p><p className="mt-1 text-sm"><span className="text-slate-500">{change.before}</span><span className="mx-2 text-[#b4ff45]">→</span><span className="font-bold text-white">{change.after}</span></p></div>)}</div><label className="mt-6 block text-sm font-semibold">Contraseña de la cuenta<input autoFocus required type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" placeholder="Escribe tu contraseña" /></label>{message && <p role="alert" className="mt-4 rounded-[5px] border border-[#ff7d88]/30 bg-[#ff7d88]/10 p-3 text-sm text-[#ffb0b7]">{message}</p>}<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar</button><button type="button" onClick={() => void onConfirm(password)} disabled={!password} className="cursor-pointer rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Confirmar y guardar</button></div></div></div>
-}
-
-function UnsavedChangesOverlay({ onCancel, onDiscard, onSave }: { onCancel: () => void; onDiscard: () => void; onSave: () => void }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02070c]/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-6 text-white shadow-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Cambios sin guardar</p><h2 className="mt-2 font-display text-2xl uppercase">¿Cambiar de sección?</h2><p className="mt-3 text-sm leading-6 text-slate-400">Todavía tienes cambios pendientes. Puedes confirmarlos con tu contraseña o descartarlos antes de continuar.</p><div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={onCancel} className="rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-300">Seguir editando</button><button type="button" onClick={onDiscard} className="rounded-[5px] border border-[#ff7d88]/50 px-4 py-3 text-sm font-bold text-[#ff9ca5]">Descartar</button><button type="button" onClick={onSave} className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Confirmar cambio</button></div></div></div>
-}
-
 function PlayerNumberRequestModal({ request, onCancel, onSubmit }: { request: { playerName: string; currentNumber: number | null }; onCancel: () => void; onSubmit: (number: number) => void }) {
   const [number, setNumber] = useState(String(request.currentNumber ?? ''))
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02070c]/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><form onSubmit={(event) => { event.preventDefault(); onSubmit(Number(number)) }} className="w-full max-w-md rounded-[5px] border border-[#31556b] bg-[#0b1d2c] p-6 text-white shadow-2xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Solicitud de plantilla</p><h2 className="mt-2 font-display text-2xl uppercase">Cambiar número</h2><p className="mt-3 text-sm leading-6 text-slate-400">La solicitud de <strong className="text-white">{request.playerName}</strong> será enviada al equipo para su aprobación.</p><label className="mt-6 block text-sm font-semibold">Nuevo número<input required min="0" max="99" type="number" value={number} onChange={(event) => setNumber(event.target.value)} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onCancel} className="rounded-[5px] border border-[#31556b] px-4 py-3 text-sm font-bold text-slate-300">Cancelar</button><button type="submit" className="rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]">Enviar solicitud</button></div></form></div>
 }
 
-function StatCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) { return <div className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5"><div className="flex items-center justify-between gap-3 text-[#b4ff45]"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-400">{title}</p>{icon}</div><p className="mt-3 font-display text-4xl">{value}</p></div> }
 function InfoRow({ label, value }: { label: string; value: string }) { return <div className="rounded-[5px] border border-[#29485d] bg-[#07131e] p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">{label}</p><p className="mt-2 font-semibold text-white">{value}</p></div> }
-function TournamentShell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen bg-transparent px-5 py-8 text-white lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl">{children}</div></main> }
+function TournamentShell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-10"><div className="ax-v2 mx-auto max-w-6xl">{children}</div></main> }
 function normalizeDivisionName(value: string) { return value.trim().toLocaleLowerCase('es-PA') }
 function teamIdentityKey(team: { name: string; handle: string | null; organization_id?: string | null; discipline_id?: string | null; created_by?: string | null; division_id?: string | null }) { return `${normalizeDivisionName(team.name)}|${team.handle || ''}|${team.organization_id || team.created_by || ''}|${team.discipline_id || ''}|${team.division_id || ''}` }
 function mergeTeamSummaries(teams: TeamSummary[]) {

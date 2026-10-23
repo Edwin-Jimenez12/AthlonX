@@ -544,6 +544,11 @@ h3 {
   --ax-danger-line: rgba(255, 125, 136, .40);
   --ax-hover: rgba(255, 255, 255, .05);
   --ax-shadow-pop: 0 12px 32px -8px rgba(2, 11, 18, .55);
+  /* Colores reglamentarios de las tarjetas del partido en vivo. */
+  --ax-card-yellow: #ffd23f;
+  --ax-card-yellow-soft: rgba(255, 210, 63, .14);
+  --ax-card-yellow-line: rgba(255, 210, 63, .45);
+  --ax-card-red: #ff5f6d;
 }
 
 html[data-theme='light'] .athlonx-dashboard {
@@ -561,6 +566,10 @@ html[data-theme='light'] .athlonx-dashboard {
   --ax-danger-line: rgba(180, 35, 47, .30);
   --ax-hover: rgba(11, 29, 44, .04);
   --ax-shadow-pop: 0 12px 32px -10px rgba(11, 29, 44, .22);
+  --ax-card-yellow: #f2b705;
+  --ax-card-yellow-soft: rgba(242, 183, 5, .14);
+  --ax-card-yellow-line: rgba(176, 128, 0, .40);
+  --ax-card-red: #d92d3a;
 }
 
 /* En el rediseño, la línea de tarjetas usa el tono de Figma (#1f4057 / #d3dde6). */

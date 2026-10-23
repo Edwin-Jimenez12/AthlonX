@@ -1,6 +1,6 @@
 # Rediseño del gestor de torneos (Figma)
 
-Estado: **diseño en Figma, pendiente de aprobación**. Todavía no se ha pasado a código.
+Estado: **en código, primera parte** (ver "Implementación" al final). El resto de secciones sigue con el estilo anterior.
 
 Archivo: `https://www.figma.com/design/YBGPZrYsYNb5259mmBgoF1/AthlonX`, página `Claude` (`954:56`).
 - El tablero "Componentes · Torneos" (`1038:14518`) está en y = 33 000.
@@ -138,3 +138,42 @@ Todos llevan la foto del torneo, el logo, una línea verde y el pie "Generado co
   - Cargando.
   - Error al guardar.
   - Confirmación inline.
+
+## Implementación (2026-10-23, primera parte)
+
+Cambios pedidos por Edwin al revisar el diseño:
+- **Rugby sin Llaves:** rugby se juega por tabla, así que la pestaña Llaves ya no aparece. Fútbol y baloncesto sí la tienen, porque son de eliminación directa.
+- **Generador para todas las disciplinas:** tiene modo automático o manual.
+  - Rugby y ligas de fútbol: todos contra todos, o enfrentamientos elegidos a mano.
+  - Fútbol 8: sorteo de la llave o los 8 cruces de octavos definidos a mano.
+  - Baloncesto 3x3: sorteo o cada equipo ubicado a mano en los octavos.
+- **Tarjeta amarilla:** se muestra con un panel inline dentro de la tarjeta del equipo.
+  - El panel muestra el minuto y la lista de jugadores con su dorsal y su estado (amarillas, expulsado, fuera temporalmente).
+  - También explica la regla de la disciplina antes de confirmar.
+  - **Rugby:** la amarilla es una expulsión temporal (2 min en sevens, 10 en XV). Arriba del marcador aparece "vuelve en mm:ss".
+  - **Fútbol:** la segunda amarilla registra también la roja.
+  - El mismo panel sirve para la roja, la lesión y la conmoción. La conmoción solo existe en rugby.
+
+Qué está en código (`.ax-v2`, tokens, tema claro y oscuro):
+- **Cabecera:** banner con arte de la disciplina, foto (`cover_url` o iniciales), insignias, datos y "Editar torneo".
+  - Debajo van 4 datos del torneo y pestañas con subrayado que se deslizan en móvil.
+  - Archivo: `Components/torneo/ui.tsx`.
+- **Barra de guardado inline (`SaveBar`):** muestra el detalle de los cambios y pide la contraseña.
+  - Reemplaza el modal de contraseña, el panel de cambios pendientes y el aviso modal de cambios sin guardar.
+- **Resumen:** partido destacado, próximos partidos, últimos resultados y datos del torneo.
+- **Partidos:**
+  - Marcador con fases (en fútbol 8), reloj y controles.
+  - Una tarjeta de acciones por equipo: jugador, anotaciones con confirmación inline y tarjetas.
+  - Cronología con la opción de anular con motivo, y estadísticas.
+  - Lista por fecha.
+  - En móvil, se elige el equipo con un selector.
+- **Generador:** las dos opciones de modo y, en ligas, la configuración junto al calendario actual.
+- **Historial.**
+- **Reglas:** `lib/rugby.ts` y `lib/football.ts`, con pruebas en `tests/match-cards.test.mjs`.
+- **Tokens:** `--ax-card-yellow`, `--ax-card-yellow-soft`, `--ax-card-yellow-line` y `--ax-card-red`, en `app/globals.css`.
+
+Pendiente (siguen con el estilo anterior, dentro de un panel con tokens):
+- Tablas, Llaves, Equipos (oficial y rápido), Convocatorias, Fixtures e Información general.
+- Los paneles de baloncesto 3x3: partido en vivo, cronograma y clasificación.
+- Los PDF de las nuevas plantillas A4.
+- La subida de foto y banner, que necesita la migración de `banner_url` y su almacenamiento.
