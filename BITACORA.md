@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Cambio de flujo de ramas
+
+**Qué se hizo**
+- Todo lo de `claude/great-ritchie-2n8uq9` se pasó a `edwin` y de `edwin` a `main` (fast-forward hasta `97b9f88`; las tres ramas partían de `0ad0dc9`).
+- A partir de ahora se trabaja en `edwin` y lo verificado se pasa a `main`. La regla quedó en `CLAUDE.md` → Git.
+
+**Pendiente**
+- Si `main` despliega automáticamente a Cloudflare, cada paso a `main` sale a producción. Falta confirmarlo.
+
+---
+
 ## 2026-10-23 · `claude/great-ritchie-2n8uq9` · nube · Mi equipo rediseñado en código
 
 **Qué se hizo**

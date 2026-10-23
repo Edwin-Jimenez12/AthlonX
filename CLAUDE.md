@@ -85,6 +85,7 @@ Ese comando usa tu Chrome instalado. Si no tienes Chrome, instala el navegador d
 
 ## Git
 
+- Rama de trabajo: **`edwin`**. Los cambios se hacen en `edwin` y, ya verificados, se pasan a `main` (fast-forward: `git push origin edwin:main`). Así lo pidió Edwin el 2026-10-23.
+- Si `main` tiene commits que no están en `edwin`, primero trae `main` a `edwin` (merge) y luego pasa `edwin` a `main`. Nunca hagas force-push a `main`.
 - Haz commits pequeños con mensajes descriptivos.
 - Actualiza `BITACORA.md` en el mismo commit que el cambio.
-- No hagas push a `main` sin que se pida.
