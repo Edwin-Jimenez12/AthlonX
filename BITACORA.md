@@ -5,6 +5,32 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma de Búsqueda, Notificaciones y Eventos
+
+**Qué se hizo**
+- Se diseñaron en Figma (página `Claude`, desde y≈15 600) Búsqueda, Notificaciones y Eventos con el mismo lenguaje que Mi equipo, para las tres cuentas (Persona, Equipo, Organización).
+- Cada sección tiene escritorio, tablet y móvil, en oscuro (x=0/1540/2474) y en claro (+3200 px, modo Claro de la colección AthlonX y logo claro).
+- Frames extra: `Navegación por cuenta` (menú de cada cuenta y selector de cuenta) y `Estados` (estados vacíos y especiales de las tres secciones, como antes de buscar y sin resultados).
+- Componentes nuevos en el tablero `962:2`:
+  - Iconos: user-plus, trophy, hash, bell, calendar-plus, zap, dumbbell, megaphone, users, building y shield.
+  - Botones y enlaces: `Botón/Aceptar`, `Botón/Rechazar`, `Botón/Pequeño`, `Botón/Crear` y `Enlace/Acción`.
+  - Campos y marcas: `Campo/Select`, `Campo/Select con etiqueta` y `Marca/Entidad`.
+  - Filas y tarjetas: `Fila/Resultado`, `Fila/Resultado entidad`, `Fila/Notificación`, `Fila/Notificación móvil`, `Insignia/Rechazada`, `Tarjeta/Evento` y `Fila/Borrador`.
+  - Opciones de evento: `Opción/Evento` (activa, normal y próximamente).
+
+**Archivos**
+- `documentos/rediseno-secciones.md`: la especificación por sección, la navegación por cuenta, los datos que usa cada pantalla y lo pendiente para el código.
+
+**Verificación**
+- Capturas de Figma de cada frame en escritorio, móvil y claro.
+- Se corrigieron filas de notificación apretadas en móvil (componente propio), botones de ancho fijo que se aplastaban, contraste en claro y rellenos.
+
+**Pendiente**
+- Pasarlo a código cuando Edwin apruebe el diseño (ver "Pendiente para el código" en `documentos/rediseno-secciones.md`).
+- Siguen pendientes: probar el dorsal en athlonx.world/equipo y el estado `reserva` en Supabase para la convocatoria con titulares y reservas.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Migración del dorsal aplicada en Supabase
 
 **Qué se hizo**
