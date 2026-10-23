@@ -79,7 +79,7 @@ export default function TeamDashboard() {
       {inviting && team?.id && <InvitePanel teamId={team.id} divisions={roster.divisions} members={roster.members} title="Invitar persona al equipo" onClose={() => setInviting(false)} onSent={() => void roster.reload()} />}
 
       {team?.id ? <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-        <TeamRosterCard teamId={team.id} canManage={canManage} {...roster} />
+        <TeamRosterCard teamId={team.id} canManage={canManage} discipline={team.discipline} disciplineCode={team.disciplineCode} {...roster} />
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 md:items-start xl:grid-cols-1">
           <TeamPeopleCard teamId={team.id} canManage={canManage} divisions={roster.divisions} members={roster.members} invitations={roster.invitations} loading={roster.loading} reload={roster.reload} />
           <TeamCallupsCard teamId={team.id} teamName={team.name} />

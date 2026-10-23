@@ -1,20 +1,21 @@
 'use client'
 
-import { AlertTriangle, ArrowRightLeft, ChevronDown, Layers3, Pencil, Settings2, Trash2, User, UserPlus, Users, X } from 'lucide-react'
+import { AlertTriangle, ArrowRightLeft, Check, ChevronDown, Hash, Layers3, Pencil, Settings2, Trash2, User, UserPlus, Users, X } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { teamPositionOptions } from '../../lib/team-positions'
 import { InvitePanel } from './invite-panel'
 import { MemberRoleEditor, RemoveConfirm } from './member-role-editor'
-import { Avatar, Badge, Button, Card, CardHeader, EmptyState, IconButton, MenuItem, Notice, RowMenu, SearchField, Segment, SkeletonRows, cx } from './ui'
+import { Avatar, Badge, Button, Card, CardHeader, EmptyState, FieldLabel, IconButton, MenuItem, Notice, RowMenu, SearchField, Segment, Select, SkeletonRows, cx, inputClass } from './ui'
 import { DIVISION_OPTIONS, RosterPlayer, TeamDivision, TeamMember, announceTeamChange, sortPlayers } from './use-team-roster'
 
 const VISIBLE_ROWS = 8
 const NO_DIVISION = 'sin-division'
 
-type RowPanel = { key: string; kind: 'edit' | 'move' | 'remove' } | null
+type RowPanel = { key: string; kind: 'details' | 'edit' | 'move' | 'remove' } | null
 
-export function TeamRosterCard({ teamId, canManage, divisions, players, members, loading, error, reload }: { teamId: string; canManage: boolean; divisions: TeamDivision[]; players: RosterPlayer[]; members: TeamMember[]; loading: boolean; error: string; reload: () => Promise<void> }) {
+export function TeamRosterCard({ teamId, canManage, discipline, disciplineCode, divisions, players, members, loading, error, reload }: { teamId: string; canManage: boolean; discipline?: string | null; disciplineCode?: string | null; divisions: TeamDivision[]; players: RosterPlayer[]; members: TeamMember[]; loading: boolean; error: string; reload: () => Promise<void> }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState(false)
@@ -61,10 +62,15 @@ export function TeamRosterCard({ teamId, canManage, divisions, players, members,
     announceTeamChange()
   }
 
+  // El dorsal y la posición se guardan en players: solo aplica a jugadores con fila en team_players.
+  const canEditDetails = (player: RosterPlayer) => canManage && !player.pending && player.source === 'roster' && Boolean(player.playerId)
+  const positions = teamPositionOptions(discipline, disciplineCode)
+
   function menuFor(player: RosterPlayer): MenuItem[] {
     const items: MenuItem[] = []
     if (player.profileId) items.push({ label: 'Ver perfil', icon: User, href: `/perfil/${player.profileId}` })
     if (!canManage || player.pending) return items
+    if (canEditDetails(player)) items.push({ label: 'Editar dorsal y posición', icon: Hash, onSelect: () => setRowPanel({ key: player.key, kind: 'details' }) })
     if (player.member) items.push({ label: 'Editar rol y cargo', icon: Pencil, onSelect: () => setRowPanel({ key: player.key, kind: 'edit' }) })
     if (player.source === 'roster' && divisions.length > 1) items.push({ label: 'Mover a otra división', icon: ArrowRightLeft, onSelect: () => setRowPanel({ key: player.key, kind: 'move' }) })
     items.push({ label: 'Quitar del equipo', icon: Trash2, tone: 'danger', separated: true, onSelect: () => setRowPanel({ key: player.key, kind: 'remove' }) })
@@ -107,7 +113,8 @@ export function TeamRosterCard({ teamId, canManage, divisions, players, members,
             {visible.map((player) => {
               const open = rowPanel?.key === player.key ? rowPanel.kind : null
               return <li key={player.key} className="border-b border-[var(--ax-line)] py-1 md:py-0">
-                <PlayerRow player={player} menu={<RowMenu label={`Acciones para ${player.fullName}`} items={menuFor(player)} />} />
+                <PlayerRow player={player} onEditNumber={canEditDetails(player) ? () => setRowPanel({ key: player.key, kind: 'details' }) : undefined} menu={<RowMenu label={`Acciones para ${player.fullName}`} items={menuFor(player)} />} />
+                {open === 'details' && <PlayerDetailsEditor teamId={teamId} player={player} positions={positions} onClose={() => setRowPanel(null)} onSaved={async (text) => { setRowPanel(null); setMessage(text); await reload(); announceTeamChange() }} />}
                 {open === 'edit' && player.member && <MemberRoleEditor teamId={teamId} roles={members.filter((member) => member.user_id === player.userId)} onClose={() => setRowPanel(null)} />}
                 {open === 'move' && <MovePanel player={player} divisions={divisions} busy={busyKey === player.key} onCancel={() => setRowPanel(null)} onMove={(divisionId) => void move(player, divisionId)} />}
                 {open === 'remove' && <RemoveConfirm name={player.fullName} detail="Dejará de aparecer en la plantilla y en las próximas convocatorias." busy={busyKey === player.key} onCancel={() => setRowPanel(null)} onConfirm={() => void remove(player)} />}
@@ -130,11 +137,13 @@ export function TeamRosterCard({ teamId, canManage, divisions, players, members,
   </Card>
 }
 
-function PlayerRow({ player, menu }: { player: RosterPlayer; menu: React.ReactNode }) {
+function PlayerRow({ player, menu, onEditNumber }: { player: RosterPlayer; menu: React.ReactNode; onEditNumber?: () => void }) {
   const status = player.pending ? <Badge tone="warning"><span className="md:hidden">Pendiente</span><span className="hidden md:inline">Invitación pendiente</span></Badge> : <Badge tone="success">Activo</Badge>
   const name = player.profileId ? <Link href={`/perfil/${player.profileId}`} className="truncate font-semibold text-[var(--ax-text)] decoration-[var(--ax-accent-text)] underline-offset-4 hover:underline">{player.fullName}</Link> : <span className="truncate font-semibold text-[var(--ax-text)]">{player.fullName}</span>
   return <div className="flex min-h-[60px] items-center gap-3 rounded-[10px] py-2 transition-colors duration-150 hover:bg-[var(--ax-hover)] md:grid md:grid-cols-[28px_minmax(0,1fr)_140px_176px_36px] md:gap-4 md:px-4 md:py-0">
-    <span className="w-[22px] shrink-0 text-sm font-semibold tabular-nums text-[var(--ax-muted)] md:w-auto">{player.shirtNumber ?? '—'}</span>
+    {onEditNumber
+      ? <button type="button" onClick={onEditNumber} aria-label={player.shirtNumber === null ? `Asignar dorsal a ${player.fullName}` : `Cambiar dorsal ${player.shirtNumber} de ${player.fullName}`} title={player.shirtNumber === null ? 'Asignar dorsal' : 'Cambiar dorsal'} className="-ml-1.5 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sm font-semibold tabular-nums text-[var(--ax-muted)] transition-colors duration-150 hover:bg-[var(--ax-surface-raised)] hover:text-[var(--ax-text)] md:ml-[-6px]">{player.shirtNumber ?? '—'}</button>
+      : <span className="w-[22px] shrink-0 text-sm font-semibold tabular-nums text-[var(--ax-muted)] md:w-auto">{player.shirtNumber ?? '—'}</span>}
     <div className="flex min-w-0 flex-1 items-center gap-3">
       <Avatar name={player.fullName} src={player.avatarUrl} />
       <div className="min-w-0 flex-1">
@@ -149,6 +158,51 @@ function PlayerRow({ player, menu }: { player: RosterPlayer; menu: React.ReactNo
     <span className={cx('hidden truncate text-sm md:block', player.position ? 'text-[var(--ax-text-secondary)]' : 'text-[var(--ax-muted)]')}>{player.position || 'Sin asignar'}</span>
     <span className="hidden md:block">{status}</span>
     {menu}
+  </div>
+}
+
+// Dorsal y posición del jugador (panel inline, mismo lenguaje que el editor de rol).
+function PlayerDetailsEditor({ teamId, player, positions, onClose, onSaved }: { teamId: string; player: RosterPlayer; positions: string[]; onClose: () => void; onSaved: (message: string) => Promise<void> }) {
+  const [number, setNumber] = useState(player.shirtNumber === null ? '' : String(player.shirtNumber))
+  const [position, setPosition] = useState(player.position || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const parsed = number.trim() === '' ? null : Number(number)
+  const invalid = parsed !== null && (!Number.isInteger(parsed) || parsed < 0 || parsed > 99)
+  const changed = parsed !== player.shirtNumber || (position || null) !== (player.position || null)
+  const options = [{ value: '', label: 'Sin asignar' }, ...[...new Set([...positions, ...(player.position ? [player.position] : [])])].map((item) => ({ value: item, label: item }))]
+
+  async function save() {
+    if (!supabase || !player.playerId || invalid) return
+    setSaving(true)
+    setError('')
+    const { error: rpcError } = await supabase.rpc('set_team_player_details', { p_team_id: teamId, p_player_id: player.playerId, p_shirt_number: parsed, p_position: position || null })
+    setSaving(false)
+    if (rpcError) {
+      const missing = rpcError.code === 'PGRST202' || /set_team_player_details/i.test(rpcError.message)
+      setError(missing ? 'Falta aplicar supabase/team-player-details-migration.sql en Supabase para poder editar dorsales.' : rpcError.message)
+      return
+    }
+    await onSaved(parsed === null ? `${player.fullName} quedó sin dorsal.` : `${player.fullName} ahora lleva el dorsal ${parsed}.`)
+  }
+
+  return <div className="ax-drop-in mt-2 space-y-3 rounded-[14px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] p-4">
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm font-semibold text-[var(--ax-text)]">Dorsal y posición de {player.fullName}</p>
+      <button type="button" onClick={onClose} aria-label="Cerrar" className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><X size={16} /></button>
+    </div>
+    <form onSubmit={(event) => { event.preventDefault(); void save() }} className="grid gap-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-end">
+      <label className="block">
+        <FieldLabel>Dorsal</FieldLabel>
+        <input autoFocus type="number" inputMode="numeric" min={0} max={99} step={1} value={number} onChange={(event) => setNumber(event.target.value.slice(0, 2))} placeholder="0–99" aria-invalid={invalid} className={cx(inputClass, 'tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', invalid && 'border-[var(--ax-danger-line)]')} />
+      </label>
+      {options.length > 1
+        ? <Select label="Posición" value={position} onChange={setPosition} options={options} />
+        : <label className="block min-w-0"><FieldLabel>Posición</FieldLabel><input value={position} onChange={(event) => setPosition(event.target.value)} placeholder="Ej. Delantero" className={inputClass} /></label>}
+      <Button type="submit" variant="primary" icon={Check} disabled={!changed || invalid || saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+    </form>
+    {invalid && <p className="text-[13px] text-[var(--ax-danger-text)]">El dorsal debe ser un número entero entre 0 y 99.</p>}
+    {error && <Notice tone="danger" icon={AlertTriangle}>{error}</Notice>}
   </div>
 }
 

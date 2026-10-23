@@ -5,6 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Dorsal y posición editables en la plantilla
+
+**Qué se hizo**
+- En Mi equipo, el directivo puede asignar o cambiar el **dorsal** y la **posición** de cada jugador:
+  - Desde el menú ⋯ → "Editar dorsal y posición", o tocando el dorsal ("—") de la fila.
+  - Es un panel inline con el dorsal (0–99) y la posición; la lista de posiciones depende de la disciplina (rugby, fútbol o baloncesto, según `lib/team-positions.ts`).
+- Nueva migración `supabase/team-player-details-migration.sql` con la RPC `set_team_player_details(p_team_id, p_player_id, p_shirt_number, p_position)`:
+  - Mismos permisos que `set_team_player_division` (creador del equipo, propietario o directivo).
+  - Valida el rango 0–99 y que el dorsal no esté repetido en la misma división.
+  - Solo edita jugadores de la plantilla de ese equipo.
+- Si la migración no está aplicada, la UI lo dice en lugar de fallar en silencio.
+- Se versiona `AGENTS.md`, que `next dev` (Next 16) genera solo.
+
+**Verificación**
+- `tsc --noEmit` sin errores y 13 de 13 pruebas.
+- Vista previa temporal con Playwright (1280 px oscuro y 390 px claro): abrir desde el "—", elegir la posición y el límite de 2 cifras. Se borró antes del commit.
+
+**Pendiente**
+- **Aplicar `supabase/team-player-details-migration.sql` en Supabase.** Sin ella, guardar el dorsal muestra el aviso de que falta la migración.
+- El dorsal vive en `players` (global del jugador, no por equipo), igual que en el flujo de solicitudes de cambio de número.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Build de Cloudflare: actualización a Next.js 16
 
 **Qué pasó**
