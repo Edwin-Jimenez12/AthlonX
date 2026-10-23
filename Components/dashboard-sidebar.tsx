@@ -202,10 +202,11 @@ export function DashboardSidebar() {
     setIndicator({ top: node.offsetTop, height: node.offsetHeight, visible: true })
   }, [activeKey, layoutTick, open])
 
+  // En móvil el botón, el velo y el menú van por encima de la cabecera (relative z-50), que ocupa todo el ancho.
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#29485d] bg-[#081522]/95 text-white shadow-lg backdrop-blur print:hidden lg:hidden"><Menu size={22} /></button>
-    {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-30 cursor-pointer bg-[#020b12]/60 backdrop-blur-[2px] print:hidden lg:hidden" />}
-    <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-x-hidden overflow-y-auto ${asideSurface} px-4 py-6 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+    <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="fixed left-4 top-4 z-[60] flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-[#29485d] bg-[#081522]/95 text-white shadow-lg backdrop-blur print:hidden lg:hidden"><Menu size={22} /></button>
+    {open && <button type="button" onClick={close} aria-label="Cerrar menú" className="fixed inset-0 z-[60] cursor-pointer bg-[#020b12]/60 backdrop-blur-[2px] print:hidden lg:hidden" />}
+    <aside className={`fixed inset-y-0 left-0 z-[70] flex w-64 flex-col overflow-x-hidden overflow-y-auto ${asideSurface} px-4 py-6 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none print:hidden lg:z-20 lg:translate-x-0 lg:shadow-none ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <Link href="/busqueda" onClick={close} className="group flex shrink-0 items-center pb-6">
         <img src={light ? "/MarcaAthlonX/MarcaHorizontalClara.svg" : "/MarcaAthlonX/MarcaHorizontal.svg"} alt="AthlonX" style={{ width: 207, height: 28, maxWidth: "none" }} className="shrink-0 transition duration-300 group-hover:brightness-110" />
       </Link>

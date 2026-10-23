@@ -5,6 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Menú lateral en móvil no se abría
+
+**Qué pasó**
+- En celular, al tocar el botón del menú (☰) no pasaba nada.
+- La cabecera del panel (`Components/dashboard-header.tsx`, `relative z-50`) ocupa todo el ancho y quedaba encima del botón (`fixed z-30`) de `Components/dashboard-sidebar.tsx`, así que el toque lo recibía la cabecera. Aunque se abriera, el menú (`z-40`) y el velo (`z-30`) también quedaban debajo de la cabecera.
+
+**Qué se hizo**
+- `Components/dashboard-sidebar.tsx`: en móvil, el botón y el velo pasan a `z-[60]` y el menú a `z-[70]`, por encima de la cabecera y de sus menús desplegables (`z-50`).
+- En escritorio el menú conserva `lg:z-20`.
+
+**Verificación**
+- Playwright a 390 px con toque. Antes: el elemento bajo el botón era el `div` de la cabecera y el menú no se abría. Después:
+  - El menú se abre.
+  - Se cierra tocando el velo.
+  - "Notificaciones" navega a `/notificaciones` y cierra el menú.
+- A 1440 px la barra lateral sigue fija y el botón oculto.
+- `tsc --noEmit` sin errores y 13 de 13 pruebas.
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Dorsal y posición editables en la plantilla
 
 **Qué se hizo**
