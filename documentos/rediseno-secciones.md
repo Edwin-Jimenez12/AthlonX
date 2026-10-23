@@ -73,8 +73,19 @@ El diseño de cada sección es el mismo en todas las cuentas. Cambian el menú l
   - Tipos: Torneo, Torneo rápido, y Jornada, Entrenamiento y Convocatoria como "Próximamente".
   - Debajo, el formulario inicial (nombre, disciplina, modalidad, fechas, sede) y **Guardar borrador y continuar**.
 
-## Pendiente para el código
+## En código (2026-10-23)
 
-- Mover el contenido de `organization-events-panel.tsx` al panel inline, sin cambiar su lógica.
-- Reutilizar `ui.tsx` y sacar a `Components/` las piezas compartidas (tarjetas, filas, segmentos) para no duplicarlas entre secciones.
-- Verificar con Playwright en 1440, 834 y 390 px, en claro y oscuro.
+- Piezas nuevas en `Components/mi-equipo/ui.tsx`: `PageHeader`, `IconTile`, `EntityMark` y la opción `hideLabel` de `Select`.
+- Búsqueda: `app/(panel)/busqueda/page.tsx` y `Components/busqueda/search-results.tsx`.
+  - Siempre consulta todos los tipos y filtra en el cliente, para que los conteos de los segmentos salgan de los mismos resultados.
+  - Con una búsqueda hecha, cambiar un filtro vuelve a consultar sin pulsar Buscar.
+  - Muestra 10 resultados y "Cargar más" agrega 10.
+  - Los ejemplos de antes de buscar rellenan el campo con el formato (`@`, `AX-`) en vez de usar nombres inventados.
+- Notificaciones: `Components/notifications-history.tsx` y `Components/notificaciones/notification-row.tsx`.
+  - "Marcar todas como leídas" actualiza las no leídas en una sola consulta.
+  - Las informativas no leídas conservan "Marcar como leída" en la fila; no estaba en Figma, pero sin ese botón no había forma de marcar una sola.
+- Eventos: `app/(panel)/eventos/page.tsx`, `Components/eventos/event-cards.tsx` y `Components/organization-events-panel.tsx` (restilizado, misma lógica de creación).
+  - Muestra 6 torneos y "Ver más torneos" agrega 6.
+  - Al guardar el borrador se abre `/torneos/ver/{id}?editar=1`.
+  - La confirmación de borrado es inline en la fila del borrador y sigue pidiendo la contraseña.
+- Las cabeceras `h2`/`h3` que no van en Bebas llevan `font-body tracking-normal`, porque `globals.css` fuerza Bebas en todos los `h1`–`h3`.

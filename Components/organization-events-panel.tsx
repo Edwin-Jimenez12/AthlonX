@@ -1,12 +1,11 @@
 'use client'
 
-import { CalendarDays, Dumbbell, Megaphone, Trophy } from 'lucide-react'
-import Link from 'next/link'
-import { FormEvent, useEffect, useState } from 'react'
+import { AlertTriangle, CalendarPlus, CheckCircle2, Dumbbell, Info, Megaphone, Trophy, X, Zap } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { FormEvent, useEffect, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { LocationFields } from './location-fields'
-import { StyledSelect } from './styled-select'
-import { PANAMA_COUNTRY } from '../lib/location-options'
+import { Badge, Button, Card, CardHeader, FieldLabel, IconButton, Notice, Select, cx, inputClass } from './mi-equipo/ui'
+import { PANAMA_CITIES, PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
 import { footballEight } from '../lib/football-eight'
 import { validateBasketballSettings } from '../lib/basketball'
@@ -17,18 +16,19 @@ type ModalityRule = { id: string; modality_id: string; players_on_field: number;
 type EventOption = { id: string; title: string; description: string; icon: LucideIcon; enabled: boolean }
 
 const eventOptions: EventOption[] = [
-  { id: 'torneo', title: 'Crear torneo', description: 'Organiza una competencia e invita a los equipos participantes.', icon: Trophy, enabled: true },
-  { id: 'torneo-rapido', title: 'Crear torneo rápido', description: 'Crea una competencia no oficial con equipos registrados o temporales.', icon: Trophy, enabled: true },
-  { id: 'jornada', title: 'Crear jornada', description: 'Planifica una jornada deportiva con varias actividades.', icon: CalendarDays, enabled: false },
-  { id: 'entrenamiento', title: 'Crear entrenamiento', description: 'Coordina una sesión para tus equipos vinculados.', icon: Dumbbell, enabled: false },
-  { id: 'convocatoria', title: 'Crear convocatoria', description: 'Publica una convocatoria institucional.', icon: Megaphone, enabled: false },
+  { id: 'torneo', title: 'Torneo', description: 'Competencia oficial con equipos registrados en AthlonX.', icon: Trophy, enabled: true },
+  { id: 'torneo-rapido', title: 'Torneo rápido', description: 'No oficial: admite equipos registrados y temporales.', icon: Zap, enabled: true },
+  { id: 'jornada', title: 'Jornada', description: 'Varias actividades deportivas en un mismo día.', icon: CalendarPlus, enabled: false },
+  { id: 'entrenamiento', title: 'Entrenamiento', description: 'Sesión para tus equipos vinculados.', icon: Dumbbell, enabled: false },
+  { id: 'convocatoria', title: 'Convocatoria', description: 'Anuncio institucional para tus equipos.', icon: Megaphone, enabled: false },
 ]
 
 function slugify(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-export function OrganizationEventsPanel({ organizationId, sourceTeamId, disciplines, onCreated }: { organizationId?: string; sourceTeamId?: string; disciplines: Discipline[]; onCreated?: () => void }) {
+export function OrganizationEventsPanel({ organizationId, sourceTeamId, disciplines, onCreated, onClose }: { organizationId?: string; sourceTeamId?: string; disciplines: Discipline[]; onCreated?: () => void; onClose?: () => void }) {
+  const router = useRouter()
   const [selectedEvent, setSelectedEvent] = useState('torneo')
   const [name, setName] = useState('')
   const [disciplineId, setDisciplineId] = useState('')
@@ -145,7 +145,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           p_values: { name: name.trim(), start_date: startDate, end_date: endDate, organization_id: organizationId || null, organizer_team_id: sourceTeamId || null, is_quick: selectedEvent === 'torneo-rapido' }, p_settings: settings,
         })
         if (error) throw error
-        setCreatedTournament(data); setMessage('Torneo 3x3 creado. Agrega sus equipos y plantillas desde la gestión del torneo.'); onCreated?.()
+        setCreatedTournament(data); setMessage('Torneo 3x3 creado. Abriendo su configuración…'); onCreated?.(); router.push(`/torneos/ver/${data.id}?editar=1`)
       } catch (e) { setMessage((e as Error).message || 'No se pudo crear el torneo.') } finally { setLoading(false) }
       return
     }
@@ -245,8 +245,9 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
 
     setLoading(false)
     setCreatedTournament(tournament)
-    setMessage('Torneo creado. Puedes completar sus equipos y fixtures desde la gestión del torneo.')
+    setMessage('Torneo creado. Abriendo su configuración…')
     onCreated?.()
+    router.push(`/torneos/ver/${tournament.id}?editar=1`)
     setName('')
     setModalityId('')
     setCompetitionFormat('quick_league')
@@ -261,162 +262,88 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setEndDate('')
   }
 
+  const field = (label: string, input: ReactNode, className?: string) => <label className={cx('block min-w-0', className)}><FieldLabel>{label}</FieldLabel>{input}</label>
+  const numberInput = (value: string, onChange: (value: string) => void, min: string, max?: string) => <input required type="number" min={min} max={max} value={value} onChange={(event) => onChange(event.target.value)} className={inputClass} />
+  const isQuickEvent = selectedEvent === 'torneo-rapido'
+
   return (
-    <section id="eventos" className="overflow-hidden rounded-3xl bg-[#081522] text-white shadow-xl">
-      <div className="border-b border-white/10 px-6 py-6 sm:px-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.3em] text-[#b4ff45]">Centro de actividad</p>
-            <h2 className="mt-2 font-heading text-3xl font-black uppercase sm:text-4xl">Crear evento</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Centraliza torneos y futuras actividades de la organización desde un solo lugar.</p>
-          </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b4ff45]/30 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#d8ffad]"><CalendarDays size={15} />Gestión institucional</span>
-        </div>
+    <Card labelledBy="create-event-title" className="ax-drop-in space-y-5">
+      <CardHeader id="create-event-title" title="Crear evento" size="lg" actions={onClose && <IconButton icon={X} label="Cerrar" size={36} onClick={onClose} className="border-transparent" />} />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Tipo de evento">
+        {eventOptions.map(({ id, title, description, icon: Icon, enabled }) => {
+          const active = selectedEvent === id
+          return <button key={id} type="button" role="radio" aria-checked={active} disabled={!enabled} onClick={() => setSelectedEvent(id)} className={cx(
+            'flex cursor-pointer items-start gap-3 rounded-[14px] border p-4 text-left transition-[background-color,border-color] duration-150 disabled:cursor-not-allowed',
+            active ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)]' : 'border-[var(--ax-line)] hover:border-[var(--ax-line-strong)] hover:bg-[var(--ax-hover)]',
+          )}>
+            <span aria-hidden="true" className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]', active ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : enabled ? 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-muted)]')}><Icon size={18} /></span>
+            <span className="min-w-0 space-y-1">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <strong className={cx('text-sm font-semibold', enabled ? 'text-[var(--ax-text)]' : 'text-[var(--ax-text-secondary)]')}>{title}</strong>
+                {!enabled && <Badge>Próximamente</Badge>}
+              </span>
+              <span className="block text-[13px] leading-[18px] text-[var(--ax-muted)]">{description}</span>
+            </span>
+          </button>
+        })}
       </div>
 
-      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[.85fr_1.15fr]">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-slate-400">Selecciona una opción</p>
-          <div className="mt-4 grid gap-3">
-            {eventOptions.map(({ id, title, description, icon: Icon, enabled }) => (
-              <button key={id} type="button" disabled={!enabled} onClick={() => setSelectedEvent(id)} className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 text-left transition ${selectedEvent === id ? 'border-[#b4ff45] bg-[#b4ff45] text-[#081522]' : 'border-white/10 bg-white/[.03] text-white hover:border-white/30'} disabled:cursor-not-allowed disabled:opacity-55`}>
-                <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selectedEvent === id ? 'bg-[#081522]/10' : 'bg-white/10'}`}><Icon size={20} /></span>
-                <span><strong className="block text-sm font-bold">{title}</strong><span className={`mt-1 block text-xs leading-5 ${selectedEvent === id ? 'text-[#254600]' : 'text-slate-400'}`}>{description}</span>{!enabled && <span className="mt-2 block text-[10px] font-bold uppercase tracking-wider text-[#b4ff45]">Próximamente</span>}</span>
-              </button>
-            ))}
+      {(selectedEvent === 'torneo' || isQuickEvent) && <form onSubmit={createTournament} className="space-y-4 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-4 sm:p-5">
+        <p className="text-[13px] text-[var(--ax-text-secondary)]">{isQuickEvent ? 'Torneo no oficial: podrás agregar equipos registrados y equipos temporales.' : 'Nuevo torneo: solo podrás agregar equipos registrados en AthlonX.'}</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          {field('Nombre del torneo', <input required value={name} onChange={(event) => setName(event.target.value)} className={inputClass} placeholder="Copa AthlonX" />, 'sm:col-span-2 lg:col-span-1')}
+          <Select label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" />
+          <Select label="Modalidad" value={modalityId} onChange={setModalityId} options={selectableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'} disabled={!disciplineId || !selectableModalities.length} />
+        </div>
+        {disciplineId && !selectableModalities.length && <Notice tone="warning" icon={AlertTriangle}>{modalityError || 'Cargando modalidades…'}</Notice>}
+        {isFootball && rulesError && <Notice tone="warning" icon={AlertTriangle}>{rulesError}</Notice>}
+
+        {isBasketball3 && <div className="space-y-4">
+          <Notice tone="success" icon={Info}>16 equipos · eliminación directa · una cancha · un periodo. Plantillas de 3 a 6 jugadores.</Notice>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {field('Duración del periodo (min)', numberInput(halfDuration, setHalfDuration, '1', '120'))}
+            {field('Intervalo entre partidos (min)', numberInput(intervalDuration, setIntervalDuration, '0', '120'))}
+            {field('Duración de cada prórroga (min)', numberInput(overtimeDuration, setOvertimeDuration, '1', '120'))}
+            {field('Inicio de la jornada', <input required type="time" value={opensAt} onChange={(event) => setOpensAt(event.target.value)} className={inputClass} />)}
+            {field('Cierre de la jornada', <input required type="time" value={closesAt} onChange={(event) => setClosesAt(event.target.value)} className={inputClass} />)}
           </div>
+          <p className="text-xs leading-5 text-[var(--ax-muted)]">El calendario reserva periodo e intervalo. Las prórrogas pueden retrasarlo. En prórroga se requieren 2 puntos de ventaja; si se agota un bloque sin esa ventaja, continúa otro de la misma duración.</p>
+        </div>}
+
+        {isFootball8 && <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Select label="Formato de juego" value={competitionFormat} onChange={setCompetitionFormat} options={[{ value: 'knockout', label: 'Eliminación directa' }]} />
+            <Select label="Número de canchas" value={courtsCount} onChange={setCourtsCount} options={[{ value: '1', label: '1 cancha' }, { value: '2', label: '2 canchas' }]} />
+            <Select label="Máximo de equipos" value={maxTeams} onChange={setMaxTeams} options={[{ value: String(footballEight.maxTeams), label: '16 equipos' }]} />
+            {field('Plantilla máxima', numberInput(maxRosterSize, setMaxRosterSize, '1'))}
+            {field('Minutos por tiempo', numberInput(halfDuration, setHalfDuration, '1', '120'))}
+            {field('Descanso entre tiempos', numberInput(halftimeDuration, setHalftimeDuration, '0', '60'))}
+            {field('Intervalo entre partidos', numberInput(intervalDuration, setIntervalDuration, '0', '120'))}
+          </div>
+          <Notice tone="success" icon={Info}>
+            Octavos → cuartos → semifinales → final. Si hay empate: 10 minutos extra y, si persiste, penales directos.
+            {selectedRule && <> {footballEight.playersOnField} jugadores en cancha · cambios ilimitados.</>}
+          </Notice>
+        </div>}
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {field('Fecha inicial', <input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={inputClass} />)}
+          {field('Fecha final', <input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className={inputClass} />)}
+          {isBasketball3
+            ? field('Sede', <input required value={location} onChange={(event) => setLocation(event.target.value)} className={inputClass} />)
+            : <Select label="Ciudad" value={location} onChange={setLocation} options={PANAMA_CITIES.map((city) => ({ value: city, label: city }))} placeholder="Seleccionar ciudad" />}
         </div>
 
-        {(selectedEvent === 'torneo' || selectedEvent === 'torneo-rapido') && <form onSubmit={createTournament} className="rounded-2xl border border-white/10 bg-white/[.04] p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">{selectedEvent === 'torneo-rapido' ? 'Torneo no oficial' : 'Nuevo torneo'}</p><h3 className="mt-2 font-heading text-2xl font-black uppercase">Configuración inicial</h3><p className="mt-2 text-sm leading-6 text-slate-400">{selectedEvent === 'torneo-rapido' ? 'Podrás agregar equipos oficiales y equipos temporales para esta competencia.' : 'Solo podrás agregar equipos registrados en AthlonX.'}</p></div><Trophy className="text-[#b4ff45]" size={24} /></div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none placeholder:text-slate-500 focus:border-[#b4ff45]" placeholder="Copa AthlonX" /></label>
-            <StyledSelect label="Disciplina" value={disciplineId} onChange={setDisciplineId} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder="Seleccionar disciplina" required />
-              <StyledSelect
-                label="Modalidad"
-                value={modalityId}
-                onChange={setModalityId}
-                options={selectableModalities.map((modality) => ({
-                  value: modality.id,
-                  label: modality.name,
-                }))}
-                placeholder={disciplineId ? 'Seleccionar modalidad' : 'Selecciona una disciplina'}
-                disabled={!disciplineId || !selectableModalities.length}
-                required
-              />
-            {disciplineId && !selectableModalities.length && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{modalityError || 'Cargando modalidades...'}</p>}
-            {isFootball && rulesError && <p className="text-xs leading-5 text-amber-200 sm:col-span-2">{rulesError}</p>}
-            {isBasketball3 && <>
-              <p className="text-sm leading-6 text-[#d8ffad] sm:col-span-2">16 equipos · eliminación directa · una cancha · un periodo. Plantillas de 3 a 6 jugadores.</p>
-              <label className="block text-sm font-semibold">Duración del periodo (minutos)<input required type="number" min="1" max="120" value={halfDuration} onChange={e => setHalfDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <label className="block text-sm font-semibold">Intervalo entre partidos (minutos)<input required type="number" min="0" max="120" value={intervalDuration} onChange={e => setIntervalDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <label className="block text-sm font-semibold">Duración de cada prórroga (minutos)<input required type="number" min="1" max="120" value={overtimeDuration} onChange={e => setOvertimeDuration(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <label className="block text-sm font-semibold">Sede<input required value={location} onChange={e => setLocation(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <label className="block text-sm font-semibold">Inicio de la jornada<input required type="time" value={opensAt} onChange={e => setOpensAt(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <label className="block text-sm font-semibold">Cierre de la jornada<input required type="time" value={closesAt} onChange={e => setClosesAt(e.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3" /></label>
-              <p className="text-xs leading-5 text-slate-400 sm:col-span-2">El calendario reserva periodo e intervalo. Las prórrogas pueden retrasarlo. En prórroga se requieren 2 puntos de ventaja; si se agota un bloque sin esa ventaja, continúa otro de la misma duración.</p>
-            </>}
-            {isFootball8 && <>
-              <StyledSelect
-                label="Formato de juego"
-                value={competitionFormat}
-                onChange={setCompetitionFormat}
-                options={[{ value: 'knockout', label: 'Eliminación directa' }]}
-                required
-              />
-              <label className="block text-sm font-semibold">
-                Número de canchas
-                <select
-                  required
-                  value={courtsCount}
-                  onChange={(event) => setCourtsCount(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3"
-                >
-                  <option value="1">1 cancha</option>
-                  <option value="2">2 canchas</option>
-                </select>
-              </label>
-              <StyledSelect
-                label="Máximo de equipos"
-                value={maxTeams}
-                onChange={setMaxTeams}
-                options={[{ value: String(footballEight.maxTeams), label: '16 equipos' }]}
-                required
-              />
-              <label className="block text-sm font-semibold">
-                Plantilla máxima
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  value={maxRosterSize}
-                  onChange={(event) => setMaxRosterSize(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3"
-                />
-              </label>
-              <label className="block text-sm font-semibold">
-                Minutos por tiempo
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  max="120"
-                  value={halfDuration}
-                  onChange={(event) => setHalfDuration(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3"
-                />
-              </label>
-              <label className="block text-sm font-semibold">
-                Descanso entre tiempos
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  max="60"
-                  value={halftimeDuration}
-                  onChange={(event) => setHalftimeDuration(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3"
-                />
-              </label>
-              {isFootball8 && (
-                <p className="text-sm text-[#d8ffad] sm:col-span-2">
-                  Octavos → cuartos → semifinales → final. Si hay empate:
-                  10 minutos extra y, si persiste, penales directos.
-                </p>
-              )}
-              <label className="block text-sm font-semibold">
-                Intervalo entre partidos
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={intervalDuration}
-                  onChange={(event) => setIntervalDuration(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3"
-                />
-              </label>
-              {selectedRule && (
-                <div className="rounded-xl border border-[#b4ff45]/25 bg-[#b4ff45]/10 p-3 text-xs leading-5 text-[#d8ffad] sm:col-span-2">
-                  {isFootball8 ? footballEight.playersOnField : selectedRule.players_on_field}
-                  {' jugadores en cancha · '}
-                  {isFootball8 || selectedRule.substitutions_unlimited
-                    ? 'Cambios ilimitados'
-                    : `${selectedRule.substitutions_allowed} cambios`}
-                  .
-                </div>
-              )}
-            </>}
-            {!isBasketball3 && <LocationFields country={PANAMA_COUNTRY} city={location} onCityChange={setLocation} className="sm:col-span-2" />}
-            <label className="block text-sm font-semibold">Fecha inicial<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
-            <label className="block text-sm font-semibold">Fecha final<input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-white/15 bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label>
+        {message && <Notice tone={createdTournament ? 'success' : 'warning'} icon={createdTournament ? CheckCircle2 : AlertTriangle}>{message}</Notice>}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-[var(--ax-muted)]">Se guarda como borrador para completar equipos y fixtures.</p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {onClose && <Button variant="ghost" onClick={onClose} disabled={loading}>Cancelar</Button>}
+            <Button type="submit" variant="primary" disabled={loading}>{loading ? 'Guardando…' : 'Guardar borrador y continuar'}</Button>
           </div>
-
-          {message && <p role="status" className="mt-5 rounded-xl border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]">{message}</p>}
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">El torneo se guardará como borrador para completar su configuración.</p><button type="submit" disabled={loading} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#081522] transition hover:bg-[#c8ff7a] disabled:cursor-wait disabled:opacity-60">{loading ? 'Creando...' : 'Crear torneo'}</button></div>
-          {createdTournament && <Link href={`/torneos/ver/${createdTournament.id}`} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver torneo <span aria-hidden="true">→</span></Link>}
-        </form>}
-      </div>
-    </section>
+        </div>
+      </form>}
+    </Card>
   )
 }

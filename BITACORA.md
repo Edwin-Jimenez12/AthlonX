@@ -5,6 +5,50 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Búsqueda, Notificaciones y Eventos pasados a código
+
+**Qué se hizo**
+- Las tres secciones se pasaron al rediseño de Figma (`.ax-v2` y tokens `--ax-*`). Sirven igual para Persona, Equipo y Organización; el menú lateral no cambió.
+- **Búsqueda:**
+  - Buscador grande y segmentos por tipo con conteo.
+  - Filtros: tarjeta lateral en escritorio, fila de selectores en tablet y botón "Filtros · N" en móvil.
+  - Lista compacta con insignia de tipo ("División" para divisiones) y "Cargar más".
+  - Estados de antes de buscar y sin resultados (con "Quitar filtros").
+- **Notificaciones:**
+  - Filtros Todas, Pendientes y No leídas.
+  - Grupos Hoy, Esta semana y Anteriores, con icono por tipo e insignia de estado.
+  - "Marcar todas como leídas".
+- **Eventos:**
+  - "Crear evento" abre el panel inline.
+  - Buscador, segmentos de estado y selector de disciplina.
+  - Borradores con "Continuar" y borrado con confirmación inline (pide la contraseña, como antes).
+  - Tarjetas de torneo en 2 columnas y "Ver más torneos".
+- El detalle y las decisiones están en `documentos/rediseno-secciones.md` (sección "En código").
+
+**Archivos**
+- `Components/mi-equipo/ui.tsx`: `PageHeader`, `IconTile`, `EntityMark` y `Select` con `hideLabel`.
+- `app/(panel)/busqueda/page.tsx` y `Components/busqueda/search-results.tsx`.
+- `Components/notifications-history.tsx` y `Components/notificaciones/notification-row.tsx`.
+- `app/(panel)/eventos/page.tsx`, `Components/eventos/event-cards.tsx` y `Components/organization-events-panel.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (13 de 13).
+- Capturas con Playwright en 1440, 834 y 390 px, en oscuro y claro, con una ruta temporal de datos de ejemplo (borrada antes del commit). Se probó el borrado inline (contraseña incorrecta → error en la fila).
+- Se corrigió durante la revisión:
+  - Títulos de notificación en Bebas por la regla global de `h1`–`h3`.
+  - El botón "Continuar" visible en móvil.
+  - El placeholder cortado del buscador.
+- Las pantallas reales cargan sin errores de consola. No se probó contra Supabase real: en la nube no hay sesión ni `.env.local`.
+
+**Pendiente**
+- Probar con cuentas reales:
+  - Búsqueda: conteos y filtros.
+  - Notificaciones: aceptar, rechazar y marcar todas.
+  - Eventos: crear un borrador (debe abrir la configuración del torneo) y eliminarlo.
+- La cabecera superior (campana y usuario) y el menú lateral siguen con el estilo anterior en tema claro.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma de Búsqueda, Notificaciones y Eventos
 
 **Qué se hizo**

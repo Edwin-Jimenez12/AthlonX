@@ -85,12 +85,38 @@ export function Badge({ tone = 'neutral', dot = tone !== 'neutral', children, cl
   </span>
 }
 
+// Cabecera de página del rediseño: título en Bebas Neue, descripción y acciones a la derecha.
+export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+  return <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
+    <div className="min-w-0 space-y-2">
+      <h1 className="font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] sm:text-[40px] sm:leading-[42px] lg:text-[48px] lg:leading-[50px]">{title}</h1>
+      {description && <p className="max-w-3xl text-sm leading-6 text-[var(--ax-text-secondary)] sm:text-[15px]">{description}</p>}
+    </div>
+    {actions && <div className="flex shrink-0 flex-col gap-2 sm:flex-row">{actions}</div>}
+  </header>
+}
+
+// Icono en recuadro (iconos de notificación, marcas de torneo y borradores en Figma).
+export function IconTile({ icon: Icon, size = 40, tone = 'accent' }: { icon: LucideIcon; size?: 36 | 40 | 56; tone?: 'accent' | 'muted' }) {
+  const dimension = size === 56 ? 'h-14 w-14 rounded-[14px]' : size === 36 ? 'h-9 w-9 rounded-[10px]' : 'h-10 w-10 rounded-[10px]'
+  return <span aria-hidden="true" className={cx('flex shrink-0 items-center justify-center', dimension, tone === 'accent' ? 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : 'border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text-secondary)]')}>
+    <Icon size={size === 56 ? 24 : 18} />
+  </span>
+}
+
+// Marca cuadrada para equipos, organizaciones y torneos (componente "Marca/Entidad").
+export function EntityMark({ name, src, size = 44 }: { name: string; src?: string | null; size?: 40 | 44 }) {
+  return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] font-bold text-[var(--ax-text)]', size === 40 ? 'h-10 w-10 text-[13px]' : 'h-11 w-11 text-sm')}>
+    {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
+  </span>
+}
+
 export function initialsOf(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
 }
 
-export function Avatar({ name, src, size = 36 }: { name: string; src?: string | null; size?: 32 | 36 | 40 }) {
-  const dimension = size === 32 ? 'h-8 w-8 text-xs' : size === 40 ? 'h-10 w-10 text-sm' : 'h-9 w-9 text-[13px]'
+export function Avatar({ name, src, size = 36 }: { name: string; src?: string | null; size?: 32 | 36 | 40 | 44 }) {
+  const dimension = size === 32 ? 'h-8 w-8 text-xs' : size === 40 ? 'h-10 w-10 text-sm' : size === 44 ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-[13px]'
   return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ax-accent)] font-bold text-[var(--ax-on-accent)]', dimension)}>
     {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
   </span>
@@ -127,7 +153,7 @@ export function FieldLabel({ children }: { children: ReactNode }) {
 export type SelectOption = { value: string; label: string }
 
 // Selector propio del rediseño: mismo aspecto que los campos y menú con los tokens del panel.
-export function Select({ label, value, options, onChange, disabled, placeholder = 'Seleccionar' }: { label: string; value: string; options: SelectOption[]; onChange: (value: string) => void; disabled?: boolean; placeholder?: string }) {
+export function Select({ label, value, options, onChange, disabled, placeholder = 'Seleccionar', hideLabel = false }: { label: string; value: string; options: SelectOption[]; onChange: (value: string) => void; disabled?: boolean; placeholder?: string; hideLabel?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const listId = useId()
@@ -144,9 +170,9 @@ export function Select({ label, value, options, onChange, disabled, placeholder 
   }
 
   return <div ref={ref} className="relative min-w-0">
-    <FieldLabel>{label}</FieldLabel>
-    <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((current) => !current)} onKeyDown={onKeyDown} className={cx(inputClass, 'flex cursor-pointer items-center justify-between gap-2 text-left')}>
-      <span className={selected ? '' : 'text-[var(--ax-muted)]'}>{selected?.label || placeholder}</span>
+    {hideLabel ? <span className="sr-only">{label}</span> : <FieldLabel>{label}</FieldLabel>}
+    <button type="button" disabled={disabled} aria-label={hideLabel ? label : undefined} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((current) => !current)} onKeyDown={onKeyDown} className={cx(inputClass, 'flex cursor-pointer items-center justify-between gap-2 text-left')}>
+      <span className={cx('truncate', !selected && 'text-[var(--ax-muted)]')}>{selected?.label || placeholder}</span>
       <ChevronDown size={16} aria-hidden="true" className={cx('shrink-0 text-[var(--ax-muted)] transition-transform duration-150', open && 'rotate-180')} />
     </button>
     {open && <div id={listId} role="listbox" aria-label={label} className="ax-drop-in absolute left-0 right-0 z-40 mt-2 max-h-64 overflow-y-auto rounded-xl border border-[var(--ax-line-strong)] bg-[var(--ax-surface-raised)] p-1.5 shadow-[var(--ax-shadow-pop)]">

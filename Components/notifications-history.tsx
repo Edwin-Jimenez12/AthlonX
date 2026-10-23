@@ -1,39 +1,24 @@
 'use client'
 
-import { Bell, Check, Clock3, MailOpen, X } from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { Bell, CheckCheck, CheckCircle2, MailOpen, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-
-type NotificationRecord = {
-  id: string
-  title: string
-  body: string
-  affiliation_request_id: string | null
-  player_number_change_request_id: string | null
-  tournament_team_invitation_id: string | null
-  tournament_id: string | null
-  read_at: string | null
-  created_at: string
-  status: 'pending' | 'accepted' | 'rejected' | 'info'
-  responded_at: string | null
-}
+import { Button, Card, EmptyState, Notice, PageHeader, Segment, SkeletonRows } from './mi-equipo/ui'
+import { NotificationRecord, NotificationRow, canRespond, notificationGroup } from './notificaciones/notification-row'
 
 type RequestState = { id: string; status: 'pending' | 'accepted' | 'rejected'; responded_at: string | null }
 type TournamentInvitationState = { id: string; tournament_id: string; status: 'pending' | 'accepted' | 'declined' | 'cancelled'; responded_at: string | null }
+type Filter = 'all' | 'pending' | 'unread'
 
-const statusLabels: Record<NotificationRecord['status'], string> = {
-  pending: 'Pendiente',
-  accepted: 'Aceptada',
-  rejected: 'Rechazada',
-  info: 'Informativa',
-}
+const groups = ['Hoy', 'Esta semana', 'Anteriores'] as const
 
 export function NotificationsHistory() {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [savingNotificationId, setSavingNotificationId] = useState<string | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [markingAll, setMarkingAll] = useState(false)
 
   async function loadNotifications() {
     if (!supabase) {
@@ -72,133 +57,95 @@ export function NotificationsHistory() {
 
   useEffect(() => { void loadNotifications() }, [])
 
-  async function markAsRead(notificationId: string) {
-    if (!supabase) return
-
-    setSavingNotificationId(notificationId)
+  async function markAsRead(notificationIds: string[]) {
+    if (!supabase || !notificationIds.length) return false
     setMessage('')
-
-    const { error } = await supabase
-      .from('user_notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', notificationId)
-
+    const readAt = new Date().toISOString()
+    const { error } = await supabase.from('user_notifications').update({ read_at: readAt }).in('id', notificationIds)
     if (error) {
       setMessage(error.message)
-      setSavingNotificationId(null)
-      return
+      return false
     }
+    const ids = new Set(notificationIds)
+    setNotifications((current) => current.map((notification) => ids.has(notification.id) ? { ...notification, read_at: readAt } : notification))
+    return true
+  }
 
-    setNotifications((current) => current.map((notification) => (
-      notification.id === notificationId
-        ? { ...notification, read_at: new Date().toISOString() }
-        : notification
-    )))
-    setSavingNotificationId(null)
+  async function markOne(notificationId: string) {
+    setBusyId(notificationId)
+    await markAsRead([notificationId])
+    setBusyId(null)
+  }
+
+  async function markAll() {
+    setMarkingAll(true)
+    await markAsRead(notifications.filter((notification) => !notification.read_at).map((notification) => notification.id))
+    setMarkingAll(false)
   }
 
   async function respond(notification: NotificationRecord, decision: 'accepted' | 'rejected') {
     if (!supabase) return
+    setBusyId(notification.id)
+    setMessage('')
+    const answered = (item: NotificationRecord) => item.id === notification.id ? { ...item, status: decision, responded_at: new Date().toISOString(), read_at: new Date().toISOString() } : item
     if (notification.tournament_team_invitation_id) {
       const { error } = await supabase.rpc('respond_tournament_team_invitation', { p_invitation_id: notification.tournament_team_invitation_id, p_decision: decision === 'rejected' ? 'declined' : decision })
-      if (error) {
-        setMessage(error.message)
-        return
-      }
-      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, status: decision, responded_at: new Date().toISOString(), read_at: new Date().toISOString() } : item))
+      setBusyId(null)
+      if (error) return setMessage(error.message)
+      setNotifications((current) => current.map(answered))
       window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
       return
     }
     const requestId = notification.player_number_change_request_id || notification.affiliation_request_id
-    if (!requestId) return
+    if (!requestId) return setBusyId(null)
     const rpcName = notification.player_number_change_request_id ? 'respond_player_number_change_request' : 'respond_affiliation_request'
     const { error } = await supabase.rpc(rpcName, { p_request_id: requestId, p_decision: decision })
-    if (error) {
-      setMessage(error.message)
-      return
-    }
-    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, status: decision, responded_at: new Date().toISOString(), read_at: new Date().toISOString() } : item))
+    setBusyId(null)
+    if (error) return setMessage(error.message)
+    setNotifications((current) => current.map(answered))
     window.dispatchEvent(new CustomEvent(notification.player_number_change_request_id ? 'athlonx-roster-updated' : 'athlonx-affiliation-updated'))
     if (!notification.player_number_change_request_id) {
       window.dispatchEvent(new CustomEvent('athlonx-team-members-change'))
     }
   }
 
-  return <main className="min-h-screen bg-[#07131e] px-5 py-8 text-white lg:ml-64 lg:px-10">
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Centro de actividad</p><h1 className="mt-2 font-heading text-4xl font-black uppercase sm:text-5xl">Notificaciones</h1><p className="mt-2 text-slate-400">Consulta el historial de actividad de tu cuenta y responde las invitaciones pendientes.</p></div><Bell className="text-[#b4ff45]" size={30} /></div></header>
-      {message && <p role="alert" className="rounded-[5px] border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{message}</p>}
-      <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-6 sm:p-8">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-5"><h2 className="font-heading text-2xl font-black uppercase">Historial</h2><span className="rounded-[5px] border border-[#31556b] px-3 py-1 text-xs text-slate-400">{notifications.length} registros</span></div>
-        {loading && <p className="py-10 text-center text-sm text-slate-400">Cargando notificaciones...</p>}
-        {!loading && !notifications.length && <div className="py-12 text-center"><Bell className="mx-auto text-slate-500" size={34} /><p className="mt-3 text-slate-400">Todavía no tienes notificaciones registradas.</p></div>}
-        {!loading && notifications.length > 0 && <div className="mt-5 space-y-3">{notifications.map((notification) => <NotificationCard key={notification.id} notification={notification} onRespond={respond} onMarkAsRead={markAsRead} saving={savingNotificationId === notification.id} />)}</div>}
-      </section>
+  const pending = notifications.filter(canRespond)
+  const unread = notifications.filter((notification) => !notification.read_at)
+  const visible = filter === 'pending' ? pending : filter === 'unread' ? unread : notifications
+  const grouped = groups.map((group) => ({ group, items: visible.filter((notification) => notificationGroup(notification.created_at) === group) })).filter(({ items }) => items.length)
+
+  return <NotificationsLayout
+    message={message}
+    actions={<Button icon={CheckCheck} disabled={!unread.length || markingAll} onClick={() => void markAll()} className="w-full sm:w-auto">{markingAll ? 'Marcando…' : 'Marcar todas como leídas'}</Button>}
+  >
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" aria-label="Filtrar notificaciones">
+      <Segment active={filter === 'all'} label="Todas" count={notifications.length} onClick={() => setFilter('all')} />
+      <Segment active={filter === 'pending'} label="Pendientes" count={pending.length} onClick={() => setFilter('pending')} />
+      <Segment active={filter === 'unread'} label="No leídas" count={unread.length} onClick={() => setFilter('unread')} />
+    </div>
+    {loading ? <SkeletonRows count={4} />
+      : !visible.length ? <EmptyNotifications filter={filter} />
+      : grouped.map(({ group, items }) => <section key={group} aria-label={group}>
+        <h2 className="font-body pt-2 text-[13px] font-semibold tracking-normal text-[var(--ax-muted)]">{group}</h2>
+        <ul>{items.map((notification) => <NotificationRow key={notification.id} notification={notification} busy={busyId === notification.id} onRespond={(item, decision) => void respond(item, decision)} onMarkAsRead={(id) => void markOne(id)} />)}</ul>
+      </section>)}
+  </NotificationsLayout>
+}
+
+export function NotificationsLayout({ message, actions, children }: { message?: string; actions?: ReactNode; children: ReactNode }) {
+  return <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
+    <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-6 sm:px-8 sm:pt-8 lg:px-10">
+      <div className="max-w-[880px] space-y-5 sm:space-y-6">
+        <PageHeader title="Notificaciones" description="Invitaciones, solicitudes y avisos de tu cuenta. Responde las pendientes desde aquí." actions={actions} />
+        {message && <Notice tone="danger" icon={X}>{message}</Notice>}
+        <Card className="space-y-2">{children}</Card>
+      </div>
     </div>
   </main>
 }
 
-function NotificationCard({
-  notification,
-  onRespond,
-  onMarkAsRead,
-  saving,
-}: {
-  notification: NotificationRecord
-  onRespond: (notification: NotificationRecord, decision: 'accepted' | 'rejected') => void
-  onMarkAsRead: (notificationId: string) => void
-  saving: boolean
-}) {
-  const canRespond = notification.status === 'pending' && Boolean(notification.affiliation_request_id || notification.player_number_change_request_id || notification.tournament_team_invitation_id)
-  const statusClass = notification.status === 'accepted' ? 'border-[#b4ff45]/40 bg-[#b4ff45]/5 text-[#dfffba]' : notification.status === 'rejected' ? 'border-[#ff7d88]/40 bg-[#ff7d88]/5 text-[#ffb0b7]' : notification.status === 'pending' ? 'border-[#31556b] bg-[#07131e] text-[#ffd98a]' : 'border-[#31556b] bg-[#07131e] text-slate-400'
-  return (
-    <article className={`rounded-[5px] border p-4 sm:p-5 ${notification.read_at ? 'border-[#294052] bg-[#07131e]' : 'border-[#b4ff45]/40 bg-[#b4ff45]/5'}`}>
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[#b4ff45]/10 text-[#b4ff45]">
-          <Bell size={17} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h3 className="font-bold text-white">{notification.title}</h3>
-              <p className="mt-1 text-xs text-slate-500">{new Date(notification.created_at).toLocaleString('es-PA')}</p>
-            </div>
-            <span className={`inline-flex items-center gap-1 rounded-[5px] border px-2 py-1 text-xs font-bold ${statusClass}`}>
-              {notification.status === 'pending' ? <Clock3 size={13} /> : notification.status === 'accepted' ? <Check size={13} /> : notification.status === 'rejected' ? <X size={13} /> : null}
-              {statusLabels[notification.status]}
-            </span>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-slate-300">{notification.body}</p>
-          {(canRespond || !notification.read_at) && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {canRespond && (
-                <>
-                  <button type="button" onClick={() => onRespond(notification, 'accepted')} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] bg-[#b4ff45] px-3 py-2 text-xs font-bold text-[#07131e]">
-                    <Check size={14} />
-                    Aceptar
-                  </button>
-                  <button type="button" onClick={() => onRespond(notification, 'rejected')} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#ff7d88]/50 px-3 py-2 text-xs font-bold text-[#ff9ca5]">
-                    <X size={14} />
-                    Rechazar
-                  </button>
-                </>
-              )}
-              {notification.tournament_id && <Link href={`/torneos/ver/${notification.tournament_id}`} className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45]">Inspeccionar torneo</Link>}
-              {!notification.read_at && (
-                <button
-                  type="button"
-                  onClick={() => onMarkAsRead(notification.id)}
-                  disabled={saving}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300 hover:border-[#b4ff45] hover:text-[#b4ff45] disabled:cursor-wait disabled:opacity-60"
-                >
-                  <MailOpen size={14} />
-                  {saving ? 'Guardando...' : 'Marcar como leída'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  )
+function EmptyNotifications({ filter }: { filter: Filter }) {
+  if (filter === 'pending') return <EmptyState icon={CheckCircle2} title="No tienes nada pendiente" description="Las invitaciones y solicitudes nuevas aparecerán aquí." />
+  if (filter === 'unread') return <EmptyState icon={MailOpen} title="Estás al día" description="Ya leíste todas tus notificaciones." />
+  return <EmptyState icon={Bell} title="Todavía no tienes notificaciones" description="Aquí verás las invitaciones a equipos y torneos, y los avisos de tu cuenta." />
 }
