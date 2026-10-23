@@ -58,6 +58,20 @@ Frames: `Convocatoria · {Escritorio | Tablet | Móvil} · {Oscuro | Claro}` y `
   - **Guardar borrador** y **Descargar PDF**.
   - Nota: tras el cierre, solo el organizador puede reabrir la lista.
 
+### Estados de la lista
+
+Frames: `Convocatoria · {Escritorio | Móvil} · {Enviada | Editando enviada | Bloqueada} · {Oscuro | Claro}`.
+
+| Estado | Qué se ve | Acciones |
+|---|---|---|
+| **Enviada** (antes del cierre) | Sigue la cuenta regresiva. Aviso verde "Lista completa y enviada", fecha y hora del envío. Los jugadores se ven como insignias Titular/Reserva, sin selector ni ✕. | **Editar lista enviada** y Descargar PDF. Nota: "Puedes editarla y volver a enviarla hasta…". |
+| **Editando enviada** | Vuelven los selectores y las ✕. Aviso neutro: "Los cambios no cuentan hasta que la vuelvas a enviar". En la división aparece "Cambios sin enviar". | **Reenviar lista**, Descartar cambios y Descargar PDF. Si no se reenvía antes del cierre, queda válida la última versión enviada. |
+| **Bloqueada** (pasado el plazo) | La tarjeta de plazo pasa a roja ("Lista bloqueada · Cerrada · desde…"). Todo es de solo lectura, con un aviso: el organizador debe reabrirla. | Edición cerrada (deshabilitado) y Descargar PDF. |
+
+En móvil, la barra inferior cambia de texto y de color según el estado: verde para Enviada, ámbar para Cambios sin enviar y rojo para Bloqueada. El botón cambia a "Editar lista", "Reenviar lista" o "Ver lista".
+
+Supuesto por confirmar: al editar una lista ya enviada, la versión enviada sigue vigente hasta que se reenvía. El código actual guarda los cambios sobre la misma convocatoria, así que esto también requiere un ajuste.
+
 **Requiere un cambio de datos:** hoy `tournament_fixture_callup_players.state` solo admite `convocado`, `no_participante` y `no_convocado`, y `tournament_callup_rules` guarda `max_players`, `active_players` e `inactive_players`. Para separar titulares y reservas hay que añadir un estado `reserva` (o una columna `is_substitute`) y definir la regla del torneo como número de titulares y máximo de reservas. Además, el mínimo de 5 jugadores para enviar está fijo en el código y debería salir de esa regla.
 
 ## Responsive

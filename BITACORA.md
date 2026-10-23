@@ -5,6 +5,24 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `claude/great-ritchie-2n8uq9` · nube · Estados de la convocatoria en Figma
+
+**Qué se hizo**
+- Se diseñaron los estados Enviada (editable antes del cierre), Editando enviada (Reenviar lista y Descartar cambios) y Bloqueada (solo lectura).
+- Se crearon 12 frames: escritorio y móvil, en oscuro y en claro.
+- Tokens nuevos: `danger-soft` y `danger-line`. Botones nuevos: `Botón/Enviar`, `Botón/Descartar`, `Botón/Editar lista` y `Botón/Edición cerrada`.
+- Se documentó en `documentos/rediseno-mi-equipo.md`.
+
+**Verificación**
+- Capturas revisadas de los 3 estados en escritorio oscuro, móvil Enviada y Bloqueada en oscuro, y escritorio Bloqueada en claro.
+
+**Pendiente**
+- Confirmar con el usuario que la versión enviada sigue vigente mientras se edita.
+- Separar titular y reserva en Supabase.
+- Implementar en web cuando el usuario apruebe.
+
+---
+
 ## 2026-10-22 · `claude/great-ritchie-2n8uq9` · nube · Pantalla de convocatoria en Figma
 
 **Qué se hizo**
