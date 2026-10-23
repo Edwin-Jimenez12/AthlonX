@@ -3,14 +3,15 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Info, Lock, Pencil } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Info, Lock, Pencil, Search } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { useRegisterSettingsNav } from '../settings-nav'
-import { Badge, Button, Notice as InlineNotice, Segment, Select, buttonClass, cx, inputClass } from '../mi-equipo/ui'
+import { Badge, Button, Notice as InlineNotice, Segment, Select, buttonClass, cx, inputClass, useDismiss } from '../mi-equipo/ui'
 import type { Country } from '../../lib/mi-perfil'
-import { formatPanamaNumber, joinPhone, parsePhone, phoneError, plainPhoneNumber } from '../../lib/mi-perfil'
+import type { CountryCode } from 'libphonenumber-js'
+import { formatNational, joinPhone, phoneCountries, phoneError, splitPhone } from '../../lib/phone'
 
 // Piezas de Mi perfil con el lenguaje del rediseño (página "Claude" en Figma, desde y≈24 000).
 // Usan solo tokens --ax-* dentro de .ax-v2, así que siguen el tema claro u oscuro del panel.
@@ -492,56 +493,98 @@ export function CountryFlag({ flagCode, name }: { flagCode: string; name: string
   return <Flag title={`Bandera de ${name}`} className="h-[14px] w-[21px] shrink-0 rounded-[2px]" />
 }
 
-export function PhoneField({ label, value, onChange, disabled = false, countries }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; countries: Country[] }) {
-  if (disabled) return <ReadValue label={label} value={value} />
-  const parts = parsePhone(value)
-  const registered = parts.code ? countries.find((country) => country.dialCode === parts.code) : undefined
-  const unknownCode = parts.code !== '' && !registered
-  const missingCode = phoneError(value)
+// Teléfono de cualquier país: selector con buscador, bandera y código, y el número con el formato del país.
+export function PhoneField({ label, value, onChange, disabled = false }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; countries?: Country[] }) {
+  const [iso, setIso] = useState<CountryCode>(() => splitPhone(value).iso)
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const numberRef = useRef<HTMLInputElement>(null)
+  const listId = useId()
+  useDismiss(wrapperRef, open, () => setOpen(false))
+  useEffect(() => { if (open) searchRef.current?.focus() }, [open])
 
-  // Panamá usa formato 6509-4159; los demás países se escriben solo con dígitos.
-  function formatFor(code: string, raw: string) {
-    const match = countries.find((country) => country.dialCode === code)
-    return match?.code === 'PA' ? formatPanamaNumber(raw) : plainPhoneNumber(raw)
+  // Si el valor cambia desde fuera (descartar cambios), el país se toma del número guardado.
+  const parts = splitPhone(value, iso)
+  useEffect(() => { if (parts.iso !== iso && value) setIso(parts.iso) }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (disabled) {
+    const shown = value ? splitPhone(value) : null
+    return (
+      <div className="min-w-0 space-y-1.5">
+        <span className={labelClass}>{label}</span>
+        <p className={cx('flex min-h-6 items-center gap-2 text-[15px]', value ? 'text-[var(--ax-text)]' : 'text-[var(--ax-muted)]')}>
+          {shown && <CountryFlag flagCode={shown.iso} name={countryName(shown.iso)} />}
+          {value || 'Sin registrar'}
+        </p>
+      </div>
+    )
+  }
+
+  const countries = phoneCountries()
+  const selected = countries.find((country) => country.iso === iso) ?? countries[0]
+  const term = query.trim().toLowerCase().replace(/^\+/, '')
+  const filtered = term ? countries.filter((country) => country.name.toLowerCase().includes(term) || country.dialCode.startsWith(term) || country.iso.toLowerCase() === term) : countries
+  const error = phoneError(value)
+
+  function pick(next: CountryCode) {
+    setIso(next)
+    setOpen(false)
+    setQuery('')
+    onChange(joinPhone(next, formatNational(next, parts.national)))
+    window.requestAnimationFrame(() => numberRef.current?.focus())
   }
 
   return (
     <div className="min-w-0 space-y-1.5">
       <span className={labelClass}>{label}</span>
-      <div className="flex gap-2">
-        <div className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[10px] border bg-[var(--ax-surface-sunken)] px-2.5 focus-within:border-[var(--ax-accent-text)]', unknownCode || missingCode ? 'border-[var(--ax-danger-line)]' : 'border-[var(--ax-line-strong)]')}>
-          <span className="text-sm text-[var(--ax-muted)]">+</span>
-          <input
-            inputMode="numeric"
-            aria-label="Código de país"
-            className="w-10 bg-transparent text-sm text-[var(--ax-text)] outline-none placeholder:text-[var(--ax-muted)]"
-            value={parts.code}
-            placeholder="507"
-            maxLength={4}
-            required
-            aria-required="true"
-            onChange={(event) => {
-              const code = event.target.value.replace(/\D/g, '').slice(0, 4)
-              // Sin código no hay número: al borrar el código se limpia el número.
-              onChange(code ? joinPhone(code, formatFor(code, parts.number)) : '')
-            }}
-          />
-          {registered && <CountryFlag flagCode={registered.flagCode} name={registered.name} />}
-        </div>
+      <div ref={wrapperRef} className="relative flex gap-2">
+        <button type="button" aria-label={`País del teléfono: ${selected.name} +${selected.dialCode}`} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((current) => !current)} className={cx('flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] border bg-[var(--ax-surface-sunken)] px-2.5 text-sm text-[var(--ax-text)] transition-[border-color] duration-150 hover:border-[var(--ax-muted)]', open ? 'border-[var(--ax-accent-text)]' : error ? 'border-[var(--ax-danger-line)]' : 'border-[var(--ax-line-strong)]')}>
+          <CountryFlag flagCode={selected.iso} name={selected.name} />
+          <span className="tabular-nums">+{selected.dialCode}</span>
+          <ChevronDown size={14} aria-hidden="true" className={cx('text-[var(--ax-muted)] transition-transform duration-150', open && 'rotate-180')} />
+        </button>
         <input
+          ref={numberRef}
           inputMode="tel"
-          aria-label="Número de teléfono"
-          className={cx(inputClass, 'min-w-0 flex-1')}
-          value={parts.number}
-          disabled={!parts.code}
-          placeholder={parts.code ? (registered?.code === 'PA' ? '6000-0000' : 'Número') : 'Primero el código de país'}
-          onChange={(event) => onChange(joinPhone(parts.code, formatFor(parts.code, event.target.value)))}
+          autoComplete="tel-national"
+          aria-label={`${label}: número`}
+          aria-invalid={Boolean(error)}
+          className={cx(inputClass, 'min-w-0 flex-1 tabular-nums', error && 'border-[var(--ax-danger-line)]')}
+          value={parts.national}
+          placeholder={iso === 'PA' ? '6000-0000' : 'Número'}
+          onChange={(event) => onChange(joinPhone(iso, formatNational(iso, event.target.value)))}
         />
+        {open && (
+          <div className="ax-drop-in absolute left-0 top-full z-40 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-[var(--ax-line-strong)] bg-[var(--ax-surface-raised)] p-1.5 shadow-[var(--ax-shadow-pop)]">
+            <label className="relative mb-1.5 block">
+              <span className="sr-only">Buscar país</span>
+              <Search size={15} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ax-muted)]" />
+              <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && filtered[0]) { event.preventDefault(); pick(filtered[0].iso) } }} placeholder="Buscar país o código" className={cx(inputClass, 'h-9 pl-8')} />
+            </label>
+            <ul id={listId} role="listbox" aria-label="País del teléfono" className="max-h-64 overflow-y-auto">
+              {filtered.length ? filtered.map((country) => {
+                const active = country.iso === iso
+                return <li key={country.iso} role="option" aria-selected={active}>
+                  <button type="button" onClick={() => pick(country.iso)} className={cx('flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-sm', active ? 'bg-[var(--ax-accent-soft)] font-semibold text-[var(--ax-accent-text)]' : 'text-[var(--ax-text)] hover:bg-[var(--ax-hover)]')}>
+                    <CountryFlag flagCode={country.iso} name={country.name} />
+                    <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                    <span className={cx('tabular-nums', active ? '' : 'text-[var(--ax-muted)]')}>+{country.dialCode}</span>
+                  </button>
+                </li>
+              }) : <li className="px-2.5 py-3 text-[13px] text-[var(--ax-muted)]">No hay países con “{query}”.</li>}
+            </ul>
+          </div>
+        )}
       </div>
-      {missingCode && <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">{missingCode}</span>}
-      {!missingCode && unknownCode && <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">Número de país no registrado en AthlonX.</span>}
+      {error && <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">{error}</span>}
     </div>
   )
+}
+
+function countryName(iso: CountryCode) {
+  return phoneCountries().find((country) => country.iso === iso)?.name ?? iso
 }
 
 // Copia el código y confirma con "Copiado" durante 2 segundos.

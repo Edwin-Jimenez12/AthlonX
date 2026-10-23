@@ -108,5 +108,13 @@ Aprobado por Edwin: barra de cambios en vez de los modales, configuración que s
 - Ya existen las tablas `profiles`, `profile_privacy_settings`, `profile_tournament_visibility`, `account_preferences`, `team_division_catalog`, `organization_disciplines`, `organization_modalities` y `staff_positions`.
 - Ya existen las funciones `update_team_profile`, `update_organization_public_profile`, `update_team_member_role`, `remove_team_member_role`, `get_team_members_for_manager`, `is_organization_manager` y `ensure_my_organization`.
 - **`request_account_deletion`:** se aplicó el 2026-10-23 con `supabase/cuenta-eliminacion-migration.sql` y `supabase/cuenta-eliminacion-auth-migration.sql`. Las cuentas vencidas se borran de Supabase Auth cada hora con `pg_cron`.
-- **Falta `athlonx_countries`** (`supabase/paises-athlonx-migration.sql`). Sin ella, el teléfono usa Panamá como único país (`fallbackCountries`). Esta migración también cambia el país de todos los equipos y organizaciones a Panamá.
+- **Teléfonos de cualquier país (2026-10-23):**
+  - `lib/phone.ts` usa `libphonenumber-js`: 245 países con su código, nombre en español, formato por país y validación.
+  - `PhoneField` tiene un selector con buscador, bandera (`country-flag-icons`) y código. Panamá es el país por defecto.
+  - Se guarda como `+código número` (por ejemplo `+507 6123-4567` o `+1 (415) 555-2671`).
+  - El teléfono ya no depende de `athlonx_countries`. Esa tabla y `supabase/paises-athlonx-migration.sql` solo afectan el país de equipos y organizaciones, y la migración no se aplicó.
+- **Eliminación por tipo de cuenta:** se pueden eliminar las cuentas de Persona y de Equipo; las de Organización no.
+  - Lo impone `request_account_deletion`, y la purga omite las organizaciones (`supabase/cuenta-eliminacion-tipos-migration.sql`).
+  - En la sección Cuenta de Organización, la tarjeta explica que no se puede eliminar y enlaza a Contáctanos.
+  - Al eliminar una cuenta de Equipo, el equipo se conserva sin autor.
 - Ninguna de las dos se aplicó: esperan la autorización de Edwin.

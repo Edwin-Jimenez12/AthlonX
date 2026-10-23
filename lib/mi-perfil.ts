@@ -340,33 +340,5 @@ export async function loadCountries(): Promise<Country[]> {
   return data.map((row) => ({ name: row.name, code: row.code, dialCode: row.dial_code, flagCode: row.flag_code }))
 }
 
-export type PhoneParts = { code: string; number: string }
-
-// Teléfono guardado como "+507 6509-4159". Sin prefijo se trata todo como número.
-export function parsePhone(stored: string | null | undefined): PhoneParts {
-  if (!stored) return { code: '', number: '' }
-  const match = stored.match(/^\+(\d{1,4})\s*(.*)$/)
-  if (!match) return { code: '', number: stored }
-  return { code: match[1], number: match[2] }
-}
-
-// Formato panameño: 8 dígitos en grupos de 4 (6509-4159).
-export function formatPanamaNumber(raw: string) {
-  const digits = raw.replace(/\D/g, '').slice(0, 8)
-  return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits
-}
-
-// Números de países no registrados: solo dígitos, sin guiones automáticos.
-export function plainPhoneNumber(raw: string) {
-  return raw.replace(/\D/g, '').slice(0, 15)
-}
-
-export function joinPhone(code: string, number: string) {
-  return code ? `+${code} ${number}`.trim() : number
-}
-
-// El código de país es obligatorio: un número sin código no se puede guardar.
-export function phoneError(value: string) {
-  const parts = parsePhone(value)
-  return !parts.code && parts.number.replace(/\D/g, '') ? 'Ingresa el código de país antes del número.' : ''
-}
+// Validación de teléfonos de cualquier país (lib/phone.ts).
+export { phoneError } from './phone'

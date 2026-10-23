@@ -5,6 +5,47 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Teléfonos de cualquier país y eliminación solo para Persona y Equipo
+
+**Qué se hizo**
+- **Eliminación de cuentas por tipo**, como pidió Edwin: Persona y Equipo se pueden eliminar; Organización no.
+  - `supabase/cuenta-eliminacion-tipos-migration.sql` (aplicada en `mlvtsgseneqzihwkiatg`) hace que `request_account_deletion` rechace las cuentas con `account_type = 'organizacion'` ("Las cuentas de organización no se pueden eliminar.").
+  - `purge_expired_account_deletions` omite las organizaciones aunque estén programadas.
+  - Se quitó el permiso de ejecutar a `anon`.
+  - Al eliminar una cuenta de Equipo, el equipo se conserva sin autor: Edwin no quiere que se borre.
+  - En la sección Cuenta de Organización, la tarjeta de eliminar se cambió por una explicación con enlace a Contáctanos.
+- **Teléfonos de cualquier país:**
+  - Se agregó `libphonenumber-js@1.13.15` y `lib/phone.ts`: 245 países con nombre en español (`Intl.DisplayNames`), código, formato mientras se escribe (`AsYouType`) y validación (`isValidPhoneNumber`).
+  - `PhoneField` (`Components/mi-perfil/ui.tsx`):
+    - Selector de país con buscador (nombre, código o ISO), bandera y código. Panamá es el país por defecto y aparece primero.
+    - El número toma el formato del país.
+    - Un número inválido muestra "El número no es válido para el país elegido.".
+    - En modo lectura se muestra la bandera junto al número.
+  - El formato guardado sigue siendo `+código número`, así que los teléfonos que ya estaban guardados se leen igual.
+  - Se quitaron de `lib/mi-perfil.ts` las funciones de teléfono que solo servían para Panamá. `phoneError` ahora viene de `lib/phone.ts`.
+
+**Archivos**
+- Nuevos: `lib/phone.ts` y `supabase/cuenta-eliminacion-tipos-migration.sql`.
+- Cambiados: `Components/mi-perfil/ui.tsx`, `Components/mi-perfil/organization-profile-view.tsx`, `lib/mi-perfil.ts`, `package.json`, `package-lock.json` y `documentos/rediseno-mi-perfil.md`.
+
+**Verificación**
+- Antes de aplicar, una consulta de solo lectura: los tipos en `auth.users` son `persona` (11), `equipo` (5) y `organizacion` (3).
+- Prueba en una transacción revertida con un usuario de cada tipo:
+  - Organización se rechaza y la purga no la borra aunque se programe a la fuerza.
+  - Equipo y Persona se programan y se purgan.
+  - Después quedaron 0 usuarios de prueba y 0 cuentas programadas.
+- Playwright (1440 px oscuro y 390 px claro):
+  - Buscar "esta" muestra Estados Unidos +1.
+  - Al elegirlo, `4155552671` se formatea como `(415) 555-2671`.
+  - "12" muestra el error de número inválido.
+  - La sección Cuenta de Organización ya no tiene el botón de eliminar.
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (13 de 13). La ruta temporal de prueba se borró.
+
+**Pendiente**
+- Si el país de equipos y organizaciones también debe abrirse a otros países, hay que revisar `supabase/paises-athlonx-migration.sql` (no se aplicó).
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Eliminación de cuentas en Supabase Auth
 
 **Qué se hizo**

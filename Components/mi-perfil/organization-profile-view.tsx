@@ -11,7 +11,7 @@ import { Badge, buttonClass, cx } from '../mi-equipo/ui'
 import { Card, CardRow, Chip, Field, FieldGrid, Hero, Hint, ListRow, Pending, PhoneField, ReadValue, RowList, SaveStatus, SelectField, SettingRow, Segmented, Shell, Switch, initialsOf, useSaveStatus } from './ui'
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
-import { DeleteAccountCard, SessionCard } from './delete-account-card'
+import { SessionCard } from './delete-account-card'
 import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
@@ -338,7 +338,9 @@ export function OrganizationProfileView({
           </Card>
           <CardRow>
             <SessionCard />
-            <DeleteAccountCard />
+            <Card title="Eliminar cuenta" description="Las cuentas de organización no se pueden eliminar desde AthlonX.">
+              <Hint icon={Lock}>Sus equipos afiliados, torneos y directivos dependen de la organización. Si necesitas cerrarla, <Link href="/contactanos" className="font-semibold text-[var(--ax-accent-text)] underline underline-offset-4">escríbenos</Link>.</Hint>
+            </Card>
           </CardRow>
         </>
       )}
