@@ -215,7 +215,6 @@ export function TeamProfileView({
       canEdit={canEdit && editableSections.includes(section)}
       editing={editing}
       onEdit={startEdit}
-      publicProfileHref={`/equipos/${team.id}`}
     />
   )
 

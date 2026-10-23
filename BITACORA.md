@@ -5,6 +5,40 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Menú de cuenta pasado a código
+
+**Qué se hizo**
+- El menú de cuenta de la barra superior sigue el diseño de Figma.
+- **Botón que abre el menú:** avatar, nombre de la cuenta activa y su tipo.
+  - Antes, en las cuentas de equipo decía el nombre del perfil (por ejemplo "equipo"). Ahora muestra el nombre del equipo.
+- **Cabecera del menú:** nombre, tipo, código AthlonX con botón de copiar y correo.
+- **Accesos:** Mi perfil, Ver perfil público (según la cuenta) y Configuración.
+- **Tema:** la fila con el selector Oscuro/Claro.
+- **Cerrar sesión:** se confirma dentro del menú.
+- **Mi perfil:** se quitó "Ver perfil público" de la cabecera, como pidió Edwin, porque ya está en el menú. En móvil, "Editar información" ocupa todo el ancho.
+- **`/configuracion`:** la página antigua, que ya nada enlazaba, ahora redirige a `/mi-perfil?seccion=configuracion`.
+
+**Archivos**
+- `Components/account-menu.tsx` y `Components/dashboard-header.tsx`.
+- `Components/mi-perfil/ui.tsx` (Hero) y las tres vistas de Mi perfil.
+- `app/(panel)/configuracion/page.tsx`.
+- `documentos/rediseno-menu-cuenta.md`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (13 de 13).
+- Playwright en 1440 px oscuro y claro y en 390 px:
+  - Menú abierto y confirmación de cerrar sesión.
+  - El menú se cierra con Escape.
+  - Mi perfil se ve sin el botón de perfil público.
+- Se corrigió que "Cerrar sesión" no salía en rojo por un choque de clases.
+- Sin sesión en la nube, el nombre y el código reales no se pudieron ver: hay que probarlo con cuentas de Persona, Equipo y Organización.
+
+**Pendiente**
+- Probar con cuentas reales que el menú muestre el nombre, el código y el enlace al perfil público correctos.
+- `Components/team-profile-settings.tsx` y `Components/team-division-settings.tsx` quedaron sin uso: solo los usaba la página antigua de `/configuracion`.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma del menú de cuenta
 
 **Qué se hizo**

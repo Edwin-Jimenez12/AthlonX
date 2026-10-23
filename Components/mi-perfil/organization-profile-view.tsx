@@ -219,7 +219,6 @@ export function OrganizationProfileView({
       canEdit={canEdit && editableSections.includes(section)}
       editing={editing}
       onEdit={startEdit}
-      publicProfileHref={`/organizaciones/${organization.id}`}
     />
   )
 

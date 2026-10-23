@@ -36,7 +36,18 @@ Código actual: `Components/account-menu.tsx` (menú), `Components/dashboard-hea
   - La confirmación aparece dentro del mismo menú ("¿Cerrar sesión en este dispositivo?", con Cancelar y Cerrar sesión), en vez de la ventana aparte de `logout-confirmation.tsx`.
 - **Medidas:** 288 px de ancho, radio de 14 px, borde `line-strong`, fondo `surface` y sombra. En móvil ocupa todo el ancho con 16 px de margen.
 
-## Pendiente para el código
+## En código (2026-10-23)
 
-- Rehacer `account-menu.tsx` con estas piezas y los tokens `--ax-*`. Pasar a `dashboard-header.tsx` el nombre, el tipo, el código y el correo de la cuenta activa.
-- Cerrar el menú con Escape y al tocar fuera (ya existe `useDismissableMenu`).
+- **`Components/account-menu.tsx`:** exporta `AccountTrigger`, `AccountMenu` y `AccountIdentity`.
+  - El copiar del código muestra "Copiado".
+  - Cerrar sesión se confirma dentro del menú y llama a `supabase.auth.signOut()`.
+- **`Components/dashboard-header.tsx`:**
+  - `loadIdentity` arma la identidad de la cuenta activa desde Supabase:
+    - Persona: `profiles.full_name` y `athlonx_code`; perfil público `/perfil/{id}`.
+    - Equipo: el equipo activo en `teams`; `/equipos/{id}`.
+    - Organización: su organización en `organizations` (creada por la persona o donde es directivo); `/organizaciones/{id}`.
+  - La identidad se recalcula al cambiar de contexto.
+  - El botón y el menú van dentro de `.ax-v2`.
+  - El menú se cierra con Escape, al tocar fuera o al abrir otro menú (`useDismissableMenu`).
+- **"Ver perfil público"** se quitó de la cabecera de Mi perfil (`Hero`), como pidió Edwin: ahora está solo en este menú.
+- **`/configuracion`** (la página antigua) ahora redirige a `/mi-perfil?seccion=configuracion`.

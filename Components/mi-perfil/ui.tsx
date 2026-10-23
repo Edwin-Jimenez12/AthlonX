@@ -1,14 +1,13 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Info, Lock, Pencil, Search } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, Info, Lock, Pencil, Search } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { useRegisterSettingsNav } from '../settings-nav'
-import { Badge, Button, Notice as InlineNotice, Segment, Select, buttonClass, cx, inputClass, useDismiss } from '../mi-equipo/ui'
+import { Badge, Button, Notice as InlineNotice, Segment, Select, cx, inputClass, useDismiss } from '../mi-equipo/ui'
 import type { Country } from '../../lib/mi-perfil'
 import type { CountryCode } from 'libphonenumber-js'
 import { formatNational, joinPhone, phoneCountries, phoneError, splitPhone } from '../../lib/phone'
@@ -20,11 +19,8 @@ export type SectionItem = { id: string; label: string; description?: string; ico
 
 export type Notice = { type: 'ok' | 'error'; text: string }
 
-type ShellContextValue = { guard: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void }
-const ShellContext = createContext<ShellContextValue>({ guard: () => undefined })
-
 // Contenedor de Mi perfil: registra las secciones en la barra lateral, muestra pestañas en tablet y móvil,
-// y la barra de cambios fija abajo mientras se edita. Un enlace con cambios pendientes no navega:
+// y la barra de cambios fija abajo mientras se edita. "Volver al panel" con cambios pendientes no navega:
 // la barra pasa a aviso con "Seguir editando", "Descartar" y "Guardar y salir".
 export function Shell({
   navTitle,
@@ -86,13 +82,6 @@ export function Shell({
     return () => window.removeEventListener('beforeunload', warnBeforeClose)
   }, [unsaved])
 
-  function guard(event: React.MouseEvent<HTMLAnchorElement>, href: string) {
-    if (!unsaved) return
-    event.preventDefault()
-    setLeaveError('')
-    setPendingHref(href)
-  }
-
   async function saveAndLeave() {
     if (!onSave || !pendingHref) return
     setLeaving(true)
@@ -114,7 +103,6 @@ export function Shell({
   const pendingLabel = pendingHref === '/busqueda' ? 'volver al panel' : 'salir de Mi perfil'
 
   return (
-    <ShellContext.Provider value={{ guard }}>
       <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
         <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-6 sm:px-8 sm:pt-8 lg:px-10">
           {hero}
@@ -154,11 +142,11 @@ export function Shell({
             </div>)}
         </div>
       </main>
-    </ShellContext.Provider>
   )
 }
 
-// Cabecera del perfil: avatar (redondo para personas), nombre, tipo de cuenta, código y acciones.
+// Cabecera del perfil: avatar (redondo para personas), nombre, tipo de cuenta, código y Editar.
+// "Ver perfil público" está en el menú de cuenta de la barra superior.
 export function Hero({
   initials,
   round = true,
@@ -169,7 +157,6 @@ export function Hero({
   canEdit = true,
   editing,
   onEdit,
-  publicProfileHref,
 }: {
   initials: string
   round?: boolean
@@ -180,9 +167,7 @@ export function Hero({
   canEdit?: boolean
   editing: boolean
   onEdit: () => void
-  publicProfileHref?: string | null
 }) {
-  const { guard } = useContext(ShellContext)
   return (
     <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
       <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
@@ -197,12 +182,7 @@ export function Hero({
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:gap-3">
-        {publicProfileHref
-          ? <Link href={publicProfileHref} onClick={(event) => guard(event, publicProfileHref)} className={buttonClass('secondary')}><ExternalLink size={16} aria-hidden="true" /><span className="sm:hidden">Perfil público</span><span className="hidden sm:inline">Ver perfil público</span></Link>
-          : <span title="Perfil público no disponible" className={cx(buttonClass('secondary'), 'pointer-events-none opacity-50')}><ExternalLink size={16} aria-hidden="true" />Perfil público</span>}
-        {canEdit && !editing && <Button variant="primary" icon={Pencil} onClick={onEdit}><span className="sm:hidden">Editar</span><span className="hidden sm:inline">Editar información</span></Button>}
-      </div>
+      {canEdit && !editing && <Button variant="primary" icon={Pencil} onClick={onEdit} className="w-full sm:w-auto">Editar información</Button>}
     </header>
   )
 }

@@ -206,7 +206,6 @@ export function PersonaProfileView({
       canEdit={editableSections.includes(section)}
       editing={editing}
       onEdit={startEdit}
-      publicProfileHref={`/perfil/${profile.userId}`}
     />
   )
 
