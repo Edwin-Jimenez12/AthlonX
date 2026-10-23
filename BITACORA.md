@@ -5,6 +5,27 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Build de Cloudflare: actualización a Next.js 16
+
+**Qué pasó**
+- El build de Cloudflare (`npx opennextjs-cloudflare build`) falló con "Next.js version 15.5.25 is not supported". OpenNext rechaza versiones mayores de Next con más de 2 años desde su lanzamiento, y Next 15 (oct 2024) dejó de tener soporte en oct 2026. No lo causó ningún cambio de código.
+
+**Qué se hizo**
+- Actualización: `next` 16.4.2, `eslint-config-next` 16.4.2, `@opennextjs/cloudflare` 1.20.13 (exige Next ≥16.4.1) y `wrangler` 4.152.
+- Next 16 ajustó solo `tsconfig.json` (`moduleResolution: bundler`, `jsx: react-jsx`) y `next-env.d.ts`.
+- No hubo que tocar código: no hay `middleware`, y las páginas dinámicas usan `useParams` en cliente.
+- `CLAUDE.md`: se actualizó la versión de Next y la nota sobre la política de soporte.
+
+**Verificación**
+- `npx opennextjs-cloudflare build` (el mismo comando de Cloudflare) termina bien: "OpenNext build complete".
+- El worker, levantado con `wrangler dev`, responde 200 en `/`, `/equipo`, `/equipo/convocatoria`, `/busqueda` y `/torneos/ver/x`.
+- `tsc --noEmit` sin errores y `node --test tests/*.mjs` 13 de 13.
+
+**Pendiente**
+- Confirmar que el siguiente despliegue en Cloudflare pase, y revisar la app publicada.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Cambio de flujo de ramas
 
 **Qué se hizo**

@@ -11,7 +11,7 @@ Lleva el registro en `BITACORA.md`, en la raíz del repo.
 
 ## Stack
 
-- Next.js 15 (App Router, Turbopack), React 19 y TypeScript 5.8.
+- Next.js 16 (App Router, Turbopack), React 19 y TypeScript 5.8. OpenNext para Cloudflare rechaza versiones de Next sin soporte oficial (2 años desde su lanzamiento): mantén Next en una versión mayor soportada.
 - Tailwind CSS 4 (`@tailwindcss/postcss`) y CSS propio en `app/globals.css`.
 - Supabase (`@supabase/supabase-js`); el cliente está en `lib/supabase.ts`.
 - Despliegue en Cloudflare con OpenNext (`wrangler.jsonc`, `open-next.config.ts`).
