@@ -78,9 +78,35 @@ Oscuro a la izquierda; Claro en +8000 px (modo Claro de la colección AthlonX y 
   - Al guardar, la confirmación aparece como aviso verde arriba de la sección.
 - **Datos vacíos:** se muestran como "Sin registrar" atenuado, con "Completar datos".
 
-## Pendiente para el código
+## En código (2026-10-23)
 
-- Migrar `Components/mi-perfil/*` a `.ax-v2` con las piezas de `Components/mi-equipo/ui.tsx`, sin cambiar las consultas de `lib/mi-perfil.ts`.
-- Cambiar el estilo del menú lateral en modo Mi perfil (`dashboard-sidebar.tsx`) y agregar las pestañas para tablet y móvil.
-- Los enlaces "Editar perfil" y "Añadir ubicación" de `app/(panel)/equipo/page.tsx` siguen llevando a `/configuracion`, una página antigua. Deberían llevar a `/mi-perfil`.
-- Verificar con Playwright en 1440, 834 y 390 px, en claro y oscuro.
+Aprobado por Edwin: barra de cambios en vez de los modales, configuración que se guarda al momento y confirmación inline para eliminar la cuenta.
+
+- **`Components/mi-perfil/ui.tsx`:** reescrito sobre `.ax-v2` y las piezas de `Components/mi-equipo/ui.tsx`.
+  - `Shell` tiene pestañas en tablet y móvil, la barra de cambios fija y el aviso al salir. Registra las secciones, el título y "Volver al panel" en la barra lateral.
+  - En modo lectura, `Field`, `SelectField`, `DateField` y `PhoneField` se muestran como `ReadValue`.
+  - Piezas nuevas: `InlineConfirm`, `Switch`, `SaveStatus` y `useSaveStatus` (guardado al momento con "Guardado" o el error).
+- **Vistas de Persona, Equipo y Organización:**
+  - Las consultas y RPC de Supabase son las mismas que antes.
+  - Ya no hay `ConfirmModal` ni `Modal`.
+  - Solo entran en modo edición: en Persona, Información personal y Equipo y roles; en Equipo y Organización, Información.
+- **Configuración al momento:**
+  - Persona: cada fila de privacidad hace un upsert en `profile_privacy_settings`; las invitaciones actualizan `profiles.allow_athlete_invitations`.
+  - Equipo y Organización: la visibilidad llama a `update_team_profile` o `update_organization_public_profile` con los datos ya guardados y el nuevo valor de `is_public`.
+  - El tema y los avisos se guardan en `account_preferences`. Si algo falla, el control vuelve a su valor anterior.
+- **Equipo · Roles:** cambiar el rol o quitar a un directivo se confirma en la misma fila.
+- **Cuenta:**
+  - "Cerrar sesión" sale directo (`SessionCard`).
+  - "Eliminar cuenta" pide la contraseña en línea y llama a `request_account_deletion`.
+- **Otros cambios:**
+  - `Components/settings-nav.tsx` admite el título, los iconos de cada sección y `onBack`.
+  - `Components/dashboard-sidebar.tsx` muestra "Volver al panel" y el título del perfil.
+  - Los enlaces "Editar perfil" y "Añadir ubicación" de Mi equipo ahora llevan a `/mi-perfil`.
+
+### Estado de Supabase (consulta de solo lectura, 2026-10-23)
+
+- Ya existen las tablas `profiles`, `profile_privacy_settings`, `profile_tournament_visibility`, `account_preferences`, `team_division_catalog`, `organization_disciplines`, `organization_modalities` y `staff_positions`.
+- Ya existen las funciones `update_team_profile`, `update_organization_public_profile`, `update_team_member_role`, `remove_team_member_role`, `get_team_members_for_manager`, `is_organization_manager` y `ensure_my_organization`.
+- **Falta `request_account_deletion`** (`supabase/cuenta-eliminacion-migration.sql`). Sin ella, eliminar la cuenta muestra el error de Supabase.
+- **Falta `athlonx_countries`** (`supabase/paises-athlonx-migration.sql`). Sin ella, el teléfono usa Panamá como único país (`fallbackCountries`). Esta migración también cambia el país de todos los equipos y organizaciones a Panamá.
+- Ninguna de las dos se aplicó: esperan la autorización de Edwin.

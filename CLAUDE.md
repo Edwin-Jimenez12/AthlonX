@@ -58,7 +58,7 @@ Las variables van en `.env.local` (no se sube a git); toma `.env.example` como b
 - Fuentes locales en `app/fonts/`: Inter, Oswald, Barlow Condensed y Bebas Neue.
 - Transiciones compartidas en `Components/site-transitions.css`.
 - Usa los tokens; no metas colores sueltos.
-- **Rediseño (`.ax-v2`)**: las pantallas rediseñadas (por ahora `app/(panel)/equipo`) van dentro de un contenedor `.ax-v2`, que queda fuera de los overrides globales heredados (radio forzado a 5px, fondos fijos de inputs, bordes de section/article). Usan solo tokens `var(--ax-*)` y las piezas de `Components/mi-equipo/ui.tsx`.
+- **Rediseño (`.ax-v2`)**: las pantallas rediseñadas (`equipo`, `busqueda`, `notificaciones`, `eventos` y `mi-perfil` dentro de `app/(panel)`) van dentro de un contenedor `.ax-v2`, que queda fuera de los overrides globales heredados (radio forzado a 5px, fondos fijos de inputs, bordes de section/article). Usan solo tokens `var(--ax-*)` y las piezas de `Components/mi-equipo/ui.tsx`.
 - **Regla de diseño**: todo lo que se construya en código debe seguir el diseño de Figma (página `Claude`). Si un componente no tiene diseño en Figma, se hace con el mismo lenguaje: mismos tokens, radios (10 px en botones y campos, 14 px en paneles, 20 px en tarjetas), tipografía (Bebas Neue en títulos, Inter en la interfaz) y patrones (paneles inline en vez de modales, confirmación inline en vez de `window.confirm`).
 - `.next/` y `tsconfig.tsbuildinfo` están versionados por error: si un build o `tsc` los cambia, restáuralos con `git checkout -- .next tsconfig.tsbuildinfo` antes de hacer commit.
 

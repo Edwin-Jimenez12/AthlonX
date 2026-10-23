@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
+import { ArrowLeft, Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
 import { settingsSectionIcons, useSettingsNavConfig } from './settings-nav'
 import { usePathname } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -210,13 +210,14 @@ export function DashboardSidebar() {
       <Link href="/busqueda" onClick={close} className="group flex shrink-0 items-center pb-6">
         <img src={light ? "/MarcaAthlonX/MarcaHorizontalClara.svg" : "/MarcaAthlonX/MarcaHorizontal.svg"} alt="AthlonX" style={{ width: 207, height: 28, maxWidth: "none" }} className="shrink-0 transition duration-300 group-hover:brightness-110" />
       </Link>
-      <p className={`px-3 pb-3 font-body text-[10px] font-semibold uppercase tracking-[0.24em] ${muted}`}>{settingsSections ? 'Mi perfil' : 'Menú'}</p>
+      {settingsSections && <button type="button" onClick={() => { close(); settingsNav?.onBack?.() }} className={`mb-3 flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-300 ${idleItem}`}><ArrowLeft size={18} className="shrink-0" aria-hidden="true" /><span className="font-barlow text-[18px] font-semibold leading-none">Volver al panel</span></button>}
+      <p className={`px-3 pb-3 font-body text-[10px] font-semibold uppercase tracking-[0.24em] ${muted}`}>{settingsSections ? settingsNav?.title ?? 'Mi perfil' : 'Menú'}</p>
       <nav ref={navRef} className="relative flex flex-col gap-1">
         <span aria-hidden="true" className="pointer-events-none absolute left-0 top-0 w-full rounded-xl bg-gradient-to-r from-[#b4ff45] to-[#a2f02e] shadow-[0_8px_24px_-8px_rgba(180,255,69,.55)] transition-[transform,height,opacity] duration-500 ease-[cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height, opacity: indicator.visible ? 1 : 0 }} />
         {settingsSections && settingsSections.map((section) => {
           const isActive = section.id === settingsNav?.activeSection
-          const Icon = settingsSectionIcons[section.id] ?? Circle
-          return <button key={section.id} type="button" ref={(node) => { itemRefs.current[`section:${section.id}`] = node }} onClick={() => settingsNav?.onSection(section.id)} aria-current={isActive ? 'page' : undefined} className={`relative z-10 flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-300 motion-reduce:transition-none ${isActive ? 'font-semibold text-[#07131e]' : idleItem}`}>
+          const Icon = section.icon ?? settingsSectionIcons[section.id] ?? Circle
+          return <button key={section.id} type="button" ref={(node) => { itemRefs.current[`section:${section.id}`] = node }} onClick={() => { close(); settingsNav?.onSection(section.id) }} aria-current={isActive ? 'page' : undefined} className={`relative z-10 flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-300 motion-reduce:transition-none ${isActive ? 'font-semibold text-[#07131e]' : idleItem}`}>
             <Icon size={18} className="shrink-0" aria-hidden="true" />
             <span className="font-barlow text-[18px] font-semibold leading-none">{section.label}</span>
           </button>

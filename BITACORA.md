@@ -5,6 +5,49 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-23 · `edwin` → `main` · nube · Mi perfil pasado a código
+
+**Qué se hizo**
+- Mi perfil (`/mi-perfil`) pasó al rediseño de Figma para Persona, Equipo y Organización. Las consultas y RPC de Supabase son las mismas.
+- Se aplicaron los tres cambios que aprobó Edwin:
+  - Barra de cambios fija abajo, que pasa a aviso al salir con cambios, en vez de los modales.
+  - La configuración se guarda al momento: privacidad, invitaciones, visibilidad, tema y avisos.
+  - La confirmación para eliminar la cuenta es inline y pide la contraseña.
+- Cambiar el rol o quitar a un directivo del equipo también se confirma en la fila.
+- En móvil y tablet, las secciones se muestran como pestañas.
+- En escritorio, la barra lateral muestra "Volver al panel", que respeta los cambios sin guardar, y el título del perfil.
+- Los enlaces "Editar perfil" y "Añadir ubicación" de Mi equipo ahora llevan a `/mi-perfil`.
+- El gestor de torneos no se tocó.
+
+**Archivos**
+- `Components/mi-perfil/ui.tsx`, `persona-profile-view.tsx`, `team-profile-view.tsx`, `organization-profile-view.tsx`, `password-card.tsx` y `delete-account-card.tsx`.
+- `Components/settings-nav.tsx` y `Components/dashboard-sidebar.tsx`.
+- `app/(panel)/mi-perfil/page.tsx` y `app/(panel)/equipo/page.tsx`.
+- Documentación: `documentos/rediseno-mi-perfil.md` (sección "En código") y `CLAUDE.md` (lista de pantallas `.ax-v2`).
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (13 de 13).
+- Capturas con Playwright en 1440, 834 y 390 px, en claro y oscuro, de las secciones de las tres cuentas, con una ruta temporal de datos de ejemplo (borrada antes del commit).
+- Se probó con clics:
+  - Editar y cambiar el nombre: aparece la barra de cambios.
+  - "Volver al panel" con cambios: aparece el aviso; "Seguir editando" y luego "Descartar" salen del modo edición.
+  - Eliminar cuenta inline.
+  - Quitar a un directivo inline.
+- Se corrigió que el aviso de salida era semitransparente.
+- `/mi-perfil`, `/equipo` y `/busqueda` cargan sin errores de consola.
+- Consulta de solo lectura a Supabase (`mlvtsgseneqzihwkiatg`): existen todas las tablas y RPC que usa Mi perfil, salvo `request_account_deletion` y `athlonx_countries`.
+
+**Pendiente**
+- Autorizar y aplicar `supabase/cuenta-eliminacion-migration.sql`. Sin ella, eliminar la cuenta falla.
+- Decidir si se aplica `supabase/paises-athlonx-migration.sql`: también pasa a Panamá el país de todos los equipos y organizaciones.
+- Probar con cuentas reales:
+  - Guardar datos personales.
+  - Privacidad e invitaciones (se guardan al momento).
+  - Visibilidad del equipo y de la organización.
+  - Cambio de contraseña y de correo.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Rediseño en Figma de Mi perfil
 
 **Qué se hizo**

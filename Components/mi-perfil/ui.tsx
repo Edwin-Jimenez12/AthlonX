@@ -2,91 +2,80 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { CSSProperties, ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { useRegisterSettingsNav } from '../settings-nav'
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users, Circle } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, EyeOff, Info, Lock, Pencil } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
-import type { Country, Theme } from '../../lib/mi-perfil'
+import { useRegisterSettingsNav } from '../settings-nav'
+import { Badge, Button, Notice as InlineNotice, Segment, Select, buttonClass, cx, inputClass } from '../mi-equipo/ui'
+import type { Country } from '../../lib/mi-perfil'
 import { formatPanamaNumber, joinPhone, parsePhone, phoneError, plainPhoneNumber } from '../../lib/mi-perfil'
 
-// Tokens tomados de los frames "Oscuro" de Figma (Mi perfil).
-const darkTokens: Record<string, string> = {
-  '--mp-bg': '#07131E',
-  '--mp-surface': '#0B1D2C',
-  '--mp-raised': '#102536',
-  '--mp-line': '#29485D',
-  '--mp-text': '#E8EEF3',
-  '--mp-muted': '#91A8BA',
-  '--mp-lime': '#B4FF45',
-  '--mp-lime-soft': '#17290F',
-  '--mp-on-lime': '#07131E',
-  '--mp-danger': '#FF6B6B',
-  '--mp-danger-soft': '#2A1216',
-}
+// Piezas de Mi perfil con el lenguaje del rediseño (página "Claude" en Figma, desde y≈24 000).
+// Usan solo tokens --ax-* dentro de .ax-v2, así que siguen el tema claro u oscuro del panel.
 
-// Tokens del tema claro: aproximación pendiente de validar con el frame "Claro" de Figma.
-const lightTokens: Record<string, string> = {
-  '--mp-bg': '#F3F6F8',
-  '--mp-surface': '#FFFFFF',
-  '--mp-raised': '#EEF3F6',
-  '--mp-line': '#D5E0E8',
-  '--mp-text': '#081522',
-  '--mp-muted': '#5B7185',
-  '--mp-lime': '#4C8500',
-  '--mp-lime-soft': '#E9FBD0',
-  '--mp-on-lime': '#FFFFFF',
-  '--mp-danger': '#C23B3B',
-  '--mp-danger-soft': '#FBE9E9',
-}
-
-export function themeStyle(theme: Theme): CSSProperties {
-  return (theme === 'claro' ? lightTokens : darkTokens) as CSSProperties
-}
-
-export const labelClass = 'text-[11px] font-semibold uppercase tracking-[0.88px] text-[var(--mp-muted)]'
-export const primaryButtonClass = 'cursor-pointer rounded-full bg-[var(--mp-lime)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-on-lime)] transition disabled:cursor-not-allowed disabled:opacity-50'
-export const outlineButtonClass = 'cursor-pointer rounded-full border border-[var(--mp-line)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-text)] transition hover:border-[var(--mp-lime)] disabled:cursor-not-allowed disabled:opacity-50'
-export const dangerButtonClass = 'cursor-pointer rounded-full bg-[var(--mp-danger)] px-[22px] py-3 text-[15px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50'
-export const dangerOutlineButtonClass = 'cursor-pointer rounded-full border border-[var(--mp-danger)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-danger)] transition disabled:cursor-not-allowed disabled:opacity-50'
-
-export type SectionItem = { id: string; label: string; description?: string }
+export type SectionItem = { id: string; label: string; description?: string; icon?: LucideIcon }
 
 export type Notice = { type: 'ok' | 'error'; text: string }
 
+type ShellContextValue = { guard: (event: React.MouseEvent<HTMLAnchorElement>, href: string) => void }
+const ShellContext = createContext<ShellContextValue>({ guard: () => undefined })
+
+// Contenedor de Mi perfil: registra las secciones en la barra lateral, muestra pestañas en tablet y móvil,
+// y la barra de cambios fija abajo mientras se edita. Un enlace con cambios pendientes no navega:
+// la barra pasa a aviso con "Seguir editando", "Descartar" y "Guardar y salir".
 export function Shell({
-  theme,
-  sectionLabel,
+  navTitle,
   sections,
   activeSection,
   onSection,
+  hero,
   children,
   notice,
-  publicProfileHref,
+  editing = false,
   unsaved = false,
-  onSaveChanges,
-  onDiscardChanges,
+  saving = false,
+  saveError = '',
+  onSave,
+  onDiscard,
 }: {
-  theme: Theme
-  notice?: Notice | null
-  publicProfileHref?: string | null
-  unsaved?: boolean
-  onSaveChanges?: () => Promise<string>
-  onDiscardChanges?: () => void
-  sectionLabel: string
+  navTitle: string
   sections: SectionItem[]
   activeSection: string
   onSection: (id: string) => void
+  hero: ReactNode
   children: ReactNode
+  notice?: Notice | null
+  editing?: boolean
+  unsaved?: boolean
+  saving?: boolean
+  saveError?: string
+  onSave?: () => Promise<string>
+  onDiscard?: () => void
 }) {
   const router = useRouter()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [leaveError, setLeaveError] = useState('')
-  const [leaveBusy, setLeaveBusy] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
-  useRegisterSettingsNav(sections, activeSection, onSection)
+  // "Volver al panel" de la barra lateral: se registra una sola vez y lee el estado actual desde la ref,
+  // porque registrar una función nueva en cada render volvería a actualizar la barra sin fin.
+  const unsavedRef = useRef(unsaved)
+  unsavedRef.current = unsaved
+  const goBack = useCallback(() => {
+    if (unsavedRef.current) {
+      setLeaveError('')
+      setPendingHref('/busqueda')
+      return
+    }
+    router.push('/busqueda')
+  }, [router])
+
+  useRegisterSettingsNav(sections, activeSection, onSection, navTitle, goBack)
 
   useEffect(() => {
+    if (!unsaved) setPendingHref(null)
     if (!unsaved) return
     function warnBeforeClose(event: BeforeUnloadEvent) {
       event.preventDefault()
@@ -96,7 +85,7 @@ export function Shell({
     return () => window.removeEventListener('beforeunload', warnBeforeClose)
   }, [unsaved])
 
-  function guardNavigation(event: React.MouseEvent<HTMLAnchorElement>, href: string) {
+  function guard(event: React.MouseEvent<HTMLAnchorElement>, href: string) {
     if (!unsaved) return
     event.preventDefault()
     setLeaveError('')
@@ -104,10 +93,10 @@ export function Shell({
   }
 
   async function saveAndLeave() {
-    if (!onSaveChanges || !pendingHref) return
-    setLeaveBusy(true)
-    const failure = await onSaveChanges()
-    setLeaveBusy(false)
+    if (!onSave || !pendingHref) return
+    setLeaving(true)
+    const failure = await onSave()
+    setLeaving(false)
     if (failure) return setLeaveError(failure)
     const href = pendingHref
     setPendingHref(null)
@@ -116,133 +105,149 @@ export function Shell({
 
   function discardAndLeave() {
     const href = pendingHref
-    onDiscardChanges?.()
+    onDiscard?.()
     setPendingHref(null)
     if (href) router.push(href)
   }
 
+  const pendingLabel = pendingHref === '/busqueda' ? 'volver al panel' : 'salir de Mi perfil'
+
   return (
-    <div style={{ ...themeStyle(theme), colorScheme: theme === 'claro' ? 'light' : 'dark' } as CSSProperties} className="min-h-screen text-[var(--mp-text)]">
-
-      {pendingHref && (
-        <div role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-5">
-          <div className="w-full max-w-[460px] rounded-[24px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-7 text-[var(--mp-text)] shadow-2xl">
-            <h2 id="unsaved-changes-title" className="font-heading text-3xl font-semibold uppercase">Cambios sin guardar</h2>
-            <p className="mt-3 text-[15px] text-[var(--mp-muted)]">Hiciste cambios en este perfil. ¿Deseas guardarlos o descartarlos antes de salir?</p>
-            {leaveError && <p className="mt-4 rounded-[12px] border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{leaveError}</p>}
-            <div className="mt-6 flex flex-wrap justify-end gap-3">
-              <button type="button" onClick={() => setPendingHref(null)} disabled={leaveBusy} className={`${outlineButtonClass} disabled:opacity-60`}>Seguir editando</button>
-              <button type="button" onClick={discardAndLeave} disabled={leaveBusy} className="rounded-full border border-red-400/40 px-5 py-3 text-[15px] font-semibold text-red-200 transition hover:bg-red-500/10 disabled:opacity-60">Descartar</button>
-              <button type="button" onClick={saveAndLeave} disabled={leaveBusy} className="rounded-full bg-[var(--mp-lime)] px-5 py-3 text-[15px] font-semibold text-[var(--mp-on-lime)] transition hover:brightness-110 disabled:opacity-60">{leaveBusy ? 'Guardando...' : 'Guardar'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex min-w-0 flex-col lg:ml-64">
-        <header className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-10 lg:py-[22px]">        <div className="flex flex-wrap items-center gap-4">
-          <Link href="/busqueda" onClick={(event) => guardNavigation(event, '/busqueda')} className={`${outlineButtonClass} inline-flex items-center gap-2`}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            Volver
-          </Link>
-          {publicProfileHref ? (
-            <Link href={publicProfileHref} onClick={(event) => guardNavigation(event, publicProfileHref)} className="rounded-full border border-[var(--mp-line)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-text)] transition hover:border-[var(--mp-lime)] hover:text-[var(--mp-lime)]">
-              Ver perfil público
-            </Link>
-          ) : (
-            <span title="Perfil público no disponible" className="cursor-not-allowed rounded-full border border-[var(--mp-line)] px-[22px] py-3 text-[15px] font-semibold text-[var(--mp-text)] opacity-60">
-              Ver perfil público
-            </span>
-          )}
-        </div>
-        </header>
-        <div className="flex min-w-0 flex-1 flex-col gap-5 p-5 lg:p-10">
-          {notice && (
-            <p role="status" className={`rounded-[12px] border px-4 py-3 text-[14px] ${notice.type === 'error' ? 'border-[var(--mp-danger)] text-[var(--mp-danger)]' : 'border-[var(--mp-lime)] text-[var(--mp-lime)]'}`}>
-              {notice.text}
-            </p>
-          )}
+    <ShellContext.Provider value={{ guard }}>
+      <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
+        <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-6 sm:px-8 sm:pt-8 lg:px-10">
+          {hero}
+          <nav aria-label="Secciones de Mi perfil" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-8 sm:px-8 lg:hidden">
+            {sections.map((item) => <Segment key={item.id} active={item.id === activeSection} label={item.label} onClick={() => onSection(item.id)} />)}
+          </nav>
+          {notice && <InlineNotice tone={notice.type === 'error' ? 'danger' : 'success'} icon={notice.type === 'error' ? AlertTriangle : Check}>{notice.text}</InlineNotice>}
           {children}
+          {editing && (pendingHref
+            ? <div role="alertdialog" aria-labelledby="leave-title" className="ax-drop-in sticky bottom-4 z-30 space-y-3 rounded-[14px] bg-[var(--ax-surface-raised)] [background-image:linear-gradient(var(--ax-warning-soft),var(--ax-warning-soft))] p-3.5 shadow-[var(--ax-shadow-pop)] sm:p-4">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle size={18} aria-hidden="true" className="mt-px shrink-0 text-[var(--ax-warning-text)]" />
+                <div className="min-w-0">
+                  <p id="leave-title" className="text-sm font-semibold text-[var(--ax-warning-text)]">Guarda o descarta antes de salir</p>
+                  <p className="mt-0.5 text-[13px] leading-5 text-[var(--ax-text-secondary)]">Ibas a {pendingLabel}. Tus cambios siguen sin guardar.</p>
+                  {leaveError && <p role="alert" className="mt-1 text-[13px] font-medium text-[var(--ax-danger-text)]">{leaveError}</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="ghost" onClick={() => setPendingHref(null)} disabled={leaving}>Seguir editando</Button>
+                <Button onClick={discardAndLeave} disabled={leaving}>Descartar</Button>
+                <Button variant="primary" icon={Check} onClick={() => void saveAndLeave()} disabled={leaving}>{leaving ? 'Guardando…' : 'Guardar y salir'}</Button>
+              </div>
+            </div>
+            : <div role="region" aria-label="Cambios sin guardar" className="ax-drop-in sticky bottom-4 z-30 flex flex-col gap-3 rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface-raised)] p-3 shadow-[var(--ax-shadow-pop)] sm:flex-row sm:items-center sm:justify-between sm:pl-4">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <Info size={18} aria-hidden="true" className="mt-px shrink-0 text-[var(--ax-accent-text)]" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[var(--ax-text)]">{unsaved ? 'Tienes cambios sin guardar' : 'Estás editando tu perfil'}</p>
+                  <p className={cx('text-[13px]', saveError ? 'font-medium text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]')}>{saveError || (unsaved ? 'Se aplican a tu perfil al guardar.' : 'Haz cambios en las secciones que se pueden editar.')}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                <Button variant="ghost" onClick={onDiscard} disabled={saving}>{unsaved ? 'Descartar' : 'Cancelar'}</Button>
+                <Button variant="primary" icon={Check} onClick={() => void onSave?.()} disabled={saving || !unsaved}>{saving ? 'Guardando…' : 'Guardar cambios'}</Button>
+              </div>
+            </div>)}
         </div>
-      </div>
-    </div>
+      </main>
+    </ShellContext.Provider>
   )
 }
 
+// Cabecera del perfil: avatar (redondo para personas), nombre, tipo de cuenta, código y acciones.
 export function Hero({
   initials,
+  round = true,
   kindLabel,
   title,
   code,
   chips,
   canEdit = true,
   editing,
-  saving = false,
   onEdit,
-  onSave,
-  onCancel,
+  publicProfileHref,
 }: {
   initials: string
+  round?: boolean
   kindLabel: string
   title: string
   code?: string
   chips?: ReactNode
   canEdit?: boolean
   editing: boolean
-  saving?: boolean
   onEdit: () => void
-  onSave: () => void
-  onCancel: () => void
+  publicProfileHref?: string | null
 }) {
+  const { guard } = useContext(ShellContext)
   return (
-    <section className="flex flex-col gap-7 rounded-[20px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-7 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 flex-col gap-6 sm:flex-row sm:items-center">
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[48px] bg-[var(--mp-lime)] font-heading text-[35px] font-bold text-[var(--mp-on-lime)]">
-          {initials || 'AX'}
-        </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <p className="text-[12px] font-semibold uppercase tracking-[1.44px] text-[var(--mp-lime)]">{kindLabel}</p>
-          <h1 className="break-words font-heading text-[40px] font-bold uppercase leading-[1.05] lg:text-[56px]">{title}</h1>
-          {code && (
-            <div className="flex items-center gap-2.5 text-[15px] text-[var(--mp-muted)]">
-              <span>{code}</span>
-              <CopyCodeButton value={code} label="Copiar código AthlonX" />
-            </div>
-          )}
-          {chips && <div className="flex flex-wrap gap-2">{chips}</div>}
+    <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
+        <span aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center bg-[var(--ax-accent)] font-display text-[24px] text-[var(--ax-on-accent)] sm:h-[72px] sm:w-[72px] sm:text-[30px] lg:h-20 lg:w-20 lg:text-[34px]', round ? 'rounded-full' : 'rounded-[14px] lg:rounded-[18px]')}>{initials || 'AX'}</span>
+        <div className="min-w-0 space-y-2">
+          <h1 className="font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] [overflow-wrap:anywhere] sm:text-[40px] sm:leading-[42px] lg:text-[48px] lg:leading-[50px]">{title}</h1>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Badge>{kindLabel}</Badge>
+            {code && <span className="inline-flex items-center gap-1 text-[13px] font-medium text-[var(--ax-text-secondary)]">{code}<CopyCodeButton value={code} label="Copiar código AthlonX" /></span>}
+            {chips}
+            {editing && <Badge tone="warning">Editando</Badge>}
+          </div>
         </div>
       </div>
-      {canEdit && (
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          {editing && (
-            <button type="button" onClick={onCancel} disabled={saving} className={outlineButtonClass}>
-              Cancelar
-            </button>
-          )}
-          <button type="button" onClick={editing ? onSave : onEdit} disabled={saving} className={primaryButtonClass}>
-            {editing ? (saving ? 'Guardando…' : 'Guardar cambios') : 'Editar información'}
-          </button>
-        </div>
-      )}
-    </section>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:gap-3">
+        {publicProfileHref
+          ? <Link href={publicProfileHref} onClick={(event) => guard(event, publicProfileHref)} className={buttonClass('secondary')}><ExternalLink size={16} aria-hidden="true" /><span className="sm:hidden">Perfil público</span><span className="hidden sm:inline">Ver perfil público</span></Link>
+          : <span title="Perfil público no disponible" className={cx(buttonClass('secondary'), 'pointer-events-none opacity-50')}><ExternalLink size={16} aria-hidden="true" />Perfil público</span>}
+        {canEdit && !editing && <Button variant="primary" icon={Pencil} onClick={onEdit}><span className="sm:hidden">Editar</span><span className="hidden sm:inline">Editar información</span></Button>}
+      </div>
+    </header>
   )
 }
 
-export function Card({ title, description, children, tone = 'default' }: { title: string; description?: string; children: ReactNode; tone?: 'default' | 'danger' }) {
+export function Card({ title, description, children, tone = 'default', action, className }: { title: string; description?: string; children: ReactNode; tone?: 'default' | 'danger'; action?: ReactNode; className?: string }) {
   const danger = tone === 'danger'
   return (
-    <section className={`flex flex-col gap-[18px] rounded-[20px] border p-7 ${danger ? 'border-[var(--mp-danger)] bg-[var(--mp-danger-soft)]' : 'border-[var(--mp-line)] bg-[var(--mp-surface)]'}`}>
-      <div className="flex flex-col gap-1.5">
-        <h2 className={`font-heading text-[24px] font-bold uppercase leading-tight ${danger ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-text)]'}`}>{title}</h2>
-        {description && <p className="text-[14px] text-[var(--mp-muted)]">{description}</p>}
+    <section className={cx('flex min-w-0 flex-col gap-4 rounded-2xl border bg-[var(--ax-surface)] p-4 sm:gap-5 sm:rounded-[20px] sm:p-6', danger ? 'border-[var(--ax-danger-line)]' : 'border-[var(--ax-line)]', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1.5">
+          <h2 className={cx('font-display text-[24px] uppercase leading-none tracking-[.02em] sm:text-[26px]', danger ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-text)]')}>{title}</h2>
+          {description && <p className="text-[13px] leading-[18px] text-[var(--ax-muted)]">{description}</p>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       {children}
     </section>
   )
 }
 
-const inputClass = 'w-full rounded-[12px] border border-[var(--mp-line)] bg-[var(--mp-raised)] px-4 py-3 text-[15px] text-[var(--mp-text)] outline-none placeholder:text-[var(--mp-muted)] focus:border-[var(--mp-lime)] disabled:cursor-default disabled:opacity-100'
+// Dos tarjetas lado a lado en escritorio, apiladas en tablet y móvil.
+export function CardRow({ children }: { children: ReactNode }) {
+  return <div className="grid gap-5 sm:gap-6 lg:grid-cols-2 lg:items-start">{children}</div>
+}
 
+export function FieldGrid({ children, columns = 3 }: { children: ReactNode; columns?: 2 | 3 | 4 }) {
+  return <div className={cx('grid gap-x-6 gap-y-4 sm:grid-cols-2 sm:gap-y-5', columns === 3 && 'xl:grid-cols-3', columns === 4 && 'xl:grid-cols-4')}>{children}</div>
+}
+
+const labelClass = 'block text-[13px] font-semibold text-[var(--ax-text-secondary)]'
+
+// Valor en modo lectura (componente "Dato/Lectura"): los datos vacíos se muestran atenuados.
+export function ReadValue({ label, value, copyable = false, hint, empty = 'Sin registrar' }: { label: string; value: string; copyable?: boolean; hint?: string; empty?: string }) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <span className={labelClass}>{label}</span>
+      <p className={cx('flex min-h-6 items-center gap-1 text-[15px] [overflow-wrap:anywhere]', value ? 'text-[var(--ax-text)]' : 'text-[var(--ax-muted)]')}>
+        {value || empty}
+        {copyable && value && <CopyCodeButton value={value} label={`Copiar ${label.toLowerCase()}`} />}
+      </p>
+      {hint && <p className="text-xs leading-[18px] text-[var(--ax-muted)]">{hint}</p>}
+    </div>
+  )
+}
+
+// Campo de texto. Sin edición (disabled) se muestra como dato de lectura, no como un campo apagado.
 export function Field({
   label,
   value,
@@ -254,6 +259,7 @@ export function Field({
   placeholder,
   as = 'input',
   autoComplete,
+  error,
 }: {
   label: string
   value: string
@@ -265,105 +271,62 @@ export function Field({
   placeholder?: string
   as?: 'input' | 'textarea'
   autoComplete?: string
+  error?: string
 }) {
   const [revealed, setRevealed] = useState(false)
   const isPassword = type === 'password'
+  if (disabled && !isPassword) {
+    if (as === 'textarea') return <div className="space-y-1.5"><span className="sr-only">{label}</span><p className={cx('whitespace-pre-line text-[15px] leading-6', value ? 'text-[var(--ax-text-secondary)]' : 'text-[var(--ax-muted)]')}>{value || 'Sin descripción todavía.'}</p></div>
+    return <ReadValue label={label} value={value} hint={hint} />
+  }
+  const fieldClass = cx(inputClass, error && 'border-[var(--ax-danger-line)]')
   return (
-    <label className="flex w-full flex-col gap-1.5">
+    <label className="block min-w-0 space-y-1.5">
       <span className={labelClass}>{label}</span>
       {as === 'textarea' ? (
-        <textarea className={`${inputClass} min-h-[120px] resize-y`} value={value} disabled={disabled} maxLength={maxLength} placeholder={placeholder} onChange={(event) => onChange?.(event.target.value)} />
+        <textarea className={cx(fieldClass, 'h-auto min-h-[120px] resize-y py-2.5 leading-6')} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(event) => onChange?.(event.target.value)} />
       ) : (
-        <div className="relative">
+        <span className="relative block">
           <input
-            className={`${inputClass} ${isPassword ? 'pr-12' : ''}`}
+            className={cx(fieldClass, isPassword && 'pr-11')}
             type={isPassword && revealed ? 'text' : type}
             value={value}
             disabled={disabled}
             maxLength={maxLength}
             placeholder={placeholder}
             autoComplete={autoComplete}
+            aria-invalid={Boolean(error)}
             onChange={(event) => onChange?.(event.target.value)}
           />
           {isPassword && (
-            <button
-              type="button"
-              onClick={() => setRevealed((current) => !current)}
-              aria-label={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              title={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[8px] text-[var(--mp-muted)] transition hover:text-[var(--mp-text)]"
-            >
-              {revealed ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            <button type="button" onClick={() => setRevealed((current) => !current)} aria-label={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'} title={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
+              {revealed ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
             </button>
           )}
-        </div>
+        </span>
       )}
-      {hint && <span className="text-[12px] text-[var(--mp-muted)]">{hint}</span>}
+      {error ? <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">{error}</span> : hint && <span className="block text-xs text-[var(--ax-muted)]">{hint}</span>}
     </label>
   )
 }
 
-export function SelectField({ label, value, onChange, disabled = false, options }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; options: Array<{ value: string; label: string }> }) {
-  const [open, setOpen] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const selected = options.find((option) => option.value === value)
-
-  useEffect(() => {
-    if (!open) return
-    function onPointerDown(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) setOpen(false)
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
+// Campo bloqueado: se ve en edición pero no se puede cambiar (edad calculada, correo actual).
+export function LockedField({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className="min-w-0 space-y-1.5">
       <span className={labelClass}>{label}</span>
-      <div ref={wrapperRef} className="relative">
-        <button
-          type="button"
-          disabled={disabled}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
-          className={`flex w-full items-center justify-between gap-3 rounded-[12px] border bg-[var(--mp-raised)] px-4 py-3 text-left text-[15px] text-[var(--mp-text)] outline-none transition disabled:cursor-default disabled:opacity-100 ${open ? 'border-[var(--mp-lime)]' : 'border-[var(--mp-line)]'} ${disabled ? '' : 'cursor-pointer hover:border-[var(--mp-lime)]'}`}
-        >
-          <span className={`min-w-0 truncate ${selected ? '' : 'text-[var(--mp-muted)]'}`}>{selected?.label ?? 'Seleccionar'}</span>
-          {!disabled && <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[var(--mp-muted)] transition ${open ? 'rotate-180' : ''}`} />}
-        </button>
-        {open && (
-          <ul role="listbox" className="absolute left-0 right-0 top-full z-40 mt-1.5 max-h-72 overflow-auto rounded-[14px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
-            {options.map((option) => {
-              const active = option.value === value
-              return (
-                <li key={option.value || 'none'} role="option" aria-selected={active}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange(option.value)
-                      setOpen(false)
-                    }}
-                    className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-[9px] px-3 py-2.5 text-left text-[15px] transition ${active ? 'bg-[var(--mp-lime-soft)] font-semibold text-[var(--mp-lime)]' : 'text-[var(--mp-text)] hover:bg-[var(--mp-raised)]'}`}
-                  >
-                    {option.label}
-                    {active && <Check size={16} aria-hidden="true" />}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+      <div className="flex h-10 items-center justify-between gap-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 text-sm text-[var(--ax-muted)]">
+        <span className="truncate">{value || 'Sin registrar'}</span>
+        <Lock size={15} aria-hidden="true" className="shrink-0" />
       </div>
+      {hint && <span className="block text-xs text-[var(--ax-muted)]">{hint}</span>}
     </div>
   )
+}
+
+export function SelectField({ label, value, onChange, disabled = false, options }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; options: Array<{ value: string; label: string }> }) {
+  if (disabled) return <ReadValue label={label} value={value ? options.find((option) => option.value === value)?.label ?? value : ''} />
+  return <Select label={label} value={value} onChange={onChange} options={options.map((option) => ({ value: option.value, label: option.label }))} />
 }
 
 const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -383,6 +346,8 @@ function partsOf(iso: string) {
   const [year, month, day] = iso.split('-').map(Number)
   return { year, month: month - 1, day }
 }
+
+const roundIconButton = 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-text)] hover:bg-[var(--ax-hover)] disabled:cursor-not-allowed disabled:opacity-30'
 
 // Selector de fecha con el estilo de AthlonX (reemplaza el calendario nativo del navegador).
 export function DateField({ label, value, onChange, disabled = false, hint, min = '1900-01-01', max }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; hint?: string; min?: string; max?: string }) {
@@ -424,6 +389,8 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
     if (open && view === 'years') yearListRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'center' })
   }, [open, view])
 
+  if (disabled) return <ReadValue label={label} value={selected ? `${selected.day} de ${monthNames[selected.month]} de ${selected.year}` : ''} hint={hint} />
+
   function openPanel() {
     const base = selected ?? maxParts
     setViewYear(base.year)
@@ -456,58 +423,29 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
   const todayAllowed = today >= min && today <= maxIso
 
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className="min-w-0 space-y-1.5">
       <span className={labelClass}>{label}</span>
       <div ref={wrapperRef} className="relative">
-        <button
-          type="button"
-          disabled={disabled}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={() => (open ? setOpen(false) : openPanel())}
-          className={`flex w-full items-center justify-between gap-3 rounded-[12px] border bg-[var(--mp-raised)] px-4 py-3 text-left text-[15px] text-[var(--mp-text)] outline-none transition disabled:cursor-default disabled:opacity-100 ${open ? 'border-[var(--mp-lime)]' : 'border-[var(--mp-line)]'} ${disabled ? '' : 'cursor-pointer hover:border-[var(--mp-lime)]'}`}
-        >
-          <span className={`min-w-0 truncate ${displayValue ? '' : 'text-[var(--mp-muted)]'}`}>{displayValue || 'Selecciona una fecha'}</span>
-          {!disabled && <CalendarDays size={18} aria-hidden="true" className="shrink-0 text-[var(--mp-muted)]" />}
+        <button type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => (open ? setOpen(false) : openPanel())} className={cx(inputClass, 'flex cursor-pointer items-center justify-between gap-2 text-left', open && 'border-[var(--ax-accent-text)]')}>
+          <span className={cx('truncate', !displayValue && 'text-[var(--ax-muted)]')}>{displayValue || 'Selecciona una fecha'}</span>
+          <CalendarDays size={16} aria-hidden="true" className="shrink-0 text-[var(--ax-muted)]" />
         </button>
 
         {open && (
-          <div role="dialog" aria-label={label} className="absolute left-0 top-full z-40 mt-1.5 w-[300px] max-w-[calc(100vw-2rem)] rounded-[14px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
+          <div role="dialog" aria-label={label} className="ax-drop-in absolute left-0 top-full z-40 mt-2 w-[300px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--ax-line-strong)] bg-[var(--ax-surface-raised)] p-3.5 shadow-[var(--ax-shadow-pop)]">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => shiftMonth(-1)}
-                disabled={prevDisabled || view === 'years'}
-                aria-label="Mes anterior"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[var(--mp-text)] transition hover:bg-[var(--mp-raised)] hover:text-[var(--mp-lime)] disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <ChevronLeft size={18} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setView((current) => (current === 'days' ? 'years' : 'days'))}
-                className="flex cursor-pointer items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[15px] font-semibold capitalize text-[var(--mp-text)] transition hover:bg-[var(--mp-raised)]"
-              >
+              <button type="button" onClick={() => shiftMonth(-1)} disabled={prevDisabled || view === 'years'} aria-label="Mes anterior" className={roundIconButton}><ChevronLeft size={18} aria-hidden="true" /></button>
+              <button type="button" onClick={() => setView((current) => (current === 'days' ? 'years' : 'days'))} className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold capitalize text-[var(--ax-text)] hover:bg-[var(--ax-hover)]">
                 {view === 'days' ? `${monthNames[viewMonth]} ${viewYear}` : 'Seleccionar año'}
-                <ChevronDown size={15} aria-hidden="true" className={`text-[var(--mp-lime)] transition ${view === 'years' ? 'rotate-180' : ''}`} />
+                <ChevronDown size={15} aria-hidden="true" className={cx('text-[var(--ax-accent-text)] transition-transform duration-150', view === 'years' && 'rotate-180')} />
               </button>
-              <button
-                type="button"
-                onClick={() => shiftMonth(1)}
-                disabled={nextDisabled || view === 'years'}
-                aria-label="Mes siguiente"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[var(--mp-text)] transition hover:bg-[var(--mp-raised)] hover:text-[var(--mp-lime)] disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <ChevronRight size={18} aria-hidden="true" />
-              </button>
+              <button type="button" onClick={() => shiftMonth(1)} disabled={nextDisabled || view === 'years'} aria-label="Mes siguiente" className={roundIconButton}><ChevronRight size={18} aria-hidden="true" /></button>
             </div>
 
             {view === 'days' ? (
               <>
                 <div className="grid grid-cols-7 gap-1 pb-2">
-                  {weekdayShort.map((day) => (
-                    <span key={day} className="text-center text-[11px] font-semibold uppercase tracking-[0.5px] text-[var(--mp-muted)]">{day}</span>
-                  ))}
+                  {weekdayShort.map((day) => <span key={day} className="text-center text-[11px] font-semibold text-[var(--ax-muted)]">{day}</span>)}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
                   {cells.map((day, index) => {
@@ -517,16 +455,10 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
                     const isToday = iso === today
                     const outOfRange = iso < min || iso > maxIso
                     return (
-                      <button
-                        key={iso}
-                        type="button"
-                        disabled={outOfRange}
-                        onClick={() => pick(iso)}
-                        aria-pressed={isSelected}
-                        className={`mx-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[14px] transition disabled:cursor-not-allowed disabled:opacity-30 ${isSelected ? 'bg-[var(--mp-lime)] font-bold text-[var(--mp-on-lime)]' : isToday ? 'border border-[var(--mp-lime)] text-[var(--mp-lime)] hover:bg-[var(--mp-lime-soft)]' : 'text-[var(--mp-text)] hover:bg-[var(--mp-raised)]'}`}
-                      >
-                        {day}
-                      </button>
+                      <button key={iso} type="button" disabled={outOfRange} onClick={() => pick(iso)} aria-pressed={isSelected} className={cx(
+                        'mx-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-sm disabled:cursor-not-allowed disabled:opacity-30',
+                        isSelected ? 'bg-[var(--ax-accent)] font-bold text-[var(--ax-on-accent)]' : isToday ? 'border border-[var(--ax-accent-line)] text-[var(--ax-accent-text)] hover:bg-[var(--ax-accent-soft)]' : 'text-[var(--ax-text)] hover:bg-[var(--ax-hover)]',
+                      )}>{day}</button>
                     )
                   })}
                 </div>
@@ -535,39 +467,19 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
               <div ref={yearListRef} className="grid max-h-64 grid-cols-4 gap-1.5 overflow-y-auto pr-1">
                 {years.map((year) => {
                   const active = year === viewYear
-                  return (
-                    <button
-                      key={year}
-                      type="button"
-                      data-active={active}
-                      onClick={() => {
-                        setViewYear(year)
-                        setView('days')
-                      }}
-                      className={`cursor-pointer rounded-[9px] py-2 text-[14px] transition ${active ? 'bg-[var(--mp-lime)] font-bold text-[var(--mp-on-lime)]' : 'text-[var(--mp-text)] hover:bg-[var(--mp-raised)]'}`}
-                    >
-                      {year}
-                    </button>
-                  )
+                  return <button key={year} type="button" data-active={active} onClick={() => { setViewYear(year); setView('days') }} className={cx('cursor-pointer rounded-lg py-2 text-sm', active ? 'bg-[var(--ax-accent)] font-bold text-[var(--ax-on-accent)]' : 'text-[var(--ax-text)] hover:bg-[var(--ax-hover)]')}>{year}</button>
                 })}
               </div>
             )}
 
-            <div className="mt-3 flex items-center justify-between border-t border-[var(--mp-line)] pt-3">
-              <button type="button" onClick={() => pick('')} className="cursor-pointer rounded-[8px] px-3 py-1.5 text-[14px] font-semibold text-[var(--mp-muted)] transition hover:text-[var(--mp-text)]">Borrar</button>
-              <button
-                type="button"
-                disabled={!todayAllowed}
-                onClick={() => pick(today)}
-                className="cursor-pointer rounded-[8px] px-3 py-1.5 text-[14px] font-semibold text-[var(--mp-lime)] transition hover:bg-[var(--mp-lime-soft)] disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                Hoy
-              </button>
+            <div className="mt-3 flex items-center justify-between border-t border-[var(--ax-line)] pt-3">
+              <button type="button" onClick={() => pick('')} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--ax-muted)] hover:text-[var(--ax-text)]">Borrar</button>
+              <button type="button" disabled={!todayAllowed} onClick={() => pick(today)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--ax-accent-text)] hover:bg-[var(--ax-accent-soft)] disabled:cursor-not-allowed disabled:opacity-30">Hoy</button>
             </div>
           </div>
         )}
       </div>
-      {hint && <span className="text-xs text-[var(--mp-muted)]">{hint}</span>}
+      {hint && <span className="block text-xs text-[var(--ax-muted)]">{hint}</span>}
     </div>
   )
 }
@@ -577,10 +489,11 @@ export function CountryFlag({ flagCode, name }: { flagCode: string; name: string
   const key = flagCode.toUpperCase() as keyof typeof Flags
   const Flag = Flags[key]
   if (!Flag) return null
-  return <Flag title={`Bandera de ${name}`} className="h-[18px] w-[27px] shrink-0 rounded-[3px]" />
+  return <Flag title={`Bandera de ${name}`} className="h-[14px] w-[21px] shrink-0 rounded-[2px]" />
 }
 
 export function PhoneField({ label, value, onChange, disabled = false, countries }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; countries: Country[] }) {
+  if (disabled) return <ReadValue label={label} value={value} />
   const parts = parsePhone(value)
   const registered = parts.code ? countries.find((country) => country.dialCode === parts.code) : undefined
   const unknownCode = parts.code !== '' && !registered
@@ -593,17 +506,16 @@ export function PhoneField({ label, value, onChange, disabled = false, countries
   }
 
   return (
-    <div className="flex w-full flex-col gap-1.5">
+    <div className="min-w-0 space-y-1.5">
       <span className={labelClass}>{label}</span>
-      <div className="flex items-stretch gap-2">
-        <div className={`flex shrink-0 items-center gap-2 rounded-[12px] border bg-[var(--mp-raised)] px-3 ${unknownCode || missingCode ? 'border-[var(--mp-danger)]' : 'border-[var(--mp-line)]'}`}>
-          <span className="text-[15px] text-[var(--mp-muted)]">+</span>
+      <div className="flex gap-2">
+        <div className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[10px] border bg-[var(--ax-surface-sunken)] px-2.5 focus-within:border-[var(--ax-accent-text)]', unknownCode || missingCode ? 'border-[var(--ax-danger-line)]' : 'border-[var(--ax-line-strong)]')}>
+          <span className="text-sm text-[var(--ax-muted)]">+</span>
           <input
             inputMode="numeric"
             aria-label="Código de país"
-            className="w-12 bg-transparent py-3 text-[15px] text-[var(--mp-text)] outline-none disabled:cursor-default disabled:opacity-100"
+            className="w-10 bg-transparent text-sm text-[var(--ax-text)] outline-none placeholder:text-[var(--ax-muted)]"
             value={parts.code}
-            disabled={disabled}
             placeholder="507"
             maxLength={4}
             required
@@ -619,21 +531,20 @@ export function PhoneField({ label, value, onChange, disabled = false, countries
         <input
           inputMode="tel"
           aria-label="Número de teléfono"
-          className={`${inputClass} min-w-0 flex-1`}
+          className={cx(inputClass, 'min-w-0 flex-1')}
           value={parts.number}
-          disabled={disabled || !parts.code}
+          disabled={!parts.code}
           placeholder={parts.code ? (registered?.code === 'PA' ? '6000-0000' : 'Número') : 'Primero el código de país'}
           onChange={(event) => onChange(joinPhone(parts.code, formatFor(parts.code, event.target.value)))}
         />
       </div>
-      {missingCode && <span role="alert" className="text-[12px] text-[var(--mp-danger)]">{missingCode}</span>}
-      {!missingCode && unknownCode && (
-        <span role="alert" className="text-[12px] text-[var(--mp-danger)]">Número de país no registrado en AthlonX.</span>
-      )}
+      {missingCode && <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">{missingCode}</span>}
+      {!missingCode && unknownCode && <span role="alert" className="block text-xs text-[var(--ax-danger-text)]">Número de país no registrado en AthlonX.</span>}
     </div>
   )
 }
 
+// Copia el código y confirma con "Copiado" durante 2 segundos.
 export function CopyCodeButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
@@ -641,79 +552,55 @@ export function CopyCodeButton({ value, label }: { value: string; label: string 
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
+      window.setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopied(false)
     }
   }
   return (
-    <button
-      type="button"
-      onClick={copy}
-      aria-label={copied ? 'Código copiado' : label}
-      title={copied ? 'Copiado' : label}
-      className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--mp-line)] bg-[var(--mp-raised)] transition hover:border-[var(--mp-lime)]"
-    >
-      <span className="relative block h-4 w-4" aria-hidden="true">
-        <span className="absolute left-[5px] top-0 h-2.5 w-2.5 rounded-[2px] border-[1.6px] border-[var(--mp-lime)]" />
-        <span className="absolute left-0 top-[5px] h-2.5 w-2.5 rounded-[2px] border-[1.6px] border-[var(--mp-lime)] bg-[var(--mp-raised)]" />
-      </span>
+    <button type="button" onClick={() => void copy()} aria-label={copied ? 'Código copiado' : label} title={copied ? 'Copiado' : label} className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
+      {copied ? <><Check size={14} aria-hidden="true" className="text-[var(--ax-accent-text)]" /><span className="text-xs font-semibold text-[var(--ax-accent-text)]">Copiado</span></> : <Copy size={14} aria-hidden="true" />}
     </button>
   )
 }
 
-export function ReadValue({ label, value, copyable = false, hint }: { label: string; value: string; copyable?: boolean; hint?: string }) {
-  return (
-    <div className="flex w-full min-w-0 flex-col gap-1.5">
-      <span className={labelClass}>{label}</span>
-      <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-[12px] border border-[var(--mp-line)] bg-[var(--mp-raised)] px-4 py-3">
-        <span className="min-w-0 break-words text-[15px] text-[var(--mp-text)]">{value || 'Pendiente'}</span>
-        {copyable && value && <CopyCodeButton value={value} label={`Copiar ${label.toLowerCase()}`} />}
-      </div>
-      {hint && <span className="text-[12px] text-[var(--mp-muted)]">{hint}</span>}
-    </div>
-  )
+export function Chip({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'lime' }) {
+  return tone === 'lime'
+    ? <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[var(--ax-accent-soft)] px-2.5 text-xs font-semibold whitespace-nowrap text-[var(--ax-accent-text)]">{children}</span>
+    : <Badge>{children}</Badge>
 }
 
-export function Chip({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'lime' }) {
+// Insignia de visibilidad fija ("Siempre público", "Solo tú").
+export function FixedChip({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-[var(--ax-line-strong)] px-2.5 text-xs font-semibold whitespace-nowrap text-[var(--ax-text-secondary)]"><Icon size={12} aria-hidden="true" className="text-[var(--ax-muted)]" />{children}</span>
+}
+
+// Lista de filas separadas por líneas (ajustes, equipos, directivos).
+export function RowList({ children }: { children: ReactNode }) {
+  return <div className="-my-1 divide-y divide-[var(--ax-line)]">{children}</div>
+}
+
+export function Switch({ checked, onChange, disabled = false, label }: { checked: boolean; onChange: (value: boolean) => void; disabled?: boolean; label: string }) {
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-semibold ${tone === 'lime' ? 'border-[var(--mp-lime)] bg-[var(--mp-lime-soft)] text-[var(--mp-lime)]' : 'border-[var(--mp-line)] text-[var(--mp-text)]'}`}>
-      {children}
-    </span>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className={cx('relative h-6 w-10 shrink-0 cursor-pointer rounded-full transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50', checked ? 'bg-[var(--ax-accent)]' : 'bg-[var(--ax-line-strong)]')}>
+      <span aria-hidden="true" className={cx('absolute top-[3px] h-[18px] w-[18px] rounded-full transition-[left,background-color] duration-150', checked ? 'left-[19px] bg-[var(--ax-on-accent)]' : 'left-[3px] bg-[var(--ax-text-secondary)]')} />
+    </button>
   )
 }
 
 export function Toggle({ label, description, checked, onChange, disabled = false }: { label: string; description?: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
-  return (
-    <label className={`flex items-center justify-between gap-4 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-      <span className="min-w-0">
-        <span className="block text-[15px] font-semibold">{label}</span>
-        {description && <span className="block text-[12px] text-[var(--mp-muted)]">{description}</span>}
-      </span>
-      <input type="checkbox" className="sr-only" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
-      <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full border transition ${checked ? 'border-[var(--mp-lime)] bg-[var(--mp-lime)]' : 'border-[var(--mp-line)] bg-[var(--mp-raised)]'}`}>
-        <span className={`absolute top-[3px] h-[18px] w-[18px] rounded-full transition ${checked ? 'left-[23px] bg-[var(--mp-on-lime)]' : 'left-[3px] bg-[var(--mp-muted)]'}`} />
-      </span>
-    </label>
-  )
+  return <SettingRow title={label} description={description} right={<Switch label={label} checked={checked} onChange={onChange} disabled={disabled} />} />
 }
 
-export function Segmented<T extends string>({ options, value, onChange, disabled = false }: { options: Array<{ value: T; label: string }>; value: T; onChange: (value: T) => void; disabled?: boolean }) {
+export function Segmented<T extends string>({ options, value, onChange, disabled = false, label }: { options: Array<{ value: T; label: string; icon?: LucideIcon }>; value: T; onChange: (value: T) => void; disabled?: boolean; label?: string }) {
   return (
-    <div role="radiogroup" className="inline-flex gap-[2px] rounded-[12px] border border-[var(--mp-line)] bg-[var(--mp-raised)] p-1">
+    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 gap-0.5 rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] p-[3px]">
       {options.map((option) => {
         const active = option.value === value
+        const Icon = option.icon
         return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={disabled}
-            onClick={() => onChange(option.value)}
-            className={`cursor-pointer rounded-[9px] px-3 py-[7px] text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${active ? 'bg-[var(--mp-lime)] text-[var(--mp-on-lime)]' : 'text-[var(--mp-muted)]'}`}
-          >
-            {option.label}
+          <button key={option.value} type="button" role="radio" aria-checked={active} disabled={disabled} onClick={() => onChange(option.value)} className={cx('inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60', active ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'text-[var(--ax-text-secondary)] hover:text-[var(--ax-text)]')}>
+            {Icon && <Icon size={14} aria-hidden="true" />}{option.label}
           </button>
         )
       })}
@@ -723,91 +610,87 @@ export function Segmented<T extends string>({ options, value, onChange, disabled
 
 export function SettingRow({ title, description, right }: { title: string; description?: string; right: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-semibold">{title}</p>
-        {description && <p className="text-[12px] text-[var(--mp-muted)]">{description}</p>}
+    <div className="flex items-center justify-between gap-4 py-3.5">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-[var(--ax-text)]">{title}</p>
+        {description && <p className="mt-0.5 text-[13px] leading-[18px] text-[var(--ax-muted)]">{description}</p>}
       </div>
       {right}
     </div>
   )
 }
 
-export function ListRow({ initials, title, meta, right }: { initials?: string; title: string; meta?: string; right?: ReactNode }) {
+export function ListRow({ initials, icon: Icon, round = false, title, meta, right, children }: { initials?: string; icon?: LucideIcon; round?: boolean; title: string; meta?: string; right?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-[var(--mp-line)] bg-[var(--mp-raised)] p-4">
-      {initials && (
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--mp-lime)] font-heading text-[17px] font-bold text-[var(--mp-on-lime)]">{initials}</div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold">{title}</p>
-        {meta && <p className="text-[13px] text-[var(--mp-muted)]">{meta}</p>}
-      </div>
-      {right}
-    </div>
-  )
-}
-
-export function ConfirmModal({
-  open,
-  title,
-  description,
-  confirmLabel,
-  danger = false,
-  busy = false,
-  error,
-  onConfirm,
-  onCancel,
-  children,
-}: {
-  open: boolean
-  title: string
-  description?: string
-  confirmLabel: string
-  danger?: boolean
-  busy?: boolean
-  error?: string
-  onConfirm: () => void
-  onCancel: () => void
-  children?: ReactNode
-}) {
-  return (
-    <Modal open={open} onClose={busy ? () => undefined : onCancel}>
-      <div className="flex flex-col gap-5">
-        <h2 className="font-heading text-[28px] font-bold uppercase leading-tight">{title}</h2>
-        {description && <p className="text-[15px] text-[var(--mp-muted)]">{description}</p>}
-        {children}
-        {error && <p role="alert" className="text-[14px] text-[var(--mp-danger)]">{error}</p>}
-        <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" onClick={onCancel} disabled={busy} className={outlineButtonClass}>Cancelar</button>
-          <button type="button" onClick={onConfirm} disabled={busy} className={danger ? dangerButtonClass : primaryButtonClass}>
-            {busy ? 'Procesando…' : confirmLabel}
-          </button>
+    <div className="py-3">
+      <div className="flex items-center gap-3.5">
+        {Icon ? <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]"><Icon size={18} /></span>
+          : initials && <span aria-hidden="true" className={cx('flex h-10 w-10 shrink-0 items-center justify-center text-[13px] font-bold', round ? 'rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}>{initials}</span>}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{title}</p>
+          {meta && <p className="mt-0.5 truncate text-[13px] text-[var(--ax-muted)]">{meta}</p>}
         </div>
+        {right}
       </div>
-    </Modal>
+      {children}
+    </div>
   )
 }
 
+// Estado vacío dentro de una tarjeta.
 export function Pending({ children }: { children: ReactNode }) {
-  return <p className="rounded-[12px] border border-dashed border-[var(--mp-line)] px-4 py-3 text-[14px] text-[var(--mp-muted)]">{children}</p>
+  return <p className="rounded-[10px] border border-dashed border-[var(--ax-line-strong)] px-4 py-3 text-[13px] text-[var(--ax-muted)]">{children}</p>
 }
 
-export function Modal({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  if (!open) return null
+// Nota dentro de una tarjeta (componente "aviso" neutro de Figma).
+export function Hint({ icon: Icon = Info, children }: { icon?: LucideIcon; children: ReactNode }) {
+  return <div className="flex items-start gap-2 rounded-[10px] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-[13px] leading-[18px] text-[var(--ax-text-secondary)]"><Icon size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--ax-muted)]" /><div className="min-w-0">{children}</div></div>
+}
+
+// Confirmación en línea (reemplaza las ventanas de confirmación).
+export function InlineConfirm({ title, description, confirmLabel, danger = false, busy = false, error, onConfirm, onCancel, children }: { title: string; description?: string; confirmLabel: string; danger?: boolean; busy?: boolean; error?: string; onConfirm: () => void; onCancel: () => void; children?: ReactNode }) {
   return (
-    <div role="dialog" aria-modal="true" onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(7,19,30,0.9)] p-5">
-      <div onClick={(event) => event.stopPropagation()} className="w-full max-w-[520px] rounded-[20px] border border-[var(--mp-line)] bg-[var(--mp-surface)] p-8 text-[var(--mp-text)]">
-        {children}
+    <div role="group" aria-label={title} className={cx('ax-drop-in mt-3 space-y-3 rounded-[14px] border p-4', danger ? 'border-[var(--ax-danger-line)] bg-[var(--ax-danger-soft)]' : 'border-[var(--ax-accent-line)] bg-[var(--ax-surface-raised)]')}>
+      <div>
+        <p className="text-sm font-semibold text-[var(--ax-text)] [overflow-wrap:anywhere]">{title}</p>
+        {description && <p className="mt-1 text-[13px] leading-5 text-[var(--ax-text-secondary)]">{description}</p>}
+      </div>
+      {children}
+      {error && <p role="alert" className="text-[13px] font-medium text-[var(--ax-danger-text)]">{error}</p>}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancelar</Button>
+        <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy}>{busy ? 'Procesando…' : confirmLabel}</Button>
       </div>
     </div>
   )
 }
 
-export function Avatar({ initials }: { initials: string }) {
-  return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--mp-lime)] font-heading text-[17px] font-bold text-[var(--mp-on-lime)]">{initials}</div>
-  )
+// Confirmación breve de un guardado inmediato ("Guardado").
+export function SaveStatus({ state }: { state: 'idle' | 'saving' | 'saved' | string }) {
+  if (state === 'idle') return null
+  if (state === 'saving') return <span role="status" className="text-xs font-semibold text-[var(--ax-muted)]">Guardando…</span>
+  if (state === 'saved') return <span role="status" className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ax-accent-text)]"><Check size={14} aria-hidden="true" />Guardado</span>
+  return <span role="alert" className="text-xs font-semibold text-[var(--ax-danger-text)]">{state}</span>
+}
+
+// Estado de guardado inmediato: muestra "Guardado" unos segundos o el error.
+export function useSaveStatus() {
+  const [state, setState] = useState<string>('idle')
+  const timer = useRef<number | null>(null)
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
+  async function run(task: () => Promise<string>) {
+    if (timer.current) window.clearTimeout(timer.current)
+    setState('saving')
+    const failure = await task()
+    setState(failure || 'saved')
+    if (!failure) timer.current = window.setTimeout(() => setState('idle'), 2500)
+    return failure
+  }
+  return { state, run }
+}
+
+export function Avatar({ initials, size = 56 }: { initials: string; size?: 40 | 56 | 64 }) {
+  return <span aria-hidden="true" className={cx('flex shrink-0 items-center justify-center rounded-full bg-[var(--ax-accent)] font-display text-[var(--ax-on-accent)]', size === 40 ? 'h-10 w-10 text-lg' : size === 64 ? 'h-16 w-16 text-[28px]' : 'h-14 w-14 text-2xl')}>{initials || 'AX'}</span>
 }
 
 export function initialsOf(text: string) {

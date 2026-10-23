@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { PersonaProfileView, personaSections } from '../../../Components/mi-perfil/persona-profile-view'
 import { OrganizationProfileView, organizationSections } from '../../../Components/mi-perfil/organization-profile-view'
 import { TeamProfileView, teamSections } from '../../../Components/mi-perfil/team-profile-view'
-import { themeStyle } from '../../../Components/mi-perfil/ui'
 import { loadManagedTeams } from '../../../lib/team-access'
 import {
   loadDisciplines,
@@ -103,12 +102,14 @@ export default function MiPerfilPage() {
     window.history.replaceState(null, '', url.toString())
   }
 
-  if (loading) {
-    return <main style={themeStyle(theme)} className="min-h-screen bg-[var(--mp-bg)] p-10 text-[var(--mp-muted)]">Cargando Mi perfil…</main>
-  }
+  if (loading) return <ProfileSkeleton />
 
   if (!loaded) {
-    return <main style={themeStyle(theme)} className="min-h-screen bg-[var(--mp-bg)] p-10 text-[var(--mp-text)]"><p>{missing}</p></main>
+    return <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
+      <div className="mx-auto max-w-[1184px] px-4 pb-16 pt-5 sm:px-8 sm:pt-8 lg:px-10">
+        <p className="rounded-[14px] border border-dashed border-[var(--ax-line-strong)] p-6 text-sm text-[var(--ax-muted)]">{missing}</p>
+      </div>
+    </main>
   }
 
   if (loaded.kind === 'persona') {
@@ -155,4 +156,23 @@ export default function MiPerfilPage() {
       onSaved={() => void load()}
     />
   )
+}
+
+// Bloques del tamaño final mientras carga, para que la página no salte.
+function ProfileSkeleton() {
+  return <main aria-busy="true" aria-label="Cargando Mi perfil" className="ax-v2 min-h-screen bg-transparent lg:ml-64">
+    <div aria-hidden="true" className="mx-auto max-w-[1184px] space-y-6 px-4 pb-16 pt-5 sm:px-8 sm:pt-8 lg:px-10">
+      <div className="flex items-center gap-5">
+        <span className="h-14 w-14 animate-pulse rounded-full bg-[var(--ax-surface-raised)] sm:h-20 sm:w-20" />
+        <div className="space-y-3">
+          <span className="block h-8 w-56 animate-pulse rounded-lg bg-[var(--ax-surface-raised)]" />
+          <span className="block h-5 w-40 animate-pulse rounded-md bg-[var(--ax-surface-raised)]" />
+        </div>
+      </div>
+      <div className="space-y-4 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-6">
+        <span className="block h-6 w-44 animate-pulse rounded-md bg-[var(--ax-surface-raised)]" />
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <span key={index} className="block h-11 animate-pulse rounded-[10px] bg-[var(--ax-surface-raised)]" />)}</div>
+      </div>
+    </div>
+  </main>
 }

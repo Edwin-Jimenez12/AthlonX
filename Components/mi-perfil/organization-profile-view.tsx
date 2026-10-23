@@ -1,27 +1,31 @@
 'use client'
 
+import { Building2, CalendarDays, ExternalLink, Lock, ShieldCheck, SlidersHorizontal, Trophy, UserCog, Users } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
-import { LogoutAction } from '../logout-confirmation'
 import { supabase } from '../../lib/supabase'
 import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, handlePattern, normalizeHandle, phoneError } from '../../lib/mi-perfil'
 import type { Discipline, OrganizationProfile, Theme } from '../../lib/mi-perfil'
-import { Card, Chip, ConfirmModal, Field, Hero, ListRow, Pending, PhoneField, ReadValue, SelectField, SettingRow, Segmented, Shell, Toggle, initialsOf } from './ui'
+import { Badge, buttonClass, cx } from '../mi-equipo/ui'
+import { Card, CardRow, Chip, Field, FieldGrid, Hero, Hint, ListRow, Pending, PhoneField, ReadValue, RowList, SaveStatus, SelectField, SettingRow, Segmented, Shell, Switch, initialsOf, useSaveStatus } from './ui'
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
-import { DeleteAccountCard } from './delete-account-card'
+import { DeleteAccountCard, SessionCard } from './delete-account-card'
+import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
 
 export const organizationSections: SectionItem[] = [
-  { id: 'identidad', label: 'Información de la organización', description: 'Datos, logotipo y disciplinas' },
-  { id: 'equipos', label: 'Equipos y roles', description: 'Equipos afiliados y administración' },
-  { id: 'configuracion', label: 'Configuración', description: 'Visibilidad, torneos y preferencias' },
-  { id: 'seguridad', label: 'Seguridad', description: 'Contraseña y correo' },
-  { id: 'cuenta', label: 'Cuenta', description: 'Correo, acceso y salida' },
+  { id: 'identidad', label: 'Información general', description: 'Datos, logotipo y disciplinas', icon: Building2 },
+  { id: 'equipos', label: 'Equipos y roles', description: 'Equipos afiliados y administración', icon: Users },
+  { id: 'configuracion', label: 'Configuración', description: 'Visibilidad, torneos y preferencias', icon: SlidersHorizontal },
+  { id: 'seguridad', label: 'Seguridad', description: 'Contraseña y correo', icon: ShieldCheck },
+  { id: 'cuenta', label: 'Cuenta', description: 'Correo, acceso y salida', icon: UserCog },
 ]
 
-const editableSections = ['identidad', 'configuracion']
+// La visibilidad y las preferencias se guardan al momento; solo la información general entra en modo edición.
+const editableSections = ['identidad']
 const descriptionCharLimit = 1000
 const organizationTypes = [
   ['organizacion_deportiva', 'Organización deportiva'],
@@ -53,6 +57,8 @@ function cleanSocialLinks(links: Record<string, string>) {
   )
 }
 
+type OrganizationValues = { name: string; type: string; handle: string; country: string; city: string; description: string; contactEmail: string; contactPhone: string; websiteUrl: string; socialLinks: Record<string, string>; isPublic: boolean; disciplineIds: string[] }
+
 export function OrganizationProfileView({
   organization,
   disciplines,
@@ -78,10 +84,11 @@ export function OrganizationProfileView({
   const countries = useCountries()
   const canEdit = organization.canEdit
   const [editing, setEditing] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [confirmError, setConfirmError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [notice, setNotice] = useState<Notice | null>(null)
+  const visibilityStatus = useSaveStatus()
+  const preferenceStatus = useSaveStatus()
 
   const [name, setName] = useState(organization.name)
   const [type, setType] = useState(organization.type)
@@ -95,15 +102,17 @@ export function OrganizationProfileView({
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>(organization.socialLinks)
   const [isPublic, setIsPublic] = useState(organization.isPublic)
   const [disciplineIds, setDisciplineIds] = useState<string[]>(organization.disciplineIds)
+  const disabled = !editing
 
   // Cambios sin guardar: se compara con la versión que había al empezar a editar.
   const [baseline, setBaseline] = useState('')
-  const currentSnapshot = JSON.stringify([name, type, handle, country, city, description, contactEmail, contactPhone, websiteUrl, isPublic, disciplineIds, socialLinks])
+  const currentSnapshot = JSON.stringify([name, type, handle, country, city, description, contactEmail, contactPhone, websiteUrl, disciplineIds, socialLinks])
   const unsaved = editing && currentSnapshot !== baseline
 
   function startEdit() {
     if (!editableSections.includes(section)) onSection('identidad')
     setNotice(null)
+    setSaveError('')
     setBaseline(currentSnapshot)
     setEditing(true)
   }
@@ -119,9 +128,8 @@ export function OrganizationProfileView({
     setContactPhone(organization.contactPhone)
     setWebsiteUrl(organization.websiteUrl)
     setSocialLinks(organization.socialLinks)
-    setIsPublic(organization.isPublic)
     setDisciplineIds(organization.disciplineIds)
-    setConfirmError('')
+    setSaveError('')
     setEditing(false)
   }
 
@@ -129,187 +137,186 @@ export function OrganizationProfileView({
     setDisciplineIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
   }
 
-  async function saveOrganization(): Promise<string> {
+  // La RPC reescribe todos los campos: se envían también logo, redes y modalidades con su valor actual.
+  async function writeOrganization(values: OrganizationValues): Promise<string> {
     if (!supabase) return 'Supabase no está configurado.'
-    if (!name.trim()) return 'El nombre de la organización es obligatorio.'
-    if (phoneError(contactPhone)) return phoneError(contactPhone)
-    if (handle && !handlePattern.test(handle)) return 'El nombre de usuario debe tener de 3 a 30 caracteres: minúsculas, números, puntos o guiones bajos.'
-    if (description.length > descriptionCharLimit) return `La descripción no puede pasar de ${descriptionCharLimit} caracteres.`
-    // La RPC reescribe todos los campos: se envían también logo, redes y modalidades con su valor actual.
     const { error } = await supabase.rpc('update_organization_public_profile', {
       p_organization_id: organization.id,
       p_profile: {
-        name: name.trim(),
-        type,
-        handle: handle.trim() || null,
-        country: country.trim() || 'Panamá',
-        city: city.trim() || null,
-        description: description.trim() || null,
+        name: values.name.trim(),
+        type: values.type,
+        handle: values.handle.trim() || null,
+        country: values.country.trim() || 'Panamá',
+        city: values.city.trim() || null,
+        description: values.description.trim() || null,
         logo_url: organization.logoUrl || null,
-        contact_email: contactEmail.trim() || null,
-        contact_phone: contactPhone.trim() || null,
-        website_url: websiteUrl.trim() || null,
-        social_links: cleanSocialLinks(socialLinks),
-        is_public: isPublic,
+        contact_email: values.contactEmail.trim() || null,
+        contact_phone: values.contactPhone.trim() || null,
+        website_url: values.websiteUrl.trim() || null,
+        social_links: cleanSocialLinks(values.socialLinks),
+        is_public: values.isPublic,
       },
-      p_discipline_ids: disciplineIds,
+      p_discipline_ids: values.disciplineIds,
       p_modality_ids: organization.modalityIds,
     })
     return error?.message ?? ''
   }
 
-  async function confirmSave() {
-    setBusy(true)
-    setConfirmError('')
-    const failure = await saveOrganization()
-    setBusy(false)
-    if (failure) return setConfirmError(failure)
-    setConfirming(false)
-    setEditing(false)
-    setNotice({ type: 'ok', text: 'Cambios guardados.' })
-    onSaved()
+  async function saveOrganization(): Promise<string> {
+    if (!name.trim()) return 'El nombre de la organización es obligatorio.'
+    if (phoneError(contactPhone)) return phoneError(contactPhone)
+    if (handle && !handlePattern.test(handle)) return 'El nombre de usuario debe tener de 3 a 30 caracteres: minúsculas, números, puntos o guiones bajos.'
+    if (description.length > descriptionCharLimit) return `La descripción no puede pasar de ${descriptionCharLimit} caracteres.`
+    return writeOrganization({ name, type, handle, country, city, description, contactEmail, contactPhone, websiteUrl, socialLinks, isPublic, disciplineIds })
   }
 
-  // Guardado desde el aviso de salida. Devuelve el error o vacío si se guardó.
-  async function saveFromNavigation(): Promise<string> {
+  async function save(): Promise<string> {
+    setBusy(true)
+    setSaveError('')
     const failure = await saveOrganization()
-    if (failure) return failure
+    setBusy(false)
+    if (failure) {
+      setSaveError(failure)
+      return failure
+    }
     setEditing(false)
-    setNotice({ type: 'ok', text: 'Cambios guardados.' })
+    setNotice({ type: 'ok', text: 'Perfil de la organización actualizado.' })
     onSaved()
     return ''
+  }
+
+  // Visibilidad al momento: se envían los datos ya guardados con el nuevo valor.
+  async function changeVisibility(value: boolean) {
+    setIsPublic(value)
+    const saved = organization
+    const failure = await visibilityStatus.run(() => writeOrganization({ name: saved.name, type: saved.type, handle: saved.handle, country: saved.country, city: saved.city, description: saved.description, contactEmail: saved.contactEmail, contactPhone: saved.contactPhone, websiteUrl: saved.websiteUrl, socialLinks: saved.socialLinks, isPublic: value, disciplineIds: saved.disciplineIds }))
+    if (failure) setIsPublic(!value)
   }
 
   async function saveTheme(next: Theme) {
     onTheme(next)
     applyTheme(next === 'claro' ? 'light' : 'dark')
-    if (supabase) {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme: next, notices_enabled: noticesEnabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    }
+    await preferenceStatus.run(() => savePreferences(next, noticesEnabled))
   }
 
   async function saveNotices(value: boolean) {
     onNotices(value)
-    if (supabase) {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) await supabase.from('account_preferences').upsert({ user_id: data.user.id, theme, notices_enabled: value, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    }
+    const failure = await preferenceStatus.run(() => savePreferences(theme, value))
+    if (failure) onNotices(!value)
   }
 
-  const sectionLabel = organizationSections.find((item) => item.id === section)?.label ?? organizationSections[0].label
+  const hero = (
+    <Hero
+      initials={initialsOf(name) || 'AX'}
+      round={false}
+      kindLabel="Organización"
+      title={name || 'Organización pendiente'}
+      code={organization.athlonxCode}
+      chips={<>
+        {type && <Chip tone="lime">{typeLabel(type)}</Chip>}
+        {organization.disciplineNames.map((item) => <Chip key={item} tone="lime">{item}</Chip>)}
+      </>}
+      canEdit={canEdit && editableSections.includes(section)}
+      editing={editing}
+      onEdit={startEdit}
+      publicProfileHref={`/organizaciones/${organization.id}`}
+    />
+  )
 
   return (
-    <Shell theme={theme} sectionLabel={sectionLabel} sections={organizationSections} activeSection={section} onSection={onSection} notice={notice} publicProfileHref={`/organizaciones/${organization.id}`} unsaved={unsaved} onDiscardChanges={cancelEdit} onSaveChanges={saveFromNavigation}>
-      <Hero
-        initials={initialsOf(name) || 'AX'}
-        kindLabel="Perfil de organización"
-        title={name || 'Organización pendiente'}
-        code={organization.athlonxCode}
-        chips={<>
-          {type && <Chip tone="lime">{typeLabel(type)}</Chip>}
-          {organization.disciplineNames.map((item) => <Chip key={item}>{item}</Chip>)}
-        </>}
-        canEdit={canEdit}
-        editing={editing}
-        saving={busy}
-        onEdit={startEdit}
-        onSave={() => setConfirming(true)}
-        onCancel={cancelEdit}
-      />
+    <Shell navTitle="Mi organización" sections={organizationSections} activeSection={section} onSection={onSection} hero={hero} notice={notice} editing={editing} unsaved={unsaved} saving={busy} saveError={saveError} onSave={save} onDiscard={cancelEdit}>
+      {!canEdit && <Hint icon={Lock}>Solo el propietario y los directivos pueden editar el perfil de la organización.</Hint>}
 
       {section === 'identidad' && (
         <>
           <Card title="Identidad de la organización" description="Estos datos aparecen en el perfil público de la organización.">
-            <div className="flex flex-col gap-6 md:flex-row">
-              <div className="flex flex-col items-start gap-3">
-                <div className="flex h-24 w-24 items-center justify-center rounded-[48px] bg-[var(--mp-lime)] font-heading text-[35px] font-bold text-[var(--mp-on-lime)]">{initialsOf(name) || 'AX'}</div>
-                <Pending>El cambio de logotipo estará disponible próximamente.</Pending>
+            <FieldGrid>
+              <Field label="Nombre de la organización" value={name} onChange={setName} disabled={disabled} maxLength={100} />
+              <Field label="Nombre de usuario" value={disabled && handle ? `@${handle}` : handle} onChange={(value) => setHandle(normalizeHandle(value))} disabled={disabled} maxLength={30} hint={disabled ? undefined : 'Solo minúsculas, números, puntos y guiones bajos.'} />
+              <SelectField label="Tipo de organización" value={type} onChange={setType} disabled={disabled} options={organizationTypes.map(([value, label]) => ({ value, label }))} />
+              <SelectField label="País" value={country} onChange={setCountry} disabled={disabled} options={countries.map((item) => ({ value: item.name, label: item.name }))} />
+              <Field label="Ciudad" value={city} onChange={setCity} disabled={disabled} maxLength={60} />
+              <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable />
+            </FieldGrid>
+            <div className="flex items-center gap-4 border-t border-[var(--ax-line)] pt-4">
+              <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{initialsOf(name) || 'AX'}</span>
+              <div className="min-w-0 space-y-2">
+                <p className="text-sm font-semibold text-[var(--ax-text)]">Logotipo: PNG o SVG cuadrado de hasta 2 MB</p>
+                <Badge>Próximamente</Badge>
               </div>
-              <div className="grid flex-1 gap-5 md:grid-cols-2">
-                <Field label="Nombre de la organización" value={name} onChange={setName} disabled={!editing} maxLength={100} />
-                <Field label="Nombre de usuario" value={handle} onChange={(value) => setHandle(normalizeHandle(value))} disabled={!editing} maxLength={30} hint="Solo minúsculas, números, puntos y guiones bajos." />
-                <SelectField label="Tipo de organización" value={type} onChange={setType} disabled={!editing} options={organizationTypes.map(([value, label]) => ({ value, label }))} />
-                <SelectField label="País" value={country} onChange={setCountry} disabled={!editing} options={countries.map((item) => ({ value: item.name, label: item.name }))} />
-                <Field label="Ciudad" value={city} onChange={setCity} disabled={!editing} maxLength={60} />
-                <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable hint="Identificación de la organización. No se puede cambiar." />
+            </div>
+          </Card>
+          <CardRow>
+            <Card title="Descripción" description={`Se muestra en el perfil público. Hasta ${descriptionCharLimit} caracteres.`}>
+              <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={disabled} maxLength={descriptionCharLimit} />
+              {editing && <p className={`text-right text-xs ${description.length > descriptionCharLimit ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>}
+            </Card>
+            <Card title="Disciplinas" description={editing ? 'Toca para activar o quitar una disciplina. Cada torneo indica su modalidad.' : 'Disciplinas en las que trabaja la organización. Cada torneo indica su modalidad.'}>
+              <div className="flex flex-wrap gap-2">
+                {disciplines.length ? disciplines.filter((item) => editing || disciplineIds.includes(item.id)).map((item) => {
+                  const active = disciplineIds.includes(item.id)
+                  return editing
+                    ? <button key={item.id} type="button" aria-pressed={active} onClick={() => toggleDiscipline(item.id)} className={cx('inline-flex h-8 cursor-pointer items-center rounded-full px-3 text-[13px] font-semibold transition-colors duration-150', active ? 'bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : 'border border-[var(--ax-line-strong)] text-[var(--ax-text-secondary)] hover:border-[var(--ax-accent-text)]')}>{item.name}</button>
+                    : <Chip key={item.id} tone="lime">{item.name}</Chip>
+                }) : <Pending>No hay disciplinas activas disponibles.</Pending>}
+                {!editing && disciplines.length > 0 && !disciplineIds.length && <Pending>Todavía no elegiste disciplinas.</Pending>}
               </div>
-            </div>
-          </Card>
-          <Card title="Descripción" description={`Se muestra en el perfil público de la organización. Máximo ${descriptionCharLimit} caracteres.`}>
-            <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={!editing} maxLength={descriptionCharLimit} />
-            <p className={`text-right text-[12px] ${description.length > descriptionCharLimit ? 'text-[var(--mp-danger)]' : 'text-[var(--mp-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>
-          </Card>
-          <Card title="Disciplinas" description="Disciplinas en las que trabaja la organización. Cada torneo indica su modalidad.">
-            <div className="flex flex-wrap gap-2">
-              {disciplines.length ? disciplines.map((item) => {
-                const active = disciplineIds.includes(item.id)
-                return (
-                  <button key={item.id} type="button" disabled={!editing} aria-pressed={active} onClick={() => toggleDiscipline(item.id)} className="cursor-pointer disabled:cursor-not-allowed">
-                    <Chip tone={active ? 'lime' : 'default'}>{item.name}</Chip>
-                  </button>
-                )
-              }) : <Pending>No hay disciplinas activas disponibles.</Pending>}
-            </div>
-          </Card>
-          <Card title="Contacto institucional" description="Correo oficial de la organización.">
-            <Field label="Correo institucional" type="email" value={contactEmail} onChange={setContactEmail} disabled={!editing} hint="Correo oficial de la organización." />
-            <div className="grid gap-5 md:grid-cols-2">
-              <PhoneField label="Teléfono de contacto" value={contactPhone} onChange={setContactPhone} disabled={!editing} countries={countries} />
-              <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={!editing} />
-            </div>
-          </Card>
-          <Card title="Redes sociales" description="Escribe el enlace completo, por ejemplo https://instagram.com/tu_cuenta. Se muestran en el perfil público.">
-            <div className="grid gap-5 md:grid-cols-2">
-              {socialNetworks.map((network) => (
-                <Field
-                  key={network.key}
-                  label={network.label}
-                  value={socialLinks[network.key] ?? ''}
-                  onChange={(value) => setSocialLinks((current) => ({ ...current, [network.key]: value }))}
-                  disabled={!editing}
-                />
-              ))}
-              <PhoneField label="WhatsApp" value={socialLinks.whatsapp ?? ''} onChange={(value) => setSocialLinks((current) => ({ ...current, whatsapp: value }))} disabled={!editing} countries={countries} />
-            </div>
-          </Card>
+            </Card>
+          </CardRow>
+          <CardRow>
+            <Card title="Contacto institucional" description="Correo oficial y medios de contacto de la organización.">
+              <div className="space-y-4">
+                <Field label="Correo institucional" type="email" value={contactEmail} onChange={setContactEmail} disabled={disabled} />
+                <PhoneField label="Teléfono de contacto" value={contactPhone} onChange={setContactPhone} disabled={disabled} countries={countries} />
+                <Field label="Sitio web" value={websiteUrl} onChange={setWebsiteUrl} disabled={disabled} />
+              </div>
+            </Card>
+            <Card title="Redes sociales" description="Se muestran en el perfil público. Escribe el enlace completo, por ejemplo https://instagram.com/tu_cuenta.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {socialNetworks.map((network) => (
+                  <Field key={network.key} label={network.label} value={socialLinks[network.key] ?? ''} onChange={(value) => setSocialLinks((current) => ({ ...current, [network.key]: value }))} disabled={disabled} />
+                ))}
+                <PhoneField label="WhatsApp" value={socialLinks.whatsapp ?? ''} onChange={(value) => setSocialLinks((current) => ({ ...current, whatsapp: value }))} disabled={disabled} countries={countries} />
+              </div>
+            </Card>
+          </CardRow>
         </>
       )}
 
       {section === 'equipos' && (
-        <>
+        <CardRow>
           <Card title="Equipos afiliados" description="Equipos oficiales vinculados a esta organización.">
-            <div className="flex flex-col gap-3">
-              {organization.teams.length ? organization.teams.map((team) => (
-                <ListRow key={team.id} initials={initialsOf(team.name)} title={team.name} meta={team.athlonxCode} />
-              )) : <Pending>Aún no hay equipos oficiales afiliados.</Pending>}
-            </div>
+            {organization.teams.length ? <RowList>{organization.teams.map((team) => (
+              <ListRow key={team.id} initials={initialsOf(team.name)} title={team.name} meta={team.athlonxCode} right={<Link href={`/equipos/${team.id}`} aria-label={`Ver ${team.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><ExternalLink size={16} aria-hidden="true" /></Link>} />
+            ))}</RowList> : <Pending>Aún no hay equipos oficiales afiliados.</Pending>}
           </Card>
           <Card title="Directivos" description="Personas con permisos de administración en la organización.">
-            <div className="flex flex-col gap-3">
-              {organization.directivos.length ? organization.directivos.map((person) => (
-                <ListRow key={person.userId} initials={initialsOf(person.fullName)} title={person.fullName} right={<Chip>{roleLabel(person.role)}</Chip>} />
-              )) : <Pending>Sin directivos activos.</Pending>}
-            </div>
+            {organization.directivos.length ? <RowList>{organization.directivos.map((person) => (
+              <ListRow key={person.userId} round initials={initialsOf(person.fullName)} title={person.fullName} right={<Chip tone={person.role === 'owner' ? 'lime' : 'default'}>{roleLabel(person.role)}</Chip>} />
+            ))}</RowList> : <Pending>Sin directivos activos.</Pending>}
           </Card>
-        </>
+        </CardRow>
       )}
 
       {section === 'configuracion' && (
         <>
-          <Card title="Visibilidad" description="Permite que la organización aparezca en la búsqueda pública.">
-            <Toggle label="Perfil público" description="Otras cuentas podrán ver el perfil de la organización." checked={isPublic} disabled={!editing} onChange={setIsPublic} />
-          </Card>
-          <Card title="Torneos" description="Torneos creados por la organización.">
-            <div className="flex flex-col gap-3">
-              {organization.tournaments.length ? organization.tournaments.map((item) => (
-                <ListRow key={item.id} title={item.name} meta={item.season ?? undefined} />
-              )) : <Pending>La organización aún no tiene torneos.</Pending>}
-            </div>
-          </Card>
-          <Card title="Preferencias" description="El tema y los avisos se aplican en cualquier dispositivo.">
-            <SettingRow title="Tema de AthlonX" description="Se aplica a todas tus cuentas" right={<Segmented<Theme> options={[{ value: 'oscuro', label: 'Oscuro' }, { value: 'claro', label: 'Claro' }]} value={theme} onChange={saveTheme} />} />
-            <Toggle label="Avisos de torneos" description="Recibe avisos de los torneos de la organización." checked={noticesEnabled} onChange={saveNotices} />
+          <CardRow>
+            <Card title="Visibilidad" description="Permite que la organización aparezca en la búsqueda pública. Se guarda al momento." action={<SaveStatus state={visibilityStatus.state} />}>
+              <RowList>
+                <SettingRow title="Perfil público" description="Otras cuentas podrán ver el perfil de la organización." right={<Switch label="Perfil público" checked={isPublic} disabled={!canEdit} onChange={(value) => void changeVisibility(value)} />} />
+              </RowList>
+            </Card>
+            <Card title="Preferencias" description="El tema y los avisos se aplican en cualquier dispositivo." action={<SaveStatus state={preferenceStatus.state} />}>
+              <RowList>
+                <SettingRow title="Tema de AthlonX" description="Se aplica a todas tus cuentas" right={<Segmented<Theme> label="Tema" options={themeOptions} value={theme} onChange={(value) => void saveTheme(value)} />} />
+                <SettingRow title="Avisos de torneos" description="Recibe avisos de los torneos de la organización." right={<Switch label="Avisos de torneos" checked={noticesEnabled} onChange={(value) => void saveNotices(value)} />} />
+              </RowList>
+            </Card>
+          </CardRow>
+          <Card title="Torneos" description="Torneos creados por la organización. Se gestionan desde Eventos." action={<Link href="/eventos" className={buttonClass('secondary', 'sm')}><CalendarDays size={15} aria-hidden="true" />Ir a Eventos</Link>}>
+            {organization.tournaments.length ? <RowList>{organization.tournaments.map((item) => (
+              <ListRow key={item.id} icon={Trophy} title={item.name} meta={item.season ? `Temporada ${item.season}` : undefined} right={<Link href={`/torneos/ver/${item.id}`} aria-label={`Ver ${item.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><ExternalLink size={16} aria-hidden="true" /></Link>} />
+            ))}</RowList> : <Pending>La organización aún no tiene torneos.</Pending>}
           </Card>
         </>
       )}
@@ -319,32 +326,22 @@ export function OrganizationProfileView({
       {section === 'cuenta' && (
         <>
           <Card title="Datos de la cuenta" description="Información de acceso. Solo el dueño de la cuenta la ve.">
-            <div className="grid gap-5 md:grid-cols-2">
+            <FieldGrid>
               <ReadValue label="Correo de acceso" value={meta.email} />
               <ReadValue label="Tipo de cuenta" value="Organización" />
-              <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable hint="Identificación de la organización. No se puede cambiar." />
+              <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable />
               <ReadValue label="Torneos" value={`${organization.tournaments.length} ${organization.tournaments.length === 1 ? 'torneo' : 'torneos'}`} />
               <ReadValue label="Último acceso" value={formatLastAccess(meta.lastSignInAt)} />
               <ReadValue label="Creado el" value={formatLongDate(meta.createdAt)} />
-            </div>
+            </FieldGrid>
+            <Hint>El código AthlonX identifica a la organización y no se puede cambiar.</Hint>
           </Card>
-          <Card title="Sesión" description="Cierra tu sesión en este dispositivo. Podrás volver a entrar con tu correo y contraseña.">
-            <div><LogoutAction /></div>
-          </Card>
-          <DeleteAccountCard />
+          <CardRow>
+            <SessionCard />
+            <DeleteAccountCard />
+          </CardRow>
         </>
       )}
-
-      <ConfirmModal
-        open={confirming}
-        title="¿Guardar cambios?"
-        description="Se actualizará el perfil público de la organización."
-        confirmLabel="Confirmar"
-        busy={busy}
-        error={confirmError}
-        onConfirm={confirmSave}
-        onCancel={() => setConfirming(false)}
-      />
     </Shell>
   )
 }

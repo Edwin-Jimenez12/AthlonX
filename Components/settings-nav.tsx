@@ -2,9 +2,10 @@
 
 import { Circle, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users } from 'lucide-react'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 
-export type SettingsSection = { id: string; label: string }
-type SettingsNavConfig = { sections: SettingsSection[]; activeSection: string; onSection: (id: string) => void }
+export type SettingsSection = { id: string; label: string; icon?: LucideIcon }
+type SettingsNavConfig = { sections: SettingsSection[]; activeSection: string; onSection: (id: string) => void; title: string; onBack?: () => void }
 type SettingsNavContextValue = { config: SettingsNavConfig | null; setConfig: (config: SettingsNavConfig | null) => void }
 
 const SettingsNavContext = createContext<SettingsNavContextValue | null>(null)
@@ -31,10 +32,11 @@ export function useSettingsNavConfig(): SettingsNavConfig | null {
 }
 
 // Las páginas de Mi perfil registran sus secciones mientras están montadas.
-export function useRegisterSettingsNav(sections: SettingsSection[], activeSection: string, onSection: (id: string) => void) {
+// onBack permite que "Volver al panel" respete los cambios sin guardar.
+export function useRegisterSettingsNav(sections: SettingsSection[], activeSection: string, onSection: (id: string) => void, title = 'Mi perfil', onBack?: () => void) {
   const setConfig = useContext(SettingsNavContext)?.setConfig
   useEffect(() => {
-    setConfig?.({ sections, activeSection, onSection })
-  }, [setConfig, sections, activeSection, onSection])
+    setConfig?.({ sections, activeSection, onSection, title, onBack })
+  }, [setConfig, sections, activeSection, onSection, title, onBack])
   useEffect(() => () => setConfig?.(null), [setConfig])
 }

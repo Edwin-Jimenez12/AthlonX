@@ -65,13 +65,13 @@ export default function TeamDashboard() {
               <span className="font-medium text-[var(--ax-text-secondary)]">{team?.discipline || 'Disciplina pendiente'}</span>
               <span aria-hidden="true" className="h-1 w-1 rounded-full bg-[var(--ax-muted)]" />
               {team?.city ? <span className="inline-flex items-center gap-1 text-[var(--ax-text-secondary)]"><MapPin size={14} aria-hidden="true" />{team.city}</span>
-                : <Link href="/configuracion" className="inline-flex items-center gap-1 font-semibold text-[var(--ax-accent-text)] underline underline-offset-4"><MapPin size={14} aria-hidden="true" />Añadir ubicación</Link>}
+                : <Link href="/mi-perfil" className="inline-flex items-center gap-1 font-semibold text-[var(--ax-accent-text)] underline underline-offset-4"><MapPin size={14} aria-hidden="true" />Añadir ubicación</Link>}
               <Badge tone="success">Perfil activo</Badge>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
-          <ButtonLink href="/configuracion" icon={Pencil}>Editar perfil</ButtonLink>
+          <ButtonLink href="/mi-perfil" icon={Pencil}>Editar perfil</ButtonLink>
           {canManage && <Button variant="primary" icon={UserPlus} onClick={() => setInviting((current) => !current)} aria-expanded={inviting}>Invitar persona</Button>}
         </div>
       </header>
