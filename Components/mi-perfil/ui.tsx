@@ -373,7 +373,8 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
   if (disabled) return <ReadValue label={label} value={selected ? `${selected.day} de ${monthNames[selected.month]} de ${selected.year}` : ''} hint={hint} />
 
   function openPanel() {
-    const base = selected ?? maxParts
+    // Sin fecha elegida abre en el mes actual (o en el límite más cercano).
+    const base = selected ?? partsOf(today < min ? min : today > maxIso ? maxIso : today)
     setViewYear(base.year)
     setViewMonth(base.month)
     setView('days')

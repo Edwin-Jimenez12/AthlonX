@@ -5,6 +5,34 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Calendario de AthlonX en torneos, sin fecha final y cierre automático
+
+**Qué se hizo**
+- **Fecha de inicio:** usa el selector de fecha propio de AthlonX (`DateField` de Mi perfil) en lugar del calendario del navegador, al crear y al editar un torneo.
+  - Todo el campo abre el calendario y tiene `cursor-pointer`.
+  - Sin fecha elegida, abre en el mes actual. Antes abría en el mes del límite máximo.
+- **Fecha final:** se quitó de los dos formularios. Los torneos nuevos se crean con `end_date` vacío, salvo baloncesto 3x3, que es de un día y usa la fecha de inicio.
+  - La cabecera muestra "Desde 24 oct 2026" hasta que el torneo termina.
+- **Cierre automático (trigger en `matches`):** el torneo pasa a "Finalizado" y guarda como fecha final el día de esa fecha (o hoy si no tiene día):
+  - **Liga + Fase final:** al terminar la final.
+  - **Todos contra todos:** al terminar todos los partidos de la liga (cada pareja, una vez por vuelta).
+
+**Archivos**
+- `Components/organization-events-panel.tsx`.
+- `Components/mi-perfil/ui.tsx`: mes inicial del calendario.
+- `app/(panel)/torneos/ver/[id]/page.tsx`: formulario de edición y `formatDateRange`.
+- `supabase/liga-finalizar-automatico-migration.sql`: aplicada en `mlvtsgseneqzihwkiatg`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (24 de 24).
+- Prueba del trigger en una transacción que se revierte: un partido de liga terminado deja el torneo en `published`; la final terminada lo deja en `finished` con fecha final 2026-11-30.
+- Capturas del formulario con el calendario abierto en 1440 px (oscuro) y 390 px (claro), con una página de vista previa temporal que ya se borró.
+
+**Pendiente**
+- Fútbol 8 y 3x3 no se cierran solos al terminar su final: tienen sus propias llaves.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Formatos de liga y generador de fixtures para rugby
 
 **Qué se hizo**

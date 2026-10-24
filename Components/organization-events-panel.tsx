@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Badge, Button, Card, CardHeader, FieldLabel, IconButton, Notice, Select, cx, inputClass } from './mi-equipo/ui'
+import { DateField } from './mi-perfil/ui'
 import { PANAMA_CITIES, PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
 import { footballEight } from '../lib/football-eight'
@@ -52,7 +53,6 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [closesAt, setClosesAt] = useState('17:00')
   const [location, setLocation] = useState('')
   const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [message, setMessage] = useState('')
   const [createdTournament, setCreatedTournament] = useState<{ id: string; slug: string } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -136,7 +136,7 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setMessage('')
     setCreatedTournament(null)
     if (!supabase || (!organizationId && !sourceTeamId)) return setMessage('Selecciona o crea un perfil organizador antes de crear un evento.')
-    if (!name.trim() || !disciplineId || !modalityId || !startDate || !endDate) return setMessage('Completa el nombre, la disciplina, la modalidad y las fechas del torneo.')
+    if (!name.trim() || !disciplineId || !modalityId || !startDate) return setMessage('Completa el nombre, la disciplina, la modalidad y la fecha de inicio del torneo.')
     const parsedCourts = Number(courtsCount)
     const parsedMaxTeams = Number(maxTeams)
     const parsedMaxRosterSize = Number(maxRosterSize)
@@ -147,11 +147,10 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       const settings = { period_minutes: Number(halfDuration), interval_minutes: Number(intervalDuration), overtime_minutes: Number(overtimeDuration), opens_at: opensAt, closes_at: closesAt, venue: location }
       const issue = !intervalDuration.trim() ? 'Completa el intervalo entre partidos.' : validateBasketballSettings(settings)
       if (issue) return setMessage(issue)
-      if (new Date(endDate) < new Date(startDate)) return setMessage('La fecha final no puede ser anterior a la inicial.')
       setLoading(true)
       try {
         const { data, error } = await supabase.rpc('create_basketball_tournament', {
-          p_values: { name: name.trim(), start_date: startDate, end_date: endDate, organization_id: organizationId || null, organizer_team_id: sourceTeamId || null, is_quick: selectedEvent === 'torneo-rapido' }, p_settings: settings,
+          p_values: { name: name.trim(), start_date: startDate, end_date: startDate, organization_id: organizationId || null, organizer_team_id: sourceTeamId || null, is_quick: selectedEvent === 'torneo-rapido' }, p_settings: settings,
         })
         if (error) throw error
         setCreatedTournament(data); setMessage('Torneo 3x3 creado. Abriendo su configuración…'); onCreated?.(); router.push(`/torneos/ver/${data.id}?editar=1`)
@@ -186,7 +185,6 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       || parsedIntervalDuration < 0
       || parsedIntervalDuration > 120
     )) return setMessage(rulesError || 'Completa correctamente la configuración de la modalidad de fútbol.')
-    if (new Date(endDate) < new Date(startDate)) return setMessage('La fecha final no puede ser anterior a la fecha inicial.')
 
     setLoading(true)
     const { data: userData } = await supabase.auth.getUser()
@@ -203,7 +201,8 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       slug,
       season: new Date(startDate).getFullYear().toString(),
       start_date: startDate,
-      end_date: endDate,
+      // La fecha final se guarda sola cuando el torneo termina.
+      end_date: null,
       country: PANAMA_COUNTRY,
       location: location.trim() || null,
       status: 'draft',
@@ -288,12 +287,13 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setIntervalDuration('')
     setLocation('')
     setStartDate('')
-    setEndDate('')
   }
 
   const field = (label: string, input: ReactNode, className?: string) => <label className={cx('block min-w-0', className)}><FieldLabel>{label}</FieldLabel>{input}</label>
   const numberInput = (value: string, onChange: (value: string) => void, min: string, max?: string) => <input required type="number" min={min} max={max} value={value} onChange={(event) => onChange(event.target.value)} className={inputClass} />
   const isQuickEvent = selectedEvent === 'torneo-rapido'
+  const thisYear = new Date().getFullYear()
+  const dateLimits = { min: `${thisYear - 1}-01-01`, max: `${thisYear + 3}-12-31` }
 
   return (
     <Card labelledBy="create-event-title" className="ax-drop-in space-y-5">
@@ -371,9 +371,8 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           </Notice>
         </div>}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {field('Fecha inicial', <input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className={inputClass} />)}
-          {field('Fecha final', <input required type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className={inputClass} />)}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <DateField label="Fecha de inicio" value={startDate} onChange={setStartDate} min={dateLimits.min} max={dateLimits.max} hint={isBasketball3 ? undefined : 'El torneo pasa a finalizado solo cuando se conoce al campeón.'} />
           {isBasketball3
             ? field('Sede', <input required value={location} onChange={(event) => setLocation(event.target.value)} className={inputClass} />)
             : <Select label="Ciudad" value={location} onChange={setLocation} options={PANAMA_CITIES.map((city) => ({ value: city, label: city }))} placeholder="Seleccionar ciudad" />}
