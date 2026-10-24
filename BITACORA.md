@@ -5,6 +5,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Canchas libres visibles en la vista previa
+
+**Qué se hizo**
+- Edwin vio tandas con un solo partido teniendo 2 canchas (08:20 con un partido). No es un error.
+  - Con divisiones de 3 equipos y sin partidos seguidos, cada división solo puede jugar en una tanda sí y otra no.
+  - Con 3 divisiones y 2 canchas, las tandas alternan entre 2 y 1 partido.
+- La vista previa ahora lo explica. Debajo de esas tandas aparece "Cancha 2 libre · los equipos disponibles están descansando". En la última tanda dice "no quedan más partidos en la fecha".
+
+**Archivos**
+- `Components/torneo/league-generator.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+- Captura con 3 divisiones de 3 equipos y 2 canchas (parche temporal ya quitado).
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Fechas personalizadas en el generador
 
 **Qué se hizo**

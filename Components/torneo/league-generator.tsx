@@ -250,6 +250,14 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
                       {divisions.length > 1 && <span className="hidden max-w-[40%] shrink-0 truncate text-xs text-[var(--ax-muted)] sm:block">{divisionName(match.divisionId)}</span>}
                       {settings.courts > 1 && <Badge>Cancha {match.court}</Badge>}
                     </div>
+                    {(() => {
+                      // Tanda con canchas sin usar: los equipos que podían jugar están descansando.
+                      if (settings.courts < 2 || date.matches[position + 1]?.time === match.time) return null
+                      const used = date.matches.filter((item) => item.time === match.time).length
+                      if (used >= settings.courts) return null
+                      const free = Array.from({ length: settings.courts - used }, (_, index) => used + index + 1)
+                      return <p className="flex items-center gap-3 py-1.5 text-xs text-[var(--ax-muted)]"><span className="w-11 shrink-0 tabular-nums">{match.time}</span><span className="min-w-0 flex-1">{free.length === 1 ? `Cancha ${free[0]} libre` : `Canchas ${free.join(' y ')} libres`}{position === date.matches.length - 1 ? ' · no quedan más partidos en la fecha' : ' · los equipos disponibles están descansando'}</span></p>
+                    })()}
                   </li>
                 })}
               </ul>
