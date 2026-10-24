@@ -5,6 +5,25 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Borrar torneos con fixture generado
+
+**Qué se hizo**
+- Borrar un borrador con fixture generado ("Rugby Prueba") fallaba con `violates foreign key constraint "matches_division_id_fkey"`. Los borradores sin partidos sí se borraban.
+- Causa: al borrar el torneo se borran en cascada sus divisiones y sus fechas, pero `matches.division_id` no tenía `ON DELETE`, así que la división no se podía borrar mientras tuviera partidos.
+- Se cambió a `ON DELETE CASCADE`. Los eventos, correcciones y convocatorias de esos partidos ya se borraban en cascada.
+
+**Archivos**
+- `supabase/partidos-division-cascade-migration.sql`: aplicada en `mlvtsgseneqzihwkiatg`.
+
+**Verificación**
+- Restricción comprobada después de aplicar.
+- Borrado de "Rugby Prueba" en una transacción revertida: se borra sin error. El borrador sigue existiendo para que Edwin lo borre desde la app.
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Canchas solo al crear el torneo
 
 **Qué se hizo**
