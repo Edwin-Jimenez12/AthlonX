@@ -5,6 +5,52 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Formatos de liga y generador de fixtures para rugby
+
+**Qué se hizo**
+- **Formato de juego en rugby al crear el torneo:**
+  - "Todos contra todos" o "Liga + Fase final".
+  - Vueltas: 1, ida y vuelta, 3 o 4.
+  - Fase final: semifinales (1.º–4.º y 2.º–3.º) y final, o final directa entre los 2 primeros.
+  - Canchas: 1 a 3.
+- **Generador de liga nuevo** (pestaña Generador):
+  - **Automático:** solo se indican los partidos por fecha y el máximo de partidos por equipo en una fecha. Las fechas se crean solas hasta completar la liga, con la misma cantidad de partidos o lo más pareja posible.
+  - Cada pareja se enfrenta exactamente una vez por vuelta y, en la segunda vuelta, se invierte la localía. Se descuentan los partidos que ya existen.
+  - Dentro de una fecha juegan primero los equipos que menos han jugado.
+  - **Manual:** se eligen los enfrentamientos de una fecha. Se valida que una pareja no supere sus partidos de la liga.
+  - **Opción "Permitir partidos seguidos"**, en automático y en manual. Si está apagada, nadie juega en dos tandas seguidas; si no se puede, el generador avisa qué cambiar.
+  - **Canchas:** 1 a 3, con partidos en paralelo.
+  - **Tiempos:** minutos por tiempo, medio tiempo, intervalo, primer partido, primera fecha y días entre fechas.
+  - **Recesos:** se agregan con un botón (después de qué partido o tanda y cuántos minutos). Después de un receso el siguiente partido empieza al terminar el receso, sin sumar el intervalo.
+  - Vista previa con horarios, canchas y partidos por equipo antes de generar.
+  - **Fase final:** botones "Generar semifinales" y "Generar final" según la tabla de la liga. Si una semifinal termina empatada, se elige quién pasa.
+  - La tabla de posiciones solo cuenta la liga, no la fase final.
+- El fixture se guarda con la barra de cambios y contraseña, y guarda también formato y tiempos en `tournament_competition_settings`.
+
+**Archivos**
+- `lib/league.ts` y `tests/league.test.mjs` (8 pruebas nuevas).
+- `Components/torneo/league-generator.tsx` (nuevo) y `Components/tournament-fixture-generator.tsx`.
+- `Components/organization-events-panel.tsx`.
+- `app/(panel)/torneos/ver/[id]/page.tsx`.
+- `supabase/formatos-liga-migration.sql`, aplicada en `mlvtsgseneqzihwkiatg`:
+  - Formatos `round_robin` y `league_playoffs`.
+  - Columna `round_robin_legs`.
+  - Hasta 3 canchas, también en el trigger de validación (fútbol sigue con 1 o 2).
+  - Se quitó la restricción que fijaba el intervalo en 10 minutos.
+  - Columna `fixtures.stage` (`league`, `semifinal` o `final`).
+  - Se probó con un insert en un bloque que se revierte.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (24 de 24).
+- Capturas del generador (oscuro y claro) con datos de ejemplo: 6 equipos ida y vuelta generan 5 fechas de 5 partidos, con 1 y 2 canchas y partidos seguidos encendidos y apagados.
+
+**Pendiente**
+- Probar con una cuenta real: crear un torneo de rugby, generar el fixture y la fase final.
+- Formato 3, "Grupos + Copas": todavía no está.
+- Las fechas que ya existen en torneos anteriores no se corrigen solas: hay que borrarlas y generarlas de nuevo.
+
+---
+
 ## 2026-10-23 · `edwin` → `main` · nube · Una sola cancha y Rugby 15s inactivo
 
 **Qué se hizo**

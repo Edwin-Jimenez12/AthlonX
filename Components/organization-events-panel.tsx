@@ -9,6 +9,7 @@ import { PANAMA_CITIES, PANAMA_COUNTRY } from '../lib/location-options'
 import { supabase } from '../lib/supabase'
 import { footballEight } from '../lib/football-eight'
 import { validateBasketballSettings } from '../lib/basketball'
+import { isLeagueFormat, leagueFormats } from '../lib/league'
 
 type Discipline = { id: string; name: string; code: string }
 type Modality = { id: string; name: string; code: string; discipline_id: string }
@@ -39,6 +40,8 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const [modalityRules, setModalityRules] = useState<ModalityRule[]>([])
   const [competitionFormat, setCompetitionFormat] = useState('quick_league')
   const [courtsCount, setCourtsCount] = useState('1')
+  const [legs, setLegs] = useState('1')
+  const [playoffTeams, setPlayoffTeams] = useState('4')
   const [maxTeams, setMaxTeams] = useState(String(footballEight.maxTeams))
   const [maxRosterSize, setMaxRosterSize] = useState('12')
   const [halfDuration, setHalfDuration] = useState('')
@@ -86,6 +89,12 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
   const isFootball = selectedDiscipline?.code === 'futbol'
   const isFootball8 = isFootball && selectedModality?.code === 'futbol-8'
   const isBasketball3 = selectedDiscipline?.code === 'baloncesto' && selectedModality?.code === '3x3'
+  const isRugby = selectedDiscipline?.code === 'rugby'
+
+  // Rugby se juega por liga: todos contra todos por defecto.
+  useEffect(() => {
+    if (isRugby) setCompetitionFormat((current) => isLeagueFormat(current) ? current : 'round_robin')
+  }, [isRugby])
 
   useEffect(() => {
     if (!isBasketball3) return
@@ -225,6 +234,24 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
       return setMessage(divisionError?.message || 'El torneo se creó, pero no se pudo preparar su división.')
     }
 
+    if (isRugby) {
+      const sevens = selectedModality?.code !== 'xv'
+      const { error: settingsError } = await supabase.from('tournament_competition_settings').insert({
+        tournament_id: tournament.id,
+        competition_format: isLeagueFormat(competitionFormat) ? competitionFormat : 'round_robin',
+        round_robin_legs: Number(legs),
+        qualifying_teams_per_group: Number(playoffTeams),
+        courts_count: Number(courtsCount),
+        half_duration_minutes: sevens ? 7 : 40,
+        halftime_duration_minutes: sevens ? 2 : 10,
+        interval_between_matches_minutes: 10,
+      })
+      if (settingsError) {
+        setLoading(false)
+        return setMessage(settingsError.message)
+      }
+    }
+
     if (isFootball) {
       const { error: settingsError } = await supabase.from('tournament_competition_settings').insert({
         tournament_id: tournament.id,
@@ -252,6 +279,8 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
     setModalityId('')
     setCompetitionFormat('quick_league')
     setCourtsCount('1')
+    setLegs('1')
+    setPlayoffTeams('4')
     setMaxTeams('14')
     setMaxRosterSize('12')
     setHalfDuration('')
@@ -324,6 +353,21 @@ export function OrganizationEventsPanel({ organizationId, sourceTeamId, discipli
           <Notice tone="success" icon={Info}>
             Octavos → cuartos → semifinales → final. Si hay empate: 10 minutos extra y, si persiste, penales directos.
             {selectedRule && <> {footballEight.playersOnField} jugadores en cancha · cambios ilimitados.</>}
+          </Notice>
+        </div>}
+
+        {isRugby && <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Select label="Formato de juego" value={isLeagueFormat(competitionFormat) ? competitionFormat : 'round_robin'} onChange={setCompetitionFormat} options={Object.entries(leagueFormats).map(([value, label]) => ({ value, label }))} />
+            <Select label="Vueltas" value={legs} onChange={setLegs} options={[{ value: '1', label: '1 vuelta' }, { value: '2', label: 'Ida y vuelta' }, { value: '3', label: '3 vueltas' }, { value: '4', label: '4 vueltas' }]} />
+            {competitionFormat === 'league_playoffs' && <Select label="Fase final" value={playoffTeams} onChange={setPlayoffTeams} options={[{ value: '4', label: 'Semifinales y final (4)' }, { value: '2', label: 'Final directa (2)' }]} />}
+            <Select label="Número de canchas" value={courtsCount} onChange={setCourtsCount} options={[{ value: '1', label: '1 cancha' }, { value: '2', label: '2 canchas' }, { value: '3', label: '3 canchas' }]} />
+          </div>
+          <Notice tone="success" icon={Info}>
+            {competitionFormat === 'league_playoffs'
+              ? `Todos contra todos${legs === '2' ? ' ida y vuelta' : legs === '1' ? '' : ` a ${legs} vueltas`} y luego ${playoffTeams === '4' ? 'semifinales (1.º–4.º y 2.º–3.º) y final' : 'una final entre el 1.º y el 2.º'}.`
+              : `Cada equipo se enfrenta a todos los demás${legs === '2' ? ' dos veces (ida y vuelta)' : legs === '1' ? ' una vez' : ` ${legs} veces`}. Gana la liga el primero de la tabla.`}
+            {' '}Los partidos por fecha, los horarios y los recesos se definen al generar el fixture.
           </Notice>
         </div>}
 

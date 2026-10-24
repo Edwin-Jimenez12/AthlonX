@@ -35,6 +35,8 @@ import { basketball } from '../../../../../lib/basketball'
 import { Badge, Button, buttonClass, Card, initialsOf, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../../../../../Components/mi-equipo/ui'
 import { footballNextYellowIsRed, footballPlayerCards } from '../../../../../lib/football'
 import { rugbyActiveSinBins, rugbySinBinSeconds } from '../../../../../lib/rugby'
+import { isLeagueFormat, leagueFormats } from '../../../../../lib/league'
+import type { LeagueSettings, ScheduleDate } from '../../../../../Components/torneo/league-generator'
 import { SaveBar, StatTile, StatusBadge, TournamentHero, TournamentTabs, defaultMeta, sportOf, type SaveBarItem } from '../../../../../Components/torneo/ui'
 import { supabase } from '../../../../../lib/supabase'
 import {
@@ -342,6 +344,8 @@ export default function PublicTournamentPage() {
   const [maxRosterLimit, setMaxRosterLimit] = useState<number | null>(null)
   const [competitionFormat, setCompetitionFormat] = useState('')
   const [storedFixtureDates, setStoredFixtureDates] = useState<number[]>([])
+  const [stageByFixture, setStageByFixture] = useState<Record<string, string>>({})
+  const [leagueSettings, setLeagueSettings] = useState<LeagueSettings | null>(null)
   const [numberRequest, setNumberRequest] = useState<{ teamId: string; playerId: string; playerName: string; currentNumber: number | null } | null>(null)
   const isFootballEightKnockout = competitionFormat === 'knockout'
     && data?.tournament?.discipline?.code === 'futbol'
@@ -366,7 +370,7 @@ export default function PublicTournamentPage() {
       supabase.from('team_division_catalog').select('id, team_id, name').order('name'),
       supabase.from('players').select('id, full_name, shirt_number, position, user_id').eq('is_official', true).order('full_name'),
       supabase.from('tournament_standing_adjustments').select('tournament_id, division_id, team_id, points_adjustment, reason').eq('tournament_id', params.id),
-      supabase.from('fixtures').select('date_number').eq('tournament_id', params.id).order('date_number'),
+      supabase.from('fixtures').select('id, date_number, stage').eq('tournament_id', params.id).order('date_number'),
     ])
     if (tournamentError) {
       setError(tournamentError.message)
@@ -418,7 +422,7 @@ export default function PublicTournamentPage() {
     const selectedModalityId = normalizedPayload.tournament?.modality?.id || ''
     const { data: competitionSettings } = await supabase
       .from('tournament_competition_settings')
-        .select('competition_format, max_teams, max_roster_size')
+        .select('competition_format, max_teams, max_roster_size, round_robin_legs, qualifying_teams_per_group, courts_count, half_duration_minutes, halftime_duration_minutes, interval_between_matches_minutes')
       .eq('tournament_id', params.id)
       .maybeSingle()
     const { data: modalityRuleRow } = selectedModalityId
@@ -452,6 +456,18 @@ export default function PublicTournamentPage() {
     setMaxTeamsLimit(basketballTournament ? basketball.teams : Number(competitionSettings?.max_teams) || null)
     setMaxRosterLimit(basketballTournament ? basketball.maxRoster : Number(competitionSettings?.max_roster_size) || null)
     setCompetitionFormat(competitionSettings?.competition_format || '')
+    setStageByFixture(Object.fromEntries((fixtureRows ?? []).map((fixture) => [fixture.id, fixture.stage || 'league'])))
+    // Rugby sin configuración guardada: todos contra todos a una vuelta y tiempos de la modalidad.
+    const sevens = normalizedPayload.tournament?.modality?.code !== 'xv'
+    setLeagueSettings({
+      format: isLeagueFormat(competitionSettings?.competition_format) ? competitionSettings.competition_format : 'round_robin',
+      legs: Number(competitionSettings?.round_robin_legs) || 1,
+      playoffTeams: Number(competitionSettings?.qualifying_teams_per_group) === 2 ? 2 : 4,
+      courts: Number(competitionSettings?.courts_count) || 1,
+      halfMinutes: Number(competitionSettings?.half_duration_minutes) || (sevens ? 7 : 40),
+      halftimeMinutes: competitionSettings?.halftime_duration_minutes ?? (sevens ? 2 : 10),
+      intervalMinutes: competitionSettings?.interval_between_matches_minutes ?? 10,
+    })
     setStoredFixtureDates(Array.from(new Set(
       (fixtureRows ?? []).map((fixture) => Number(fixture.date_number)),
     )).filter(Number.isFinite).sort((left, right) => left - right))
@@ -702,11 +718,64 @@ export default function PublicTournamentPage() {
     setMessage('')
   }
 
-  function requestGenerateFixture(teamIds: string[] = uniqueTeams.map((team) => team.id), mode: 'automatic' | 'manual' = 'automatic', pairings: ManualPairing[] = [], divisionConfigs: AutomaticDivisionConfig[] = [], numberOfDates = 1, firstMatchTime = '08:00') {
-    const configurationLabel = divisionConfigs.length
-      ? `${numberOfDates} fecha${numberOfDates === 1 ? '' : 's'} · ${divisionConfigs.map((config) => `${config.matchesPerTeam ?? config.matchesPerDate} partidos por equipo en ${data.divisions.find((division) => division.id === config.divisionId)?.name || 'división'}`).join(' · ')}`
-      : `${teamIds.length} equipos seleccionados`
-    queueOperation({ title: mode === 'automatic' ? 'Generar fixture automáticamente' : 'Generar fecha manualmente', kind: 'generate-fixture', payload: { teamIds: teamIds.join(','), mode, pairings: JSON.stringify(pairings), divisionConfigs: JSON.stringify(divisionConfigs), numberOfDates: String(numberOfDates), firstMatchTime }, changes: [{ label: 'Modo', before: 'Sin cambios', after: mode === 'automatic' ? 'Automático' : 'Manual', beforeValue: null, afterValue: mode }, { label: 'Horario', before: 'Sin cambios', after: `${firstMatchTime} · intervalos configurados`, beforeValue: null, afterValue: firstMatchTime }, { label: 'Configuración', before: 'Sin cambios', after: mode === 'automatic' ? configurationLabel : `${pairings.length} enfrentamiento${pairings.length === 1 ? '' : 's'}`, beforeValue: null, afterValue: configurationLabel }] })
+  function requestScheduleFixture(scheduleDates: ScheduleDate[], settings: LeagueSettings, summary: string) {
+    queueOperation({
+      title: summary === 'Semifinales' || summary === 'Final' ? `Generar ${summary.toLowerCase()}` : 'Generar fixture de liga',
+      kind: 'generate-fixture',
+      payload: { mode: 'schedule', dates: JSON.stringify(scheduleDates), settings: JSON.stringify(settings) },
+      changes: [
+        { label: 'Fixture', before: 'Sin cambios', after: summary, beforeValue: null, afterValue: summary },
+        { label: 'Formato', before: 'Sin cambios', after: `${leagueFormats[settings.format]} · ${settings.legs === 2 ? 'ida y vuelta' : `${settings.legs} vuelta${settings.legs === 1 ? '' : 's'}`} · ${settings.courts} cancha${settings.courts === 1 ? '' : 's'}`, beforeValue: null, afterValue: settings.format },
+      ],
+    })
+  }
+
+  // Crea las fechas calculadas por el generador de liga y guarda formato y tiempos.
+  async function performScheduleFixture(operation: PendingOperation): Promise<string | null> {
+    if (!supabase || !canManage) return 'No tienes permisos para generar fixtures.'
+    const scheduleDates = JSON.parse(operation.payload.dates || '[]') as ScheduleDate[]
+    const settings = JSON.parse(operation.payload.settings || '{}') as LeagueSettings
+    if (!scheduleDates.length) return 'No hay partidos para programar.'
+    const { error: settingsError } = await supabase.from('tournament_competition_settings').upsert({
+      tournament_id: tournament.id,
+      competition_format: settings.format,
+      round_robin_legs: settings.legs,
+      qualifying_teams_per_group: settings.playoffTeams,
+      courts_count: settings.courts,
+      half_duration_minutes: settings.halfMinutes,
+      halftime_duration_minutes: settings.halftimeMinutes,
+      interval_between_matches_minutes: settings.intervalMinutes,
+    }, { onConflict: 'tournament_id' })
+    if (settingsError) return settingsError.message
+    const { data: existingFixtureRows, error: lookupError } = await supabase.from('fixtures').select('date_number').eq('tournament_id', tournament.id)
+    if (lookupError) return lookupError.message
+    const nextDate = Math.max(0, ...(existingFixtureRows ?? []).map((fixture) => Number(fixture.date_number) || 0)) + 1
+    const generatedAt = new Date().toISOString()
+    const { data: fixtures, error: fixtureError } = await supabase.from('fixtures').insert(scheduleDates.map((date, index) => ({
+      tournament_id: tournament.id,
+      date_number: nextDate + index,
+      calendar_date: date.calendarDate,
+      stage: date.stage,
+      recesses: date.recesses.length ? date.recesses.map((recess, recessIndex) => ({ id: `recess-${nextDate + index}-${recessIndex + 1}`, time: recess.time, label: `Receso · ${recess.minutes} min` })) : [{ id: `recess-${nextDate + index}-1`, time: null }],
+      generated_at: generatedAt,
+    }))).select('id, date_number')
+    if (fixtureError || !fixtures?.length) return fixtureError?.message || 'No se pudieron crear las fechas.'
+    const fixtureByDate = new Map(fixtures.map((fixture) => [fixture.date_number, fixture.id]))
+    const rows = scheduleDates.flatMap((date, index) => date.matches.map((match, order) => ({
+      fixture_id: fixtureByDate.get(nextDate + index),
+      division_id: match.divisionId,
+      fixture_order: order,
+      local_team_id: match.localTeamId,
+      visitor_team_id: match.visitorTeamId,
+      court_number: match.court,
+      scheduled_time: `${match.time}:00`,
+    })))
+    const { error: matchesError } = await supabase.from('matches').insert(rows)
+    if (matchesError) {
+      await supabase.from('fixtures').delete().in('id', fixtures.map((fixture) => fixture.id))
+      return matchesError.message
+    }
+    return null
   }
 
   function requestUpdateFixture(dateChanges: FixtureDateChange[], timeChanges: FixtureTimeChange[], matchChanges: FixtureMatchChange[], newMatches: FixtureNewMatch[] = [], deletedMatchIds: string[] = []) {
@@ -761,6 +830,7 @@ export default function PublicTournamentPage() {
   }
 
   async function performGenerateFixture(operation: PendingOperation): Promise<string | null> {
+    if (operation.payload.mode === 'schedule') return performScheduleFixture(operation)
     if (isBasketball) return 'Publica el cuadro desde Llaves para generar el fixture 3x3.'
     if (!supabase || !canManage) return 'No tienes permisos para generar fixtures.'
     if (uniqueTeams.length < 2) return 'Agrega al menos dos equipos antes de generar un fixture.'
@@ -1225,7 +1295,7 @@ export default function PublicTournamentPage() {
 
     {section === 'tablas' && !isBasketball && <div className={legacyPanel}><StandingsSection
       teams={teams}
-      matches={matches}
+      matches={matches.filter((match) => (stageByFixture[match.fixture_id] || 'league') === 'league')}
     /></div>}
 
     {section === 'llaves' && showBracketTab && <TournamentKnockoutBracket
@@ -1318,11 +1388,14 @@ export default function PublicTournamentPage() {
         discipline={tournament.discipline?.code}
         divisions={data.divisions ?? []}
         teams={teams}
-        dates={dates}
         matches={matches}
         events={matchEvents}
+        stageByFixture={stageByFixture}
+        leagueSettings={leagueSettings ?? { format: 'round_robin', legs: 1, playoffTeams: 4, courts: 1, halfMinutes: 7, halftimeMinutes: 2, intervalMinutes: 10 }}
+        adjustments={Object.fromEntries(standingAdjustments.map((item) => [item.team_id, item.points_adjustment]))}
+        startDate={tournament.start_date}
         canManage={canManage}
-        onGenerate={requestGenerateFixture}
+        onQueueSchedule={requestScheduleFixture}
         onOpenCalendar={() => requestSection(isKnockoutFormat ? (isBasketball ? 'fixtures' : 'llaves') : 'fixtures')}
       />}
 
