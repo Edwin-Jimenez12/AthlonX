@@ -5,6 +5,23 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Partido programado sin cronología vacía
+
+**Qué se hizo**
+- Edwin preguntó por qué no salía la cronología: el partido estaba programado y la cronología solo muestra lo que pasa durante el juego.
+- Mientras el partido está programado y no tiene eventos, ya no se muestran la cronología vacía ni las estadísticas en 0. En su lugar aparece un aviso: "La cronología y las estadísticas aparecen cuando empieza el partido". Al organizador también le dice que toque «Iniciar primer tiempo».
+
+**Archivos**
+- `app/(panel)/torneos/ver/[id]/page.tsx` (`MatchHighlight`).
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Cancha en cada partido del fixture
 
 **Qué se hizo**
