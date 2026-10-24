@@ -5,6 +5,27 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Sin partidos seguidos con varias canchas y división en la vista previa
+
+**Qué se hizo**
+- Con 3 divisiones de 3 equipos y 2 canchas, el generador no lograba ordenar la fecha sin partidos seguidos y obligaba a encender "Permitir partidos seguidos" (A3 jugaba 08:00 y 08:26).
+- Ahora `orderDate` arma tandas y, si hace falta para el descanso, deja una cancha libre en una tanda (o la tanda entera, como pausa). Nunca falla. Con la opción apagada nadie juega en tandas seguidas.
+- `scheduleBlocks` calcula los horarios por tanda, con tandas incompletas o vacías.
+- La vista previa muestra la división de cada partido (al lado en escritorio, debajo en móvil) cuando el torneo tiene más de una.
+
+**Archivos**
+- `lib/league.ts`, `tests/league.test.mjs` (prueba nueva del caso 3×3 con 2 canchas).
+- `Components/torneo/league-generator.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+- Captura con 3 divisiones de 3 equipos, 2 canchas y la opción apagada: A3 juega 08:00 y 08:52, y la cancha 2 queda libre a las 08:26.
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Generador: frecuencia de fechas clara y aviso sin equipos
 
 **Qué se hizo**

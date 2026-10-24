@@ -4,7 +4,7 @@ import { CalendarDays, CircleAlert, Coffee, Info, Plus, Trophy, Wand2, X } from 
 import { useMemo, useState } from 'react'
 import { Badge, Button, Card, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../mi-equipo/ui'
 import { DateField, Switch } from '../mi-perfil/ui'
-import { leagueFormats, leaguePool, leagueStandings, orderDate, pairKey, scheduleTimes, splitIntoDates, type LeagueFormat, type LeaguePairing } from '../../lib/league'
+import { leagueFormats, leaguePool, leagueStandings, orderDate, pairKey, scheduleBlocks, splitIntoDates, type LeagueFormat, type LeaguePairing } from '../../lib/league'
 
 // Generador de fixtures para ligas (rugby): todos contra todos y liga con fase final.
 
@@ -60,6 +60,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
 
   const update = (patch: Partial<LeagueSettings>) => { setSettings((current) => ({ ...current, ...patch })); setQueued('') }
   const teamName = (id: string) => teams.find((team) => team.id === id)?.name || 'Equipo'
+  const divisionName = (id: string) => divisions.find((division) => division.id === id)?.name || 'División'
   const leagueMatches = matches.filter((match) => (stageByFixture[match.fixture_id] || 'league') === 'league')
   const divisionTeams = divisions.map((division) => ({ id: division.id, name: division.name, teamIds: teams.filter((team) => team.division_id === division.id).map((team) => team.id) })).filter((division) => division.teamIds.length > 1)
   const existingPairings = leagueMatches.map((match) => ({ divisionId: match.division_id || '', localTeamId: match.local_team_id, visitorTeamId: match.visitor_team_id }))
@@ -85,9 +86,9 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
     if (!groups) return { dates: [] as ScheduleDate[], issue: 'Con ese máximo por equipo no se pueden armar las fechas. Sube el máximo de partidos por equipo.' }
     const dates: ScheduleDate[] = []
     for (const [index, group] of groups.entries()) {
-      const ordered = orderDate(group, settings.courts, allowBackToBack)
-      if (!ordered) return { dates: [], issue: `La fecha ${index + 1} no se puede ordenar sin que un equipo juegue dos partidos seguidos. Permite partidos seguidos o baja los partidos por fecha.` }
-      const times = scheduleTimes(ordered.length, timing)
+      const blocks = orderDate(group, settings.courts, allowBackToBack)
+      const ordered = blocks.flat()
+      const times = scheduleBlocks(blocks.map((block) => block.length), timing)
       dates.push({ calendarDate: mode === 'automatic' ? addDays(firstDate, index * (Number(daysBetween) || 7)) : firstDate || null, stage: 'league', recesses: times.recesses, matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) })
     }
     return { dates, issue: '' }
@@ -121,8 +122,9 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
   const pendingLeague = leagueMatches.filter((match) => match.status !== 'finished').length + pool.length
   const standingsByDivision = divisionTeams.map((division) => ({ ...division, rows: leagueStandings(division.teamIds, leagueMatches.filter((match) => match.division_id === division.id), adjustments) }))
   function playoffSchedule(stage: 'semifinal' | 'final', pairings: LeaguePairing[]): ScheduleDate[] {
-    const ordered = orderDate(pairings, settings.courts, true) || pairings
-    const times = scheduleTimes(ordered.length, { ...timing, recesses: [] })
+    const blocks = orderDate(pairings, settings.courts, false)
+    const ordered = blocks.flat()
+    const times = scheduleBlocks(blocks.map((block) => block.length), { ...timing, recesses: [] })
     return [{ calendarDate: firstDate || null, stage, recesses: [], matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) }]
   }
   const semiPairings = standingsByDivision.flatMap((division) => settings.playoffTeams === 4 && division.rows.length >= 4
@@ -177,7 +179,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
           </>}
 
           <div className="flex items-start justify-between gap-3 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-3">
-            <div className="min-w-0"><p className="text-sm font-semibold text-[var(--ax-text)]">Permitir partidos seguidos</p><p className="mt-0.5 text-xs leading-[18px] text-[var(--ax-muted)]">{allowBackToBack ? 'Un equipo puede jugar dos partidos uno tras otro.' : 'Cada equipo descansa al menos un partido entre los suyos.'}</p></div>
+            <div className="min-w-0"><p className="text-sm font-semibold text-[var(--ax-text)]">Permitir partidos seguidos</p><p className="mt-0.5 text-xs leading-[18px] text-[var(--ax-muted)]">{allowBackToBack ? 'Un equipo puede jugar dos partidos uno tras otro.' : `Cada equipo descansa al menos un partido entre los suyos.${settings.courts > 1 ? ' Si hace falta, una cancha queda libre en esa tanda.' : ''}`}</p></div>
             <Switch label="Permitir partidos seguidos" checked={allowBackToBack} onChange={setAllowBackToBack} />
           </div>
 
@@ -234,7 +236,11 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
                     {recess && <p className="flex items-center gap-2 py-2 text-xs font-semibold text-[var(--ax-warning-text)]"><Coffee size={13} aria-hidden="true" />Receso · {recess.time} · {recess.minutes} min</p>}
                     <div className="flex items-center gap-3 py-2 text-sm">
                       <span className="w-11 shrink-0 text-xs tabular-nums text-[var(--ax-muted)]">{match.time}</span>
-                      <span className="min-w-0 flex-1 truncate font-medium text-[var(--ax-text)]">{teamName(match.localTeamId)} <span className="px-1 text-[var(--ax-muted)]">vs</span> {teamName(match.visitorTeamId)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-[var(--ax-text)]">{teamName(match.localTeamId)} <span className="px-1 text-[var(--ax-muted)]">vs</span> {teamName(match.visitorTeamId)}</span>
+                        {divisions.length > 1 && <span className="block truncate text-xs text-[var(--ax-muted)] sm:hidden">{divisionName(match.divisionId)}</span>}
+                      </span>
+                      {divisions.length > 1 && <span className="hidden max-w-[40%] shrink-0 truncate text-xs text-[var(--ax-muted)] sm:block">{divisionName(match.divisionId)}</span>}
                       {settings.courts > 1 && <Badge>Cancha {match.court}</Badge>}
                     </div>
                   </li>

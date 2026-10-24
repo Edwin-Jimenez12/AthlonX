@@ -64,18 +64,23 @@ test('descuenta los enfrentamientos que ya existen', () => {
 })
 
 test('sin partidos seguidos nadie juega en tandas consecutivas; con canchas nadie juega dos veces en la misma tanda', () => {
+  const ids = (block) => block.flatMap((p) => [p.localTeamId, p.visitorTeamId])
   const date = roundRobinRounds('d', teams(5), 1).flat().slice(0, 5)
-  const ordered = orderDate(date, 1, false)
-  for (let i = 1; i < ordered.length; i += 1) {
-    const prev = [ordered[i - 1].localTeamId, ordered[i - 1].visitorTeamId]
-    assert.ok(!prev.includes(ordered[i].localTeamId) && !prev.includes(ordered[i].visitorTeamId))
-  }
+  const blocks = orderDate(date, 1, false)
+  assert.equal(blocks.flat().length, 5)
+  for (let i = 1; i < blocks.length; i += 1) assert.ok(!ids(blocks[i]).some((id) => ids(blocks[i - 1]).includes(id)))
   const six = roundRobinRounds('d', teams(6), 1).flat().slice(0, 6)
-  const twoCourts = orderDate(six, 2, true)
-  for (let i = 0; i < twoCourts.length; i += 2) {
-    const ids = [twoCourts[i], twoCourts[i + 1]].filter(Boolean).flatMap((p) => [p.localTeamId, p.visitorTeamId])
-    assert.equal(new Set(ids).size, ids.length)
-  }
+  for (const block of orderDate(six, 2, true)) assert.equal(new Set(ids(block)).size, ids(block).length)
+})
+
+test('3 divisiones de 3 equipos en 2 canchas: nadie juega seguido, dejando una cancha libre si hace falta', () => {
+  const divisions = ['A', 'B', 'C'].map((d) => ({ id: d, teamIds: [`${d}1`, `${d}2`, `${d}3`] }))
+  const pool = leaguePool(divisions, 1)
+  const ids = (block) => block.flatMap((p) => [p.localTeamId, p.visitorTeamId])
+  const blocks = orderDate(pool.slice(0, 6), 2, false)
+  assert.equal(blocks.flat().length, 6)
+  for (const block of blocks) assert.ok(block.length <= 2 && new Set(ids(block)).size === ids(block).length)
+  for (let i = 1; i < blocks.length; i += 1) assert.ok(!ids(blocks[i]).some((id) => ids(blocks[i - 1]).includes(id)))
 })
 
 test('el receso reemplaza al intervalo: termina 08:00, receso de 60 y el siguiente empieza 09:00', () => {
@@ -83,7 +88,7 @@ test('el receso reemplaza al intervalo: termina 08:00, receso de 60 y el siguien
   assert.deepEqual(slots.map((s) => s.time), ['07:44', '09:00', '09:26'])
   assert.deepEqual(recesses, [{ time: '08:00', minutes: 60 }])
   const parallel = scheduleTimes(4, { firstTime: '08:00', halfMinutes: 7, halftimeMinutes: 2, intervalMinutes: 10, courts: 2, recesses: [] })
-  assert.deepEqual(parallel.slots, [{ time: '08:00', court: 1 }, { time: '08:00', court: 2 }, { time: '08:26', court: 1 }, { time: '08:26', court: 2 }])
+  assert.deepEqual(parallel.slots.map(({ time, court }) => ({ time, court })), [{ time: '08:00', court: 1 }, { time: '08:00', court: 2 }, { time: '08:26', court: 1 }, { time: '08:26', court: 2 }])
 })
 
 test('la tabla de rugby da 4 por victoria, 2 por empate y aplica ajustes', () => {

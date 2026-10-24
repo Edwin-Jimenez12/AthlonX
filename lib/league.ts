@@ -110,35 +110,50 @@ function shares(left: LeaguePairing, right: LeaguePairing) {
   return [left.localTeamId, left.visitorTeamId].some((id) => id === right.localTeamId || id === right.visitorTeamId)
 }
 
-// Ordena los partidos de una fecha en tandas (una por cancha). Nadie juega dos
-// veces en la misma tanda y, si no se permite, tampoco en tandas seguidas.
+// Ordena los partidos de una fecha en tandas (una cancha por partido). Nadie juega
+// dos veces en la misma tanda y, si no se permite, tampoco en tandas seguidas.
+// Cuando hace falta para respetar el descanso, una cancha queda libre en esa tanda.
 export function orderDate(matches: LeaguePairing[], courts: number, allowBackToBack: boolean) {
   const size = Math.max(1, courts)
-  let visited = 0
-  function fits(sequence: LeaguePairing[], candidate: LeaguePairing) {
-    const position = sequence.length
-    const block = Math.floor(position / size)
-    return sequence.every((placed, index) => {
-      const placedBlock = Math.floor(index / size)
-      if (placedBlock === block) return !shares(placed, candidate)
-      if (!allowBackToBack && placedBlock === block - 1) return !shares(placed, candidate)
-      return true
-    })
-  }
-  function search(sequence: LeaguePairing[], remaining: LeaguePairing[]): LeaguePairing[] | null {
-    if (!remaining.length) return sequence
-    visited += 1
-    if (visited > 200000) return null
-    const options = remaining.filter((candidate) => fits(sequence, candidate))
-    // Primero los partidos con menos alternativas para cerrar antes los casos difíciles.
-    options.sort((left, right) => remaining.filter((item) => item !== left && !shares(item, left)).length - remaining.filter((item) => item !== right && !shares(item, right)).length)
-    for (const candidate of options) {
-      const result = search([...sequence, candidate], remaining.filter((item) => item !== candidate))
-      if (result) return result
+  function build(order: LeaguePairing[]) {
+    let remaining = [...order]
+    const blocks: LeaguePairing[][] = []
+    let previous = new Set<string>()
+    while (remaining.length && blocks.length < order.length * 2 + 2) {
+      // Primero los equipos con más partidos pendientes, para no dejarlos todos al final.
+      const load = new Map<string, number>()
+      for (const match of remaining) for (const id of [match.localTeamId, match.visitorTeamId]) load.set(id, (load.get(id) || 0) + 1)
+      const candidates = remaining
+        .map((match, index) => ({ match, index, weight: (load.get(match.localTeamId) || 0) + (load.get(match.visitorTeamId) || 0) }))
+        .sort((left, right) => right.weight - left.weight || left.index - right.index)
+      const block: LeaguePairing[] = []
+      const used = new Set<string>()
+      for (const { match } of candidates) {
+        if (block.length >= size) break
+        const ids = [match.localTeamId, match.visitorTeamId]
+        if (ids.some((id) => used.has(id))) continue
+        if (!allowBackToBack && ids.some((id) => previous.has(id))) continue
+        block.push(match)
+        ids.forEach((id) => used.add(id))
+      }
+      remaining = remaining.filter((match) => !block.includes(match))
+      blocks.push(block)
+      previous = used
     }
-    return null
+    return blocks
   }
-  return search([], matches)
+  const cost = (blocks: LeaguePairing[][]) => blocks.length * 100 + blocks.reduce((total, block) => total + size - block.length, 0)
+  let best = build(matches)
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const order = [...matches]
+    for (let index = order.length - 1; index > 0; index -= 1) {
+      const swap = Math.floor(Math.random() * (index + 1))
+      ;[order[index], order[swap]] = [order[swap], order[index]]
+    }
+    const candidate = build(order)
+    if (cost(candidate) < cost(best)) best = candidate
+  }
+  return best
 }
 
 export type ScheduleTiming = {
@@ -163,23 +178,28 @@ export function formatClock(total: number) {
 
 // Horarios por tanda. Entre partidos se suma el intervalo; después de un receso
 // el siguiente partido empieza al terminar el receso, sin intervalo adicional.
-export function scheduleTimes(matchCount: number, timing: ScheduleTiming) {
-  const courts = Math.max(1, timing.courts)
+// Recibe cuántos partidos hay en cada tanda (una tanda vacía es un descanso).
+export function scheduleBlocks(blockSizes: number[], timing: ScheduleTiming) {
   const duration = timing.halfMinutes * 2 + timing.halftimeMinutes
-  const blocks = Math.ceil(matchCount / courts)
-  const slots: { time: string; court: number }[] = []
+  const slots: { time: string; court: number; block: number }[] = []
   const recesses: { time: string; minutes: number }[] = []
   let start = toMinutes(timing.firstTime)
-  for (let block = 0; block < blocks; block += 1) {
-    for (let court = 0; court < courts && slots.length < matchCount; court += 1) slots.push({ time: formatClock(start), court: court + 1 })
+  blockSizes.forEach((count, block) => {
+    for (let court = 0; court < count; court += 1) slots.push({ time: formatClock(start), court: court + 1, block })
     const end = start + duration
     const recess = timing.recesses.find((item) => item.afterBlock === block + 1)
-    if (recess && block < blocks - 1) {
+    if (recess && block < blockSizes.length - 1) {
       recesses.push({ time: formatClock(end), minutes: recess.minutes })
       start = end + recess.minutes
     } else start = end + timing.intervalMinutes
-  }
+  })
   return { slots, recesses, endsAt: formatClock(start - timing.intervalMinutes) }
+}
+
+export function scheduleTimes(matchCount: number, timing: ScheduleTiming) {
+  const courts = Math.max(1, timing.courts)
+  const sizes = Array.from({ length: Math.ceil(matchCount / courts) }, (_, block) => Math.min(courts, matchCount - block * courts))
+  return scheduleBlocks(sizes, timing)
 }
 
 export type StandingRow = { teamId: string; played: number; wins: number; draws: number; losses: number; pointsFor: number; pointsAgainst: number; points: number }
