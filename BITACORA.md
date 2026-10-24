@@ -5,6 +5,46 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Tabla de posiciones y PDF rediseñados en código
+
+**Qué se hizo** (aplica el diseño de Figma de la entrada anterior)
+- `Components/torneo/standings.tsx`: nueva `StandingsSection` en `.ax-v2`, que sale de `page.tsx`:
+  - Divisiones con conteo de equipos.
+  - Tabla de escritorio con columnas #, Equipo, PJ, G, E, P, PF/PC (GF/GC en fútbol), Dif, Pts resaltado y últimos 3 resultados G/E/P.
+  - Lista compacta en móvil.
+  - Zona de clasificación con barra lima y línea punteada (solo cuando ya hay partidos jugados).
+  - Ajustes marcados con *, tarjeta "Ajustes de puntos" y tarjeta "Camino a semifinales / a la final" con la proyección.
+  - Sin partidos, el orden es alfabético.
+- La zona sale de `zoneSize`:
+  - Rugby "Liga + Fase final": 2 o 4 equipos.
+  - Rugby "Todos contra todos": sin zona.
+  - Fútbol: `qualifying_teams_per_group`.
+- "Ajustar puntos" es un panel en línea con −/+ por equipo, total en vivo, motivo y contraseña. Usa la misma RPC `save_tournament_standing_adjustments`.
+- "Generar PDF" es un panel en línea:
+  - Divisiones: la actual o todas.
+  - Diseño: Oficial, Compacto o Para compartir.
+  - Incluir: últimos resultados, ajustes y notas, zona de clasificación y próxima fecha.
+- `lib/standings-print.ts`:
+  - `officialHtml`: A4, una hoja por división, con cabecera de escudo, liga y logo AthlonX, franja oscura y notas.
+  - `compactHtml`: todas las divisiones en una hoja.
+  - `shareImage`: PNG de 1080×1350 dibujado en canvas, una imagen por división.
+  - La ventana de impresión copia los `@font-face` de la app (Inter y Bebas Neue) con URL absolutas.
+- Escudo de la liga: `organizations.logo_url` → portada del torneo → `public/upr-escudo.png` (nuevo, recorte del óvalo de `upr.png`). Hoy ninguna organización tiene `logo_url` (consulta de solo lectura).
+- Se quitó la `StandingsSection` vieja de `page.tsx` y su menú Todos/Individual.
+
+**Verificación**
+- `tsc`, `node --test tests/*.mjs` (25 de 25) y `npm run build`.
+- Capturas con el mock temporal (`/*AXMOCK*/`, ya retirado):
+  - Escritorio oscuro y claro, móvil, panel de PDF y panel de ajustes.
+  - HTML del PDF oficial (con datos y sin partidos, 3 hojas) y del compacto, renderizado desde el mismo origen.
+  - PNG para compartir.
+
+**Pendiente**
+- Desplegar para verlo en athlonx.world.
+- Que las organizaciones puedan subir su logo (`logo_url`) para no depender de `upr-escudo.png`.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Figma: rediseño de la tabla de posiciones y sus PDF
 
 **Qué se hizo** (solo Figma, página `Claude`; no hay cambios de código)
