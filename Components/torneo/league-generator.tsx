@@ -84,7 +84,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
     const dates: ScheduleDate[] = []
     for (const [index, group] of groups.entries()) {
       const ordered = orderDate(group, settings.courts, allowBackToBack)
-      if (!ordered) return { dates: [], issue: `La fecha ${index + 1} no se puede ordenar sin que un equipo juegue dos partidos seguidos. Permite partidos seguidos, baja los partidos por fecha${settings.courts > 1 ? ' o usa menos canchas' : ''}.` }
+      if (!ordered) return { dates: [], issue: `La fecha ${index + 1} no se puede ordenar sin que un equipo juegue dos partidos seguidos. Permite partidos seguidos o baja los partidos por fecha.` }
       const times = scheduleTimes(ordered.length, timing)
       dates.push({ calendarDate: mode === 'automatic' ? addDays(firstDate, index * (Number(daysBetween) || 7)) : firstDate || null, stage: 'league', recesses: times.recesses, matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) })
     }
@@ -153,7 +153,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
 
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <Card labelledBy="league-config">
-        <CardHeader id="league-config" title={mode === 'automatic' ? 'Partidos y horarios' : 'Enfrentamientos'} subtitle={mode === 'automatic' ? 'Las fechas se crean solas hasta completar la liga.' : 'Una fecha con los partidos que elijas.'} />
+        <CardHeader id="league-config" title={mode === 'automatic' ? 'Partidos y horarios' : 'Enfrentamientos'} subtitle={`${mode === 'automatic' ? 'Las fechas se crean solas hasta completar la liga.' : 'Una fecha con los partidos que elijas.'} ${settings.courts} cancha${settings.courts === 1 ? '' : 's'}, según la configuración del torneo.`} />
         <div className="mt-5 space-y-4">
           {mode === 'automatic' && <div className="grid grid-cols-2 gap-3">
             <label className="block"><FieldLabel>Partidos por fecha</FieldLabel><input type="number" min="1" inputMode="numeric" value={matchesPerDate} placeholder={String(suggested)} onChange={(event) => setMatchesPerDate(event.target.value)} className={inputClass} /></label>
@@ -179,12 +179,6 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
             <Switch label="Permitir partidos seguidos" checked={allowBackToBack} onChange={setAllowBackToBack} />
           </div>
 
-          <div>
-            <FieldLabel>Canchas</FieldLabel>
-            <div role="radiogroup" aria-label="Canchas" className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((courts) => <button key={courts} type="button" role="radio" aria-checked={settings.courts === courts} onClick={() => update({ courts })} className={cx('h-10 cursor-pointer rounded-[10px] text-[13px] font-semibold transition-colors duration-150', settings.courts === courts ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'border border-[var(--ax-line-strong)] text-[var(--ax-text-secondary)] hover:border-[var(--ax-accent-text)]')}>{courts} cancha{courts === 1 ? '' : 's'}</button>)}
-            </div>
-          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><FieldLabel>{mode === 'automatic' ? 'Primera fecha' : 'Día de la fecha'}</FieldLabel><input type="date" value={firstDate} onChange={(event) => setFirstDate(event.target.value)} className={inputClass} /></label>
@@ -263,7 +257,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
           {!finals.length && (settings.playoffTeams === 2 || semis.length > 0) && <Button variant="primary" icon={Trophy} disabled={!finalPairings.length} onClick={() => queue(playoffSchedule('final', finalPairings), 'Final')}>Generar final</Button>}
           {finals.length > 0 && <Badge tone="success">Final programada</Badge>}
         </div>
-        <p className="text-xs text-[var(--ax-muted)]">Usa el día, la hora, las canchas y los tiempos de "Partidos y horarios". Las semifinales y la final no suman en la tabla.</p>
+        <p className="text-xs text-[var(--ax-muted)]">Usa el día, la hora y los tiempos de "Partidos y horarios", con las canchas del torneo. Las semifinales y la final no suman en la tabla.</p>
       </div>
     </Card>}
   </div>

@@ -5,6 +5,23 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Canchas solo al crear el torneo
+
+**Qué se hizo**
+- Se quitó el selector de canchas del generador de fixtures de liga, como pidió Edwin: las canchas se definen al crear el torneo.
+- El generador usa el número guardado en `tournament_competition_settings.courts_count` y lo muestra en el subtítulo de "Partidos y horarios".
+
+**Archivos**
+- `Components/torneo/league-generator.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (24 de 24).
+
+**Pendiente**
+- Para cambiar las canchas de un torneo de rugby ya creado no hay campo en Información todavía.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Calendario de AthlonX en torneos, sin fecha final y cierre automático
 
 **Qué se hizo**
