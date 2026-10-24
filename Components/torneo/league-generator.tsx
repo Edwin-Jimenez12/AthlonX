@@ -46,6 +46,9 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
   const [allowBackToBack, setAllowBackToBack] = useState(false)
   const [firstDate, setFirstDate] = useState(startDate || '')
   const [daysBetween, setDaysBetween] = useState('7')
+  // Con "Personalizado" cada fecha tiene su propio día (por defecto, una por semana).
+  const [customDates, setCustomDates] = useState<Record<number, string>>({})
+  const custom = daysBetween === 'custom'
   const thisYear = new Date().getFullYear()
   const dateLimits = { min: `${thisYear - 1}-01-01`, max: `${thisYear + 3}-12-31` }
   const [firstTime, setFirstTime] = useState('08:00')
@@ -89,10 +92,10 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
       const blocks = orderDate(group, settings.courts, allowBackToBack)
       const ordered = blocks.flat()
       const times = scheduleBlocks(blocks.map((block) => block.length), timing)
-      dates.push({ calendarDate: mode === 'automatic' ? addDays(firstDate, index * (Number(daysBetween) || 7)) : firstDate || null, stage: 'league', recesses: times.recesses, matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) })
+      dates.push({ calendarDate: mode === 'automatic' ? (custom && index > 0 ? customDates[index] || addDays(firstDate, index * 7) : addDays(firstDate, index * (Number(daysBetween) || 7))) : firstDate || null, stage: 'league', recesses: times.recesses, matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) })
     }
     return { dates, issue: '' }
-  }, [mode, pool, perDate, cap, manualPairings, settings.courts, allowBackToBack, JSON.stringify(timing), firstDate, daysBetween])
+  }, [mode, pool, perDate, cap, manualPairings, settings.courts, allowBackToBack, JSON.stringify(timing), firstDate, daysBetween, custom, JSON.stringify(customDates)])
 
   function addManual() {
     if (!manualDivisionId || !localTeamId || !visitorTeamId || localTeamId === visitorTeamId) return
@@ -187,8 +190,12 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
           <div className="grid grid-cols-2 gap-3">
             <div className={mode === 'automatic' ? 'col-span-2' : ''}><DateField label={mode === 'automatic' ? 'Día de la primera fecha' : 'Día de la fecha'} value={firstDate} onChange={setFirstDate} min={dateLimits.min} max={dateLimits.max} /></div>
             {mode === 'automatic' && <div className="col-span-2">
-              <Select label="¿Cada cuánto se juega una fecha?" value={daysBetween} onChange={setDaysBetween} options={[{ value: '7', label: 'Cada semana' }, { value: '14', label: 'Cada 2 semanas' }, { value: '1', label: 'Todos los días (días seguidos)' }]} />
-              {firstDate && preview.dates.length > 1 && <p className="mt-1.5 text-xs text-[var(--ax-muted)]">{preview.dates.slice(0, 3).map((date, index) => `Fecha ${index + 1}: ${dateLabel(date.calendarDate)}`).join(' · ')}{preview.dates.length > 3 ? ' …' : ''}</p>}
+              <Select label="¿Cada cuánto se juega una fecha?" value={daysBetween} onChange={setDaysBetween} options={[{ value: '7', label: 'Cada semana' }, { value: '14', label: 'Cada 2 semanas' }, { value: '1', label: 'Todos los días (días seguidos)' }, { value: 'custom', label: 'Personalizado (eliges cada día)' }]} />
+              {custom && preview.dates.length > 1 && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {preview.dates.slice(1).map((date, offset) => <DateField key={offset + 1} label={`Día de la fecha ${offset + 2}`} value={date.calendarDate || ''} onChange={(value) => setCustomDates((current) => ({ ...current, [offset + 1]: value }))} min={firstDate || dateLimits.min} max={dateLimits.max} />)}
+              </div>}
+              {custom && preview.dates.some((date, index) => index > 0 && (date.calendarDate || '') <= (preview.dates[index - 1].calendarDate || '')) && <p className="mt-2 text-xs font-medium text-[var(--ax-warning-text)]">Hay fechas en el mismo día o antes de la anterior. Revisa el orden.</p>}
+              {!custom && firstDate && preview.dates.length > 1 && <p className="mt-1.5 text-xs text-[var(--ax-muted)]">{preview.dates.slice(0, 3).map((date, index) => `Fecha ${index + 1}: ${dateLabel(date.calendarDate)}`).join(' · ')}{preview.dates.length > 3 ? ' …' : ''}</p>}
             </div>}
             <label className="block"><FieldLabel>Primer partido</FieldLabel><input type="time" value={firstTime} onChange={(event) => setFirstTime(event.target.value)} className={cx(inputClass, 'cursor-pointer')} /></label>
             {numberField('Minutos por tiempo', settings.halfMinutes, (value) => update({ halfMinutes: value }), 1, 60)}

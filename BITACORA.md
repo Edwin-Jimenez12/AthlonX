@@ -5,6 +5,25 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Fechas personalizadas en el generador
+
+**Qué se hizo**
+- "¿Cada cuánto se juega una fecha?" ahora tiene la opción "Personalizado (eliges cada día)". Con ella aparece un selector de día para cada fecha a partir de la segunda, con el calendario de AthlonX.
+- Por defecto cada fecha queda una semana después de la anterior.
+- Si una fecha cae el mismo día o antes que la anterior, se muestra un aviso.
+
+**Archivos**
+- `Components/torneo/league-generator.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+- Captura con datos de ejemplo (parche temporal ya quitado).
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Sin partidos seguidos con varias canchas y división en la vista previa
 
 **Qué se hizo**
