@@ -3,7 +3,7 @@
 import { CalendarDays, CircleAlert, Coffee, Info, Plus, Trophy, Wand2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge, Button, Card, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../mi-equipo/ui'
-import { Switch } from '../mi-perfil/ui'
+import { DateField, Switch } from '../mi-perfil/ui'
 import { leagueFormats, leaguePool, leagueStandings, orderDate, pairKey, scheduleTimes, splitIntoDates, type LeagueFormat, type LeaguePairing } from '../../lib/league'
 
 // Generador de fixtures para ligas (rugby): todos contra todos y liga con fase final.
@@ -46,6 +46,8 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
   const [allowBackToBack, setAllowBackToBack] = useState(false)
   const [firstDate, setFirstDate] = useState(startDate || '')
   const [daysBetween, setDaysBetween] = useState('7')
+  const thisYear = new Date().getFullYear()
+  const dateLimits = { min: `${thisYear - 1}-01-01`, max: `${thisYear + 3}-12-31` }
   const [firstTime, setFirstTime] = useState('08:00')
   const [recesses, setRecesses] = useState<{ id: number; afterBlock: string; minutes: string }[]>([])
   const [manualDivisionId, setManualDivisionId] = useState(divisions[0]?.id || '')
@@ -181,11 +183,12 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
 
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="block"><FieldLabel>{mode === 'automatic' ? 'Primera fecha' : 'Día de la fecha'}</FieldLabel><input type="date" value={firstDate} onChange={(event) => setFirstDate(event.target.value)} className={inputClass} /></label>
-            {mode === 'automatic'
-              ? <label className="block"><FieldLabel>Días entre fechas</FieldLabel><input type="number" min="1" inputMode="numeric" value={daysBetween} onChange={(event) => setDaysBetween(event.target.value)} className={inputClass} /></label>
-              : <label className="block"><FieldLabel>Primer partido</FieldLabel><input type="time" value={firstTime} onChange={(event) => setFirstTime(event.target.value)} className={inputClass} /></label>}
-            {mode === 'automatic' && <label className="block"><FieldLabel>Primer partido</FieldLabel><input type="time" value={firstTime} onChange={(event) => setFirstTime(event.target.value)} className={inputClass} /></label>}
+            <div className={mode === 'automatic' ? 'col-span-2' : ''}><DateField label={mode === 'automatic' ? 'Día de la primera fecha' : 'Día de la fecha'} value={firstDate} onChange={setFirstDate} min={dateLimits.min} max={dateLimits.max} /></div>
+            {mode === 'automatic' && <div className="col-span-2">
+              <Select label="¿Cada cuánto se juega una fecha?" value={daysBetween} onChange={setDaysBetween} options={[{ value: '7', label: 'Cada semana' }, { value: '14', label: 'Cada 2 semanas' }, { value: '1', label: 'Todos los días (días seguidos)' }]} />
+              {firstDate && preview.dates.length > 1 && <p className="mt-1.5 text-xs text-[var(--ax-muted)]">{preview.dates.slice(0, 3).map((date, index) => `Fecha ${index + 1}: ${dateLabel(date.calendarDate)}`).join(' · ')}{preview.dates.length > 3 ? ' …' : ''}</p>}
+            </div>}
+            <label className="block"><FieldLabel>Primer partido</FieldLabel><input type="time" value={firstTime} onChange={(event) => setFirstTime(event.target.value)} className={cx(inputClass, 'cursor-pointer')} /></label>
             {numberField('Minutos por tiempo', settings.halfMinutes, (value) => update({ halfMinutes: value }), 1, 60)}
             {numberField('Medio tiempo (min)', settings.halftimeMinutes, (value) => update({ halftimeMinutes: value }), 0, 30)}
             {numberField('Intervalo entre partidos', settings.intervalMinutes, (value) => update({ intervalMinutes: value }), 0, 120)}
@@ -201,10 +204,12 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
             {recesses.length > 0 && <p className="text-xs leading-[18px] text-[var(--ax-muted)]">Después de un receso el siguiente partido empieza al terminar el receso, sin sumar el intervalo.</p>}
           </div>
 
+          {teamCount < 2 && <Notice tone="warning" icon={CircleAlert}>El torneo todavía no tiene equipos suficientes. Inscribe al menos 2 equipos en una división (pestaña Equipos y plantillas) para generar el fixture.</Notice>}
+          {teamCount >= 2 && mode === 'automatic' && !pool.length && <Notice icon={Info}>Todos los partidos de la liga ya tienen fecha. No hay nada nuevo que generar.</Notice>}
           {(error || preview.issue) && <Notice tone="danger" icon={CircleAlert}>{error || preview.issue}</Notice>}
           {queued && !error && <Notice tone="success" icon={Info}>{queued}. Quedó en la barra de cambios sin guardar: confírmalo con tu contraseña.</Notice>}
           <Button variant="primary" icon={Wand2} disabled={!preview.dates.length || Boolean(preview.issue)} onClick={() => queue(preview.dates, `${preview.dates.length} fecha${preview.dates.length === 1 ? '' : 's'} con ${totalPreviewMatches} partidos`)} className="w-full">
-            {mode === 'automatic' ? `Generar ${preview.dates.length} fecha${preview.dates.length === 1 ? '' : 's'}` : `Crear fecha con ${manualPairings.length} partido${manualPairings.length === 1 ? '' : 's'}`}
+            {mode === 'automatic' ? (preview.dates.length ? `Generar ${preview.dates.length} fecha${preview.dates.length === 1 ? '' : 's'}` : 'Nada por generar') : `Crear fecha con ${manualPairings.length} partido${manualPairings.length === 1 ? '' : 's'}`}
           </Button>
         </div>
       </Card>

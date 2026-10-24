@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Generador: frecuencia de fechas clara y aviso sin equipos
+
+**Qué se hizo**
+- "Días entre fechas" (un número) no se entendía. Ahora es "¿Cada cuánto se juega una fecha?", con tres opciones: cada semana, cada 2 semanas y todos los días. Debajo se ven las primeras fechas calculadas, por ejemplo "Fecha 1: sáb, 24 oct · Fecha 2: sáb, 31 oct".
+- El día de la primera fecha usa el calendario de AthlonX y el campo de hora tiene `cursor-pointer`.
+- Antes el botón decía "Generar 0 fechas" sin explicar por qué. Ahora:
+  - Si el torneo tiene menos de 2 equipos, avisa que hay que inscribirlos en Equipos y plantillas.
+  - Si la liga ya está toda programada, lo dice.
+  - El botón muestra "Nada por generar".
+
+**Archivos**
+- `Components/torneo/league-generator.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (24 de 24).
+- Captura con datos de ejemplo (parche temporal ya quitado).
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Borrar torneos con fixture generado
 
 **Qué se hizo**
