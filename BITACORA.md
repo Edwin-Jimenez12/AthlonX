@@ -5,6 +5,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Cancha en cada partido del fixture
+
+**Qué se hizo**
+- Se quitó el contenedor "Asignación de canchas" de la pestaña Fixtures, como pidió Edwin.
+- Cada partido muestra su cancha al lado de la hora ("08:00 · Cancha 2") cuando el torneo tiene más de una cancha.
+- Al editar una fecha, la cancha se cambia en el mismo partido, con un selector junto a la hora. Se guarda igual que antes (`matches.court_number`).
+- Se borró el componente `CourtEditor`, que ya no se usaba.
+
+**Archivos**
+- `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+- Sin captura: el número de canchas de la pestaña se lee de Supabase, que no está disponible en este entorno.
+
+**Pendiente**
+- Revisar en athlonx.world después de publicar.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Canchas libres visibles en la vista previa
 
 **Qué se hizo**
