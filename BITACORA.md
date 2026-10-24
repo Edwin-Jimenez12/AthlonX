@@ -5,6 +5,34 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Figma: rediseño de la tabla de posiciones y sus PDF
+
+**Qué se hizo** (solo Figma, página `Claude`; no hay cambios de código)
+- Fila "Tabla de posiciones · rediseño" (y=50000):
+  - Tabla de rugby en escritorio y móvil, en oscuro y en claro.
+  - Columnas: zona de clasificación con barra lima y línea punteada "Clasifican a semifinales", columna PTS resaltada, últimos resultados G/E/P, ajuste administrativo marcado con *, divisiones con conteo de equipos, y tarjetas de ajustes y "Camino a semifinales" con la proyección.
+  - Sin pestaña Llaves en rugby.
+- Panel en línea "Generar PDF de la tabla" (escritorio y móvil, en oscuro y en claro), que reemplaza el menú Todos/Individual:
+  - Divisiones: solo la actual o todas.
+  - Diseño: Oficial, Compacto o Para compartir.
+  - Interruptores para incluir últimos resultados, ajustes y notas, zona de clasificación y próxima fecha.
+- Fila "PDF · Tabla de posiciones" (y=52700):
+  - PDF Oficial A4 de una división.
+  - PDF Compacto A4 con todas las divisiones.
+  - Imagen para compartir de 1080×1350.
+  - PDF Oficial sin partidos jugados (tabla inicial).
+  - Nota con la regla de qué diseño sale según las opciones.
+- Componente `Escudo liga/UPR`, que usa `public/upr.png` recortado al óvalo y se carga como imagen dentro del plugin.
+
+**Verificación**: capturas de cada frame en Figma.
+
+**Pendiente**
+- Pasar a código: `StandingsSection` y `printStandings` en `app/(panel)/torneos/ver/[id]/page.tsx`.
+- El PDF debe usar el logo de la organización en lugar de `upr.png` fijo.
+- Variante de fútbol con GF/GC y puntos 3·1·0.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Sin aviso en partidos programados
 
 **Qué se hizo**
