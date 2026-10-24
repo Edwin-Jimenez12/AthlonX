@@ -3595,8 +3595,8 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         {statsCard}
       </>
       : match.status === 'scheduled' && !events.length
-        // Antes del partido no hay cronología ni estadísticas: se explica en lugar de mostrar ceros.
-        ? <Notice icon={Clock3}>La cronología y las estadísticas aparecen cuando empieza el partido.{canManage ? ' Toca «Iniciar primer tiempo» para empezar a registrar las acciones.' : ''}</Notice>
+        // Antes del partido no hay cronología ni estadísticas que mostrar.
+        ? null
         : <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">{timelineCard}{statsCard}</div>}
   </article>
 }

@@ -5,6 +5,23 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-24 · `edwin` → `main` · nube · Sin aviso en partidos programados
+
+**Qué se hizo**
+- Se quitó el aviso "La cronología y las estadísticas aparecen cuando empieza el partido", como pidió Edwin.
+- Mientras el partido está programado y sin eventos, solo se ve el marcador. La cronología y las estadísticas siguen ocultas hasta que empieza.
+
+**Archivos**
+- `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `tsc`, `npm run build` y `node --test tests/*.mjs` (25 de 25).
+
+**Pendiente**
+- Nada.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Partido programado sin cronología vacía
 
 **Qué se hizo**
