@@ -5,6 +5,31 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Información del torneo según Figma
+
+**Qué se hizo**
+- Aplicado en código el diseño de Información (Figma `1130:18187`, página `REDISEÑO`), con dos cambios pedidos: sin duración de tiempo ni descanso (viven en el generador de fixtures) y sin el tile duplicado "Organiza".
+- `GeneralInfoSection` en `app/(panel)/torneos/ver/[id]/page.tsx`: vista de solo lectura con tokens `--ax-*` en `.ax-v2`:
+  - Datos del torneo (nombre, código, estado, temporada, organización, disciplina, modalidad, ubicación, fechas, equipo organizador).
+  - Canchas y competencia (canchas, intervalo, formato, vueltas, clasificados a playoffs).
+  - Cupos (equipos máximos, jugadores por plantilla, en cancha).
+  - Divisiones participantes.
+- Los datos salen de los estados que ya carga la página (`leagueSettings`, `maxTeamsLimit`, `maxRosterLimit`, `modalityRule`). Nada es editable aquí: la edición sigue en "Editar torneo" y en el generador, así no hay campos duplicados.
+- `EditTournamentForm` sin cambios; se muestra en modo edición como antes.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK.
+- `npm run build`: OK.
+- Verificación visual en navegador: pendiente.
+
+**Pendiente**
+- Revisar en navegador (escritorio y móvil, claro y oscuro) con un torneo real.
+- El intervalo entre partidos también existe en el generador; se muestra como lectura y no se edita aquí. Si se quiere quitar de la vista, se elimina el tile.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Equipos del torneo oficial según Figma
 
 **Qué se hizo**

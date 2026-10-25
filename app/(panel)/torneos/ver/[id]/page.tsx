@@ -1424,6 +1424,8 @@ export default function PublicTournamentPage() {
       divisions={data.divisions ?? []}
       disciplines={disciplines}
       modalities={modalities}
+      competition={{ courts: leagueSettings?.courts ?? 1, intervalMinutes: leagueSettings?.intervalMinutes ?? 10, format: leagueSettings?.format ?? '', legs: leagueSettings?.legs ?? 1, playoffTeams: leagueSettings?.playoffTeams ?? 0, maxTeams: maxTeamsLimit, maxRoster: maxRosterLimit }}
+      playersOnField={modalityRule?.players_on_field ?? null}
       canManage={canManage}
       editMode={editMode && canManage}
       onRequestSave={requestSave}
@@ -3440,12 +3442,66 @@ function EditHistorySection({ history }: { history: EditHistory[] }) {
   </Card></div>
 }
 
-function GeneralInfoSection({ tournament, divisions, disciplines, modalities, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
-  return <section className="rounded-[5px] border border-[#29485d] bg-[#0b1d2c] p-5 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Configuración</p><h2 className="mt-1 font-display text-3xl uppercase">Información general</h2><p className="mt-2 text-sm text-slate-400">Datos oficiales del torneo, sus divisiones y su organización responsable.</p></div>{canManage && !editMode && <button type="button" onClick={onEdit} className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-4 py-3 text-sm font-bold text-[#07131e]"><Cog size={17} />Editar torneo</button>}</div>{editMode && canManage ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <><div className="mt-6 grid gap-3 sm:grid-cols-2"><InfoRow label="Nombre del torneo" value={tournament.name} /><InfoRow label="Código AthlonX" value={tournament.athlonx_code || 'Pendiente'} /><InfoRow label="Estado" value={statusNames[tournament.status] || tournament.status} /><InfoRow label="Temporada" value={tournament.season || 'Pendiente'} /><InfoRow label="Disciplina" value={tournament.discipline?.name || 'No especificada'} /><InfoRow label="Modalidad" value={tournament.modality?.name || 'No especificada'} /><InfoRow label="Ubicación" value={[tournament.country, tournament.location].filter(Boolean).join(' · ') || 'Pendiente'} /><InfoRow label="Fechas" value={formatDateRange(tournament.start_date, tournament.end_date)} /></div><TournamentDivisionsSummary divisions={divisions} /></>}</section>
+function InfoCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return <div className="mt-6 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-4 sm:p-5">
+    <p className="font-display text-xl uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">{title}</p>
+    {description && <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{description}</p>}
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+  </div>
 }
 
-function TournamentDivisionsSummary({ divisions }: { divisions: Division[] }) {
-  return <div className="mt-8 border-t border-white/10 pt-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Los equipos solo podrán inscribirse en una división compatible con su catálogo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{divisions.length} divisiones</span></div><div className="mt-5 flex flex-wrap gap-2">{divisions.map((division) => <span key={division.id} className="rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{division.name}</span>)}{!divisions.length && <p className="text-sm text-slate-500">Todavía no hay divisiones configuradas.</p>}</div></div>
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3.5">
+    <p className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">{label}</p>
+    <p className="mt-1.5 text-[15px] font-semibold text-[var(--ax-text)]">{value}</p>
+  </div>
+}
+
+function GeneralInfoSection({ tournament, divisions, disciplines, modalities, competition, playersOnField, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; competition: { courts: number; intervalMinutes: number; format: string; legs: number; playoffTeams: number; maxTeams: number | null; maxRoster: number | null }; playersOnField: number | null; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
+  const legsLabel = competition.legs === 2 ? 'Ida y vuelta' : `${competition.legs} vuelta${competition.legs === 1 ? '' : 's'}`
+  const formatLabel = (leagueFormats as Record<string, string>)[competition.format] ?? 'Sin formato'
+  return <section className="ax-v2 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-7">
+    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--ax-line)] pb-5">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Configuración</p>
+        <h2 className="mt-2 font-display text-3xl uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Información general</h2>
+        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Datos oficiales del torneo, sus divisiones y su organización responsable.</p>
+      </div>
+      {canManage && !editMode && <button type="button" onClick={onEdit} className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-4 text-[13px] font-bold text-[var(--ax-on-accent)] transition hover:opacity-90"><Cog size={16} />Editar torneo</button>}
+    </div>
+    {editMode && canManage ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <>
+      <InfoCard title="Datos del torneo">
+        <InfoTile label="Nombre del torneo" value={tournament.name} />
+        <InfoTile label="Código AthlonX" value={tournament.athlonx_code || 'Pendiente'} />
+        <InfoTile label="Estado" value={statusNames[tournament.status] || tournament.status} />
+        <InfoTile label="Temporada" value={tournament.season || 'Pendiente'} />
+        <InfoTile label="Organización" value={tournament.organization?.name || 'Torneo independiente'} />
+        <InfoTile label="Disciplina" value={tournament.discipline?.name || 'No especificada'} />
+        <InfoTile label="Modalidad" value={tournament.modality?.name || 'No especificada'} />
+        <InfoTile label="Ubicación" value={[tournament.country, tournament.location].filter(Boolean).join(' · ') || 'Pendiente'} />
+        <InfoTile label="Fechas" value={formatDateRange(tournament.start_date, tournament.end_date)} />
+        <InfoTile label="Equipo organizador" value={tournament.organizer_team?.name || 'Sin equipo organizador'} />
+      </InfoCard>
+      <InfoCard title="Canchas y competencia" description="Se configuran en el generador de fixtures.">
+        <InfoTile label="Canchas" value={`${competition.courts} ${competition.courts === 1 ? 'cancha' : 'canchas'}`} />
+        <InfoTile label="Intervalo entre partidos" value={`${competition.intervalMinutes} min`} />
+        <InfoTile label="Formato" value={formatLabel} />
+        <InfoTile label="Vueltas" value={legsLabel} />
+        <InfoTile label="Clasificados a playoffs" value={competition.playoffTeams ? `${competition.playoffTeams} equipos` : 'Sin playoffs'} />
+      </InfoCard>
+      <InfoCard title="Cupos" description="Máximos definidos antes de abrir inscripciones.">
+        <InfoTile label="Equipos máximos" value={competition.maxTeams ? `${competition.maxTeams} equipos` : 'Sin límite'} />
+        <InfoTile label="Jugadores por plantilla" value={competition.maxRoster ? `Hasta ${competition.maxRoster} jugadores` : 'Sin límite'} />
+        <InfoTile label="En cancha" value={playersOnField ? `${playersOnField} jugadores` : 'Pendiente'} />
+      </InfoCard>
+      <div className="mt-6 border-t border-[var(--ax-line)] pt-6">
+        <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Categorías del torneo</p>
+        <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Divisiones participantes</h3>
+        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Los equipos solo podrán inscribirse en una división compatible con su catálogo.</p>
+        <div className="mt-4 flex flex-wrap gap-2">{divisions.map((division) => <span key={division.id} className="rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2 text-[13px] font-semibold text-[var(--ax-text-secondary)]">{division.name}</span>)}{!divisions.length && <p className="text-[13px] text-[var(--ax-muted)]">Todavía no hay divisiones configuradas.</p>}</div>
+      </div>
+    </>}
+  </section>
 }
 
 // Muestra y actualiza la configuración competitiva del torneo.
