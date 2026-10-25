@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Script completo de la liga de prueba (torneo + equipos + jugadores)
+
+- Nuevo `supabase/seed-liga-rugby-sevens-prueba-completa.sql`: une torneo, divisiones, equipos aceptados y jugadores en un solo bloque. Dueño: UID de Edwin (`ede6717e-…`). Ciudad en `location` (la tabla no tiene `city`).
+- Reemplaza a los dos scripts anteriores para una sola ejecución. No ejecutado en Supabase.
+
+**Archivos**: `supabase/seed-liga-rugby-sevens-prueba-completa.sql` (nuevo).
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Script de jugadores de la liga de prueba
 
 - Nuevo `supabase/seed-liga-rugby-sevens-prueba-jugadores.sql`: 12 jugadores por equipo de prueba (`handle` `prueba-rugby-%`), dorsales 1-12, posiciones de rugby seven, 5 suplentes. Idempotente por equipo.
