@@ -5,7 +5,35 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
-## 2026-10-25 · `edwin` → `main` · nube · Columna "Ajuste" en la tabla y en el PDF
+## 2026-10-25 · `edwin` · nube → Historial de ajustes de puntos
+
+**Qué se hizo**
+- Edwin pidió un historial de ajustes que muestre todos los cambios realizados, con la posibilidad de ver el motivo de cada uno.
+- Nueva tabla `tournament_standing_adjustment_history` que registra cada ajuste individual con timestamp y usuario.
+- Migraciones SQL:
+  - `tournament-standing-adjustment-history-migration.sql`: crea la tabla con índices y políticas RLS.
+  - Actualizada `tournament-standing-adjustments-migration.sql`: la RPC ahora inserta en la tabla de historia después de actualizar el ajuste actual.
+- `Components/torneo/standings.tsx`:
+  - Nueva carga de `adjustmentHistory` en el effect, ordenada por fecha descendente.
+  - Tarjeta "Ajustes de puntos" ahora es clickeable: muestra solo el **último ajuste** de cada equipo y al presionar (o con Enter/Espacio) desplaza al historial.
+  - Nueva sección "Historial de ajustes" bajo la tabla, con lista completa de todos los ajustes, equipo, monto, motivo, fecha y hora.
+- `Components/mi-equipo/ui.tsx`:
+  - Card ahora acepta props: `onClick`, `onKeyDown`, `role`, `tabIndex` para hacerlo interactivo.
+- **Corrección de autofill**: campo Motivo cambió de `<input>` a `<textarea>` para evitar que Chrome autocomplete el correo de la cuenta.
+
+**Archivos**: `supabase/tournament-standing-adjustments-migration.sql`, `supabase/tournament-standing-adjustment-history-migration.sql`, `Components/torneo/standings.tsx`, `Components/mi-equipo/ui.tsx`.
+
+**Verificación**
+- `tsc --noEmit` y 25 de 25 pruebas pasadas. Build pendiente (local solo genera, no despliega).
+- Las migraciones son idempotentes; la tabla history está lista para recibir datos de la RPC.
+- Estructura: el último ajuste por equipo se muestra en la tarjeta; el completo en el historial debajo.
+
+**Pendiente**
+- Aplicar las migraciones SQL contra el proyecto real en Supabase (requiere confirmación del usuario).
+
+---
+
+## 2026-10-25 · `edwin` · nube → Columna "Ajuste" en la tabla y en el PDF
 
 **Qué se hizo**
 - Edwin preguntó dónde se ve el ajuste de puntos. Antes solo aparecía como "Ajuste ±N", en rojo aunque sumara, bajo el nombre del equipo.

@@ -107,6 +107,12 @@ begin
         created_by = auth.uid(),
         updated_at = now();
     end if;
+
+    insert into public.tournament_standing_adjustment_history (
+      tournament_id, division_id, team_id, points_adjustment, reason, created_by
+    ) values (
+      p_tournament_id, p_division_id, team_id_value, points_value, trim(p_reason), auth.uid()
+    );
   end loop;
 
   if jsonb_array_length(v_changes) > 0 then

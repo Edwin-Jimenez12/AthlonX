@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, CircleAlert, FileDown, FileText, Minus, Plus, SlidersHorizontal, Table2, X } from 'lucide-react'
 import { Button, Card, cx, EmptyState, FieldLabel, IconButton, inputClass, Notice } from '../mi-equipo/ui'
 import { Switch } from '../mi-perfil/ui'
@@ -41,6 +41,7 @@ type StandingsTournament = {
   organizer_team: { name: string } | null
 }
 type StandingAdjustment = { division_id: string; team_id: string; points_adjustment: number; reason: string }
+type AdjustmentHistory = { id: string; division_id: string; team_id: string; points_adjustment: number; reason: string; created_at: string; created_by: string }
 type Row = {
   team: StandingsTeam
   played: number
@@ -130,6 +131,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   const [selectedDivisionId, setSelectedDivisionId] = useState(teams[0]?.division_id || '')
   const [isOwner, setIsOwner] = useState(false)
   const [adjustments, setAdjustments] = useState<StandingAdjustment[]>([])
+  const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentHistory[]>([])
   const [tiebreakers, setTiebreakers] = useState<string[]>([])
   const [qualifyingTeams, setQualifyingTeams] = useState(4)
   const [organizationLogo, setOrganizationLogo] = useState<string | null>(null)
@@ -143,6 +145,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   const [pdfDesign, setPdfDesign] = useState<PdfDesign>('oficial')
   const [pdfOptions, setPdfOptions] = useState<PrintOptions>({ recent: true, notes: true, zone: true, next: false })
   const [generating, setGenerating] = useState(false)
+  const historyRef = useRef<HTMLDivElement>(null)
   const isFootball = tournament.discipline?.code === 'futbol'
   const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
   const zone = zoneSize ?? (isFootball ? qualifyingTeams : 0)
@@ -156,7 +159,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
     let active = true
     async function loadStandingsData() {
       if (!supabase) return
-      const [{ data: owner }, { data: userData }, { data: settings }, { data: rules }, { data: rows }, { data: organization }] = await Promise.all([
+      const [{ data: owner }, { data: userData }, { data: settings }, { data: rules }, { data: rows }, { data: organization }, { data: history }] = await Promise.all([
         supabase.from('tournaments').select('created_by').eq('id', tournament.id).maybeSingle(),
         supabase.auth.getUser(),
         supabase.from('tournament_competition_settings').select('qualifying_teams_per_group').eq('tournament_id', tournament.id).maybeSingle(),
@@ -167,6 +170,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         tournament.organization?.id
           ? supabase.from('organizations').select('logo_url').eq('id', tournament.organization.id).maybeSingle()
           : Promise.resolve({ data: null }),
+        supabase.from('tournament_standing_adjustment_history').select('id, division_id, team_id, points_adjustment, reason, created_at, created_by').eq('tournament_id', tournament.id).order('created_at', { ascending: false }),
       ])
       if (!active) return
       setIsOwner(Boolean(owner?.created_by && owner.created_by === userData.user?.id))
@@ -174,6 +178,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       setTiebreakers(Array.isArray(rules?.tiebreakers) ? rules.tiebreakers : [])
       setAdjustments((rows ?? []) as StandingAdjustment[])
       setOrganizationLogo((organization as { logo_url?: string | null } | null)?.logo_url || null)
+      setAdjustmentHistory((history ?? []) as AdjustmentHistory[])
     }
     void loadStandingsData()
     return () => { active = false }
@@ -237,6 +242,12 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       .sort((left, right) => (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
       .map((match) => ({ local: match.local_team_name, visitor: match.visitor_team_name, detail: [match.scheduled_time?.slice(0, 5), match.court_number ? `Cancha ${match.court_number}` : ''].filter(Boolean).join(' · ') })) : []
     const nextCalendar = own.find((match) => match.date_number === nextDate)?.calendar_date || null
+    const latestAdjustmentByTeam = new Map<string, AdjustmentHistory>()
+    for (const adj of adjustmentHistory.filter((h) => h.division_id === divisionId)) {
+      if (!latestAdjustmentByTeam.has(adj.team_id) || new Date(adj.created_at) > new Date(latestAdjustmentByTeam.get(adj.team_id)!.created_at)) {
+        latestAdjustmentByTeam.set(adj.team_id, adj)
+      }
+    }
     return {
       id: divisionId,
       name: divisionName || 'División',
@@ -252,11 +263,14 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       projection,
       nextDateLabel: Number.isFinite(nextDate) ? `Fecha ${nextDate}${nextCalendar ? ` · ${shortDate(nextCalendar)}` : ''}` : '',
       nextMatches,
-      adjustments: rows.filter((row) => row.adjustment).map((row) => ({
-        team: row.team.name,
-        amount: row.adjustment,
-        reason: adjustments.find((item) => item.division_id === divisionId && item.team_id === row.team.id)?.reason || '',
-      })),
+      adjustments: rows.filter((row) => row.adjustment).map((row) => {
+        const latest = latestAdjustmentByTeam.get(row.team.id)
+        return {
+          team: row.team.name,
+          amount: row.adjustment,
+          reason: latest?.reason || adjustments.find((item) => item.division_id === divisionId && item.team_id === row.team.id)?.reason || '',
+        }
+      }),
     }
   }
 
@@ -296,8 +310,12 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         p_reason: reason.trim(),
       })
       if (error) return setMessage({ tone: 'warning', text: error.message })
-      const { data } = await supabase.from('tournament_standing_adjustments').select('division_id, team_id, points_adjustment, reason').eq('tournament_id', tournament.id)
-      setAdjustments((data ?? []) as StandingAdjustment[])
+      const [{ data: adjustmentsData }, { data: historyData }] = await Promise.all([
+        supabase.from('tournament_standing_adjustments').select('division_id, team_id, points_adjustment, reason').eq('tournament_id', tournament.id),
+        supabase.from('tournament_standing_adjustment_history').select('id, division_id, team_id, points_adjustment, reason, created_at, created_by').eq('tournament_id', tournament.id).order('created_at', { ascending: false }),
+      ])
+      setAdjustments((adjustmentsData ?? []) as StandingAdjustment[])
+      setAdjustmentHistory((historyData ?? []) as AdjustmentHistory[])
       setPanel(null)
       setPassword('')
       setReason('')
@@ -483,9 +501,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         })}
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block"><FieldLabel>Motivo del ajuste</FieldLabel><input name="motivo-ajuste" autoComplete="off" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ejemplo: alineación indebida en la fecha 2" className={inputClass} /></label>
-        {/* Campo de usuario oculto: evita que el navegador autocomplete el correo en el motivo. */}
-        <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="sr-only" readOnly value="" />
+        <label className="block"><FieldLabel>Motivo del ajuste</FieldLabel><textarea autoComplete="off" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ejemplo: alineación indebida en la fecha 2" maxLength={200} rows={3} className={cx(inputClass, 'resize-none')} /></label>
         <label className="block"><FieldLabel>Contraseña de la cuenta</FieldLabel><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className={inputClass} /></label>
       </div>
       <div className="mt-4 flex flex-col-reverse gap-2 border-t border-[var(--ax-line)] pt-4 sm:flex-row sm:justify-end">
@@ -604,11 +620,11 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       </Card>
 
       <div className="grid content-start gap-5 md:grid-cols-2 xl:grid-cols-1 xl:gap-6">
-        <Card labelledBy="adjustments-title">
+        <Card labelledBy="adjustments-title" className={cx(current.adjustments.length > 0 && 'cursor-pointer transition-[border-color] hover:border-[var(--ax-accent-text)]')} onClick={() => current.adjustments.length > 0 && historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} role={current.adjustments.length > 0 ? 'button' : undefined} tabIndex={current.adjustments.length > 0 ? 0 : undefined} onKeyDown={(event) => current.adjustments.length > 0 && (event.key === 'Enter' || event.key === ' ') && historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
           <h2 id="adjustments-title" className="font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Ajustes de puntos</h2>
-          <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">Se suman o restan a la tabla y quedan en el historial.</p>
+          <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{current.adjustments.length > 0 ? 'Último ajuste · Presiona para ver el historial completo.' : 'Se suman o restan a la tabla y quedan en el historial.'}</p>
           <div className="mt-4 space-y-2">
-            {current.adjustments.length ? current.adjustments.map((item) => {
+            {current.adjustments.length ? current.adjustments.slice(0, 1).map((item) => {
               const team = current.rows.find((row) => row.team.name === item.team)?.team
               return <div key={item.team} className="flex items-center gap-3 rounded-[10px] bg-[var(--ax-surface-raised)] p-3">
                 {team && <TeamCrest team={team} />}
@@ -631,5 +647,28 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         </Card>}
       </div>
     </div>
+
+    {adjustmentHistory.filter((h) => h.division_id === selectedDivisionId).length > 0 && <div ref={historyRef} className="pt-6">
+      <Card labelledBy="history-title">
+        <h2 id="history-title" className="font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Historial de ajustes</h2>
+        <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">Todos los ajustes realizados en esta división, en orden cronológico inverso.</p>
+        <div className="mt-4 divide-y divide-[var(--ax-line)]">
+          {adjustmentHistory.filter((h) => h.division_id === selectedDivisionId).map((item) => {
+            const team = teams.find((t) => t.id === item.team_id)
+            return <div key={item.id} className="flex items-start gap-3 py-3">
+              {team && <TeamCrest team={team} />}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{team?.name || '?'}</p>
+                  <p className={cx('shrink-0 text-sm font-bold tabular-nums', item.points_adjustment < 0 ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-accent-text)]')}>{signed(item.points_adjustment)}</p>
+                </div>
+                {item.reason && <p className="mt-0.5 text-xs text-[var(--ax-muted)]">{item.reason}</p>}
+                <p className="mt-0.5 text-[11px] text-[var(--ax-muted)]">{new Intl.DateTimeFormat('es-PA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.created_at))}</p>
+              </div>
+            </div>
+          })}
+        </div>
+      </Card>
+    </div>}
   </div>
 }

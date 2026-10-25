@@ -227,8 +227,9 @@ export function RowMenu({ label, items }: { label: string; items: MenuItem[] }) 
   </div>
 }
 
-export function Card({ children, className, labelledBy }: { children: ReactNode; className?: string; labelledBy?: string }) {
-  return <section aria-labelledby={labelledBy} className={cx('min-w-0 rounded-2xl border border-[var(--ax-line)] bg-[var(--ax-surface)] p-4 sm:rounded-[20px] sm:p-6', className)}>{children}</section>
+export function Card({ children, className, labelledBy, role, tabIndex, onClick, onKeyDown }: { children: ReactNode; className?: string; labelledBy?: string; role?: string; tabIndex?: number; onClick?: () => void; onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void }) {
+  const props = { 'aria-labelledby': labelledBy, role, tabIndex, onClick, onKeyDown }
+  return <section {...props} className={cx('min-w-0 rounded-2xl border border-[var(--ax-line)] bg-[var(--ax-surface)] p-4 sm:rounded-[20px] sm:p-6', className)}>{children}</section>
 }
 
 export function CardHeader({ id, title, subtitle, actions, size = 'md' }: { id: string; title: string; subtitle?: ReactNode; actions?: ReactNode; size?: 'md' | 'lg' }) {
