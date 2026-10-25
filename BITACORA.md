@@ -5,6 +5,30 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Rediseño de Fixtures (editor de fixtures)
+
+**Qué se hizo**
+- Implementado en código el diseño de Fixtures aprobado en Figma (nodo `1122:18499`, página `REDISEÑO`).
+- `FixtureListSection` en `app/(panel)/torneos/ver/[id]/page.tsx`: render reescrito con tokens `--ax-*` dentro de `.ax-v2`:
+  - Chips de fecha (una fecha a la vez) y botones PDF sin/con plantillas para la fecha activa. Reemplazan el menú PDF por fecha.
+  - Tarjeta de fecha con título en Bebas Neue, conteo de partidos y acciones Editar / Cancelar / Eliminar fecha / Guardar.
+  - Filas de partido en columnas alineadas (hora y cancha, división, local, "vs", visitante). En edición se mantienen los selectores.
+  - Banner "Nuevo enfrentamiento" y panel de recesos con el nuevo lenguaje visual.
+- Sin cambios de lógica: guardado, recesos, eliminación y PDF usan los mismos manejadores.
+- Quitado el estado `pdfMenuDate`, que ya no tiene uso.
+- Diseño sin datos de estado: el mockup muestra "Programado" en cada fila, pero el modelo de partido no tiene estado, así que no se muestra.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK.
+- `npm run build`: OK.
+- Verificación visual en navegador: pendiente. Playwright no arranca en esta sesión (Chromium sin sandbox como root) y la página requiere sesión.
+
+**Pendiente**
+- Revisar en navegador (escritorio y móvil, claro y oscuro) con un torneo oficial real.
+- Decidir si el estado de cada partido (Programado / Finalizado) debe mostrarse cuando exista en el modelo.
+
 ## 2026-10-25 · `edwin` · nube → Reestructurar QuickTournamentTeamsSection para coincidir con diseño Figma
 
 **Qué se hizo**
