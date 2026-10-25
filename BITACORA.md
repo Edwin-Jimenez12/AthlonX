@@ -5,6 +5,35 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Completar redesign de QuickTournamentTeamsSection
+
+**Qué se hizo**
+- Edwin señaló que el redesign debe estar disponible para CUALQUIER tipo de torneo, no solo torneos oficiales. El componente `QuickTournamentTeamsSection` (usado en torneos rápidos/temporales) aún tenía colores hardcodeados.
+- Actualización completa de `Components/quick-tournament-teams-section.tsx`:
+  - Cambio de root wrapper a `.ax-v2 space-y-5` (consistente con `TournamentTeamsSection`).
+  - Reemplazo de todos los colores hardcodeados con tokens CSS:
+    - `--ax-surface`, `--ax-surface-raised` para fondos.
+    - `--ax-line`, `--ax-line-strong` para bordes.
+    - `--ax-text`, `--ax-text-secondary`, `--ax-muted` para texto.
+    - `--ax-accent` para botones primarios, `--ax-accent-line`, `--ax-accent-text` para interactivos.
+    - `--ax-danger-line`, `--ax-danger-text` para botón de expulsión.
+    - `--ax-hover` para estados hover.
+  - Actualización de radios: `rounded-[14px]` paneles, `rounded-[10px]` botones/campos.
+  - Tipografía: títulos Bebas Neue, interfaz Inter con tamaños estandarizados (11px labels uppercase, 13px inputs/buttons, 26px h2).
+  - Fixes menores: corregir tag HTML `</article>` → `</div>`, actualizar texto vacío a usar tokens.
+
+**Archivos**: `Components/quick-tournament-teams-section.tsx` (redesign completo).
+
+**Verificación**
+- Build `npm run build`: OK, sin errores TS. Turbopack compiló exitosamente en 6.1s.
+- Todos los componentes mantienen coherencia visual con TournamentTeamsSection (mismo sistema de tokens).
+
+**Pendiente**
+- Commit y push a `edwin` y `main`.
+- Posible deploy a Cloudflare para que el redesign sea visible en producción.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Redesign de "Equipos y plantillas"
 
 **Qué se hizo**
