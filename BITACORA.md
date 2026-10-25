@@ -5,6 +5,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Estado del torneo: borrador / publicado manual, resto automático
+
+**Qué se hizo**
+- Formulario de edición: el selector de Estado solo ofrece Borrador y Publicado. "En curso" y "Finalizado" se muestran como texto ("se actualiza solo") cuando el torneo ya está en ese estado.
+- Figma (frame `1055:17159`): el valor del selector pasa de "En curso" a "Publicado".
+- Migración nueva `supabase/tournament-status-automation-migration.sql`: el trigger `start_tournament_on_first_match_trigger` pasa el torneo a `in_progress` cuando un partido pasa a `live`. Solo cambia torneos en `published`; un borrador no cambia.
+- "Finalizado" ya se automatiza en ligas con `liga-finalizar-automatico-migration.sql` (cierra al terminar la última final o todos los partidos de todos contra todos).
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `supabase/tournament-status-automation-migration.sql` (nueva).
+
+**Verificación**
+- `npx tsc --noEmit`: OK. `npm run build`: OK.
+- La migración NO se ha ejecutado en Supabase. Hay que aplicarla a mano en el proyecto `mlvtsgseneqzihwkiatg` después de confirmación.
+
+**Pendiente**
+- Aplicar la migración del trigger de inicio.
+- "Finalizado" para torneos de eliminación directa (knockout) y fútbol 8 no está cubierto por un trigger nuevo; solo ligas.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Edición de Información según Figma (modo edición)
 
 **Qué se hizo**

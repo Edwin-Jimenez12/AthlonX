@@ -3672,6 +3672,8 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
     onDirtyChange(fieldsChanged || divisionsChanged)
   }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
   function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
+  const automaticStatus = tournament.status === 'in_progress' || tournament.status === 'finished'
+  const manualStatusOptions = statusOptions.filter((option) => option.value === 'draft' || option.value === 'published')
   const isFootballDiscipline = /f[uú]tbol/i.test(tournament.discipline?.name || '')
   const scoring: [string, string][] = isFootballDiscipline ? [['Victoria', '3'], ['Empate', '1'], ['Derrota', '0']] : [['Victoria', '4'], ['Empate', '2'], ['Derrota', '0']]
   const sectionLinks = [['tor-imagen', 'Imagen del torneo'], ['tor-datos', 'Datos generales'], ['tor-reglas', `Reglas de ${tournament.discipline?.name || 'la disciplina'}`], ['tor-divisiones', 'Divisiones']] as const
@@ -3696,7 +3698,9 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="block text-[13px] font-semibold text-[var(--ax-text)] sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className={`mt-2 w-full ${axField}`} /></label>
           <div><p className="text-[13px] font-semibold text-[var(--ax-text)]">Tipo</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{tournament.is_quick ? 'Rápido · no oficial' : 'Oficial · por invitación'}</p></div>
-          <StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required />
+          {automaticStatus
+            ? <div><p className="text-[13px] font-semibold text-[var(--ax-text)]">Estado</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{statusNames[tournament.status]} <span className="text-xs">(se actualiza solo)</span></p></div>
+            : <StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={manualStatusOptions} required />}
           <div className="sm:col-span-2"><p className="text-[13px] font-semibold text-[var(--ax-text)]">Disciplina</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{[tournament.discipline?.name, tournament.modality?.name].filter(Boolean).join(' · ') || 'Sin disciplina'} <span className="text-xs">(no se puede cambiar)</span></p></div>
           <label className="block text-[13px] font-semibold text-[var(--ax-text)]">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className={`mt-2 w-full ${axField}`} /></label>
           <div><p className="text-[13px] font-semibold text-[var(--ax-text)]">Fecha de cierre</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{values.end_date ? formatDateRange(values.end_date, null) : 'Se registra sola al terminar'}</p></div>
