@@ -300,6 +300,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   async function saveAdjustments() {
     if (!supabase || !selectedDivisionId) return
     if (!reason.trim()) return setMessage({ tone: 'warning', text: 'Indica el motivo del ajuste.' })
+    if (reason.trim().length < 3) return setMessage({ tone: 'warning', text: 'El motivo debe tener al menos 3 caracteres.' })
     if (!password) return setMessage({ tone: 'warning', text: 'Escribe la contraseña de la cuenta organizadora.' })
     setSaving(true)
     try {

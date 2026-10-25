@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Motivo mínimo en ajustes de puntos
+
+- Error: `tournament_standing_adjustments_reason_check` al guardar un ajuste con motivo de 1-2 caracteres. La base exige al menos 3 caracteres.
+- Fix: el formulario de ajuste de puntos valida el largo antes de guardar y muestra un aviso.
+
+**Archivos**: `Components/torneo/standings.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Prueba en navegador: pendiente.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Migración de puntos aplicada
 
 - Aplicada por Edwin en el SQL Editor de Supabase, proyecto `mlvtsgseneqzihwkiatg` (main): `supabase/tournament-points-rules-migration.sql`. Verificado con consulta de solo lectura: existen `points_for_win`, `points_for_draw` y `points_for_loss`.
