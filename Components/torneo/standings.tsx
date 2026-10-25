@@ -63,6 +63,11 @@ const tiebreakNames: Record<string, [string, string]> = {
   wins: ['victorias', 'victorias'],
 }
 
+// Ajustes: verde si suman, rojo si restan.
+function adjustmentTone(value: number) {
+  return value > 0 ? 'text-[var(--ax-accent-text)]' : value < 0 ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]'
+}
+
 function shortDate(date: string | null) {
   return date ? new Intl.DateTimeFormat('es-PA', { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`)) : ''
 }
@@ -262,6 +267,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
     || (isFootball ? 'diferencia de goles, goles a favor' : 'diferencia de puntos, puntos a favor'))
   const scored = isFootball ? ['GF', 'GC'] : ['PF', 'PC']
   const shownZone = current.started ? current.zone : 0
+  const hasAdjustments = current.adjustments.length > 0
 
   function openPanel(next: 'pdf' | 'adjust') {
     setMessage(null)
@@ -477,7 +483,9 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         })}
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block"><FieldLabel>Motivo del ajuste</FieldLabel><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ejemplo: alineación indebida en la fecha 2" className={inputClass} /></label>
+        <label className="block"><FieldLabel>Motivo del ajuste</FieldLabel><input name="motivo-ajuste" autoComplete="off" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ejemplo: alineación indebida en la fecha 2" className={inputClass} /></label>
+        {/* Campo de usuario oculto: evita que el navegador autocomplete el correo en el motivo. */}
+        <input type="text" name="username" autoComplete="username" tabIndex={-1} aria-hidden="true" className="sr-only" readOnly value="" />
         <label className="block"><FieldLabel>Contraseña de la cuenta</FieldLabel><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className={inputClass} /></label>
       </div>
       <div className="mt-4 flex flex-col-reverse gap-2 border-t border-[var(--ax-line)] pt-4 sm:flex-row sm:justify-end">
@@ -508,13 +516,14 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
           <table className="mt-5 hidden w-full table-fixed border-collapse text-sm md:table">
             <colgroup>
               <col className="w-10" /><col /><col className="w-9" /><col className="w-9" /><col className="w-9" /><col className="w-9" />
-              <col className="w-11" /><col className="w-11" /><col className="w-[52px]" /><col className="w-[60px]" /><col className="w-24" />
+              <col className="w-11" /><col className="w-11" /><col className="w-[52px]" />{hasAdjustments && <col className="w-[52px]" />}<col className="w-[60px]" /><col className="w-24" />
             </colgroup>
             <thead>
               <tr className="text-[11px] font-semibold uppercase tracking-[.04em] text-[var(--ax-muted)]">
                 <th scope="col" className="rounded-l-[10px] bg-[var(--ax-surface-sunken)] py-2.5 font-semibold">#</th>
                 <th scope="col" className="bg-[var(--ax-surface-sunken)] py-2.5 text-left font-semibold">Equipo</th>
                 {['PJ', 'G', 'E', 'P', scored[0], scored[1], 'Dif'].map((label) => <th key={label} scope="col" className="bg-[var(--ax-surface-sunken)] py-2.5 font-semibold">{label}</th>)}
+                {hasAdjustments && <th scope="col" title="Ajuste administrativo" className="bg-[var(--ax-surface-sunken)] py-2.5 font-semibold">Ajuste</th>}
                 <th scope="col" className="bg-[var(--ax-surface-sunken)] py-2.5 font-semibold text-[var(--ax-accent-text)]">Pts</th>
                 <th scope="col" className="rounded-r-[10px] bg-[var(--ax-surface-sunken)] py-2.5 font-semibold">Últimos</th>
               </tr>
@@ -524,7 +533,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
                 const qualified = index < shownZone
                 const diff = row.pointsFor - row.pointsAgainst
                 return [
-                  shownZone > 0 && index === shownZone && <tr key="cut" aria-hidden="true"><td colSpan={11} className="py-1.5">
+                  shownZone > 0 && index === shownZone && <tr key="cut" aria-hidden="true"><td colSpan={hasAdjustments ? 12 : 11} className="py-1.5">
                     <span className="flex items-center gap-2.5"><span className="h-px flex-1 border-t border-dashed border-[var(--ax-accent-line)]" /><span className="text-[11px] font-semibold text-[var(--ax-accent-text)]">{current.zoneLabel}</span></span>
                   </td></tr>,
                   <tr key={row.team.id} className={cx(index > 0 && index !== shownZone && 'border-t border-[var(--ax-line)]')}>
@@ -539,7 +548,6 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
                         <TeamCrest team={row.team} />
                         <span className="min-w-0">
                           <span className="block truncate font-semibold text-[var(--ax-text)]">{row.team.name}</span>
-                          {row.adjustment !== 0 && <span className="block text-[11px] text-[var(--ax-danger-text)]">Ajuste {signed(row.adjustment)}</span>}
                         </span>
                       </span>
                     </td>
@@ -547,7 +555,8 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
                     <td className="text-center tabular-nums text-[var(--ax-muted)]">{row.pointsFor}</td>
                     <td className="text-center tabular-nums text-[var(--ax-muted)]">{row.pointsAgainst}</td>
                     <td className={cx('text-center font-semibold tabular-nums', diff > 0 ? 'text-[var(--ax-accent-text)]' : diff < 0 ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]')}>{signed(diff)}</td>
-                    <td className="bg-[var(--ax-accent-soft)] text-center text-base font-bold tabular-nums text-[var(--ax-text)]">{row.totalPoints < 0 ? `−${Math.abs(row.totalPoints)}` : row.totalPoints}{row.adjustment !== 0 && <span className="ml-0.5 text-[13px] text-[var(--ax-danger-text)]">*</span>}</td>
+                    {hasAdjustments && <td className={cx('text-center font-semibold tabular-nums', adjustmentTone(row.adjustment))}>{row.adjustment ? signed(row.adjustment) : '—'}</td>}
+                    <td className="bg-[var(--ax-accent-soft)] text-center text-base font-bold tabular-nums text-[var(--ax-text)]">{row.totalPoints < 0 ? `−${Math.abs(row.totalPoints)}` : row.totalPoints}</td>
                     <td className="text-center"><ResultPills recent={row.recent} /></td>
                   </tr>,
                 ]
@@ -574,12 +583,12 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
                     <TeamCrest team={row.team} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-[var(--ax-text)]">{row.team.name}</span>
-                      <span className="mt-1 flex items-center gap-2"><ResultPills recent={row.recent} size="sm" />{row.adjustment !== 0 && <span className="text-[11px] font-medium text-[var(--ax-danger-text)]">Ajuste {signed(row.adjustment)}</span>}</span>
+                      <span className="mt-1 flex items-center gap-2"><ResultPills recent={row.recent} size="sm" />{row.adjustment !== 0 && <span className={cx('text-[11px] font-medium', adjustmentTone(row.adjustment))}>Ajuste {signed(row.adjustment)}</span>}</span>
                     </span>
                   </span>
                   <span className="w-[30px] text-center text-sm tabular-nums text-[var(--ax-text-secondary)]">{row.played}</span>
                   <span className={cx('w-11 text-center text-[13px] font-semibold tabular-nums', diff > 0 ? 'text-[var(--ax-accent-text)]' : diff < 0 ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]')}>{signed(diff)}</span>
-                  <span className="flex h-full w-12 items-center justify-center bg-[var(--ax-accent-soft)] text-base font-bold tabular-nums text-[var(--ax-text)]">{row.totalPoints < 0 ? `−${Math.abs(row.totalPoints)}` : row.totalPoints}{row.adjustment !== 0 && <span className="text-[13px] text-[var(--ax-danger-text)]">*</span>}</span>
+                  <span className="flex h-full w-12 items-center justify-center bg-[var(--ax-accent-soft)] text-base font-bold tabular-nums text-[var(--ax-text)]">{row.totalPoints < 0 ? `−${Math.abs(row.totalPoints)}` : row.totalPoints}{row.adjustment !== 0 && <span className={cx('text-[13px]', adjustmentTone(row.adjustment))}>*</span>}</span>
                 </div>
               </div>
             })}
@@ -587,7 +596,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
 
           <div className="mt-4 flex flex-col gap-1.5 text-xs text-[var(--ax-muted)] md:flex-row md:flex-wrap md:gap-x-5">
             {shownZone > 0 && <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ax-accent)]" />{current.zoneLabel}</span>}
-            {current.adjustments.length > 0 && <span>* Incluye ajustes administrativos</span>}
+            {current.adjustments.length > 0 && <span>Pts incluye los ajustes administrativos</span>}
             {!current.started && <span>Sin partidos jugados: orden alfabético</span>}
             <span>Desempate: {tiebreakLabel}</span>
           </div>

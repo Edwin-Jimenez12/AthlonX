@@ -107,25 +107,27 @@ function resultPills(recent: ResultLetter[]) {
 function tableMarkup(doc: PrintDocument, division: PrintDivision, compact: boolean) {
   const showRecent = doc.options.recent && !compact
   const zone = doc.options.zone && division.started ? division.zone : 0
-  const columns = compact ? 10 : showRecent ? 11 : 10
+  const showAdjustment = division.rows.some((row) => row.adjustment)
+  const columns = (showRecent ? 11 : 10) + (showAdjustment ? 1 : 0)
   const rows = division.rows.map((row, index) => {
     const qualified = index < zone
     const diff = row.pointsFor - row.pointsAgainst
     const cut = zone && index === zone ? `<tr class="cut"><td colspan="${columns}"><b>${escapeHtml(division.zoneLabel)}</b></td></tr>` : ''
     return `${cut}<tr class="${qualified ? 'in' : ''}">
       <td class="pos"><i></i>${index + 1}</td>
-      <td class="team">${compact ? '' : `<span class="badge">${row.logoUrl ? `<img src="${escapeHtml(row.logoUrl)}" alt="" />` : escapeHtml(initialsOf(row.name))}</span>`}${escapeHtml(row.name)}${row.adjustment ? ' *' : ''}</td>
+      <td class="team">${compact ? '' : `<span class="badge">${row.logoUrl ? `<img src="${escapeHtml(row.logoUrl)}" alt="" />` : escapeHtml(initialsOf(row.name))}</span>`}${escapeHtml(row.name)}</td>
       <td>${row.played}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td>
       <td class="soft">${row.pointsFor}</td><td class="soft">${row.pointsAgainst}</td>
       <td class="diff ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${signed(diff)}</td>
+      ${showAdjustment ? `<td class="adj ${row.adjustment > 0 ? 'up' : row.adjustment < 0 ? 'down' : ''}">${row.adjustment ? signed(row.adjustment) : '—'}</td>` : ''}
       <td class="pts">${row.points < 0 ? `−${Math.abs(row.points)}` : row.points}</td>
       ${showRecent ? `<td class="recent">${resultPills(row.recent)}</td>` : ''}
     </tr>`
   }).join('')
   const scored = doc.isFootball ? ['GF', 'GC'] : ['PF', 'PC']
   return `<table class="${compact ? 'compact' : ''}">
-    <colgroup><col class="c-pos" /><col /><col class="c-n" /><col class="c-n" /><col class="c-n" /><col class="c-n" /><col class="c-w" /><col class="c-w" /><col class="c-d" /><col class="c-p" />${showRecent ? '<col class="c-r" />' : ''}</colgroup>
-    <thead><tr><th>#</th><th class="team">Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>${scored[0]}</th><th>${scored[1]}</th><th>Dif</th><th class="pts">Pts</th>${showRecent ? '<th>Últimos</th>' : ''}</tr></thead>
+    <colgroup><col class="c-pos" /><col /><col class="c-n" /><col class="c-n" /><col class="c-n" /><col class="c-n" /><col class="c-w" /><col class="c-w" /><col class="c-d" />${showAdjustment ? '<col class="c-a" />' : ''}<col class="c-p" />${showRecent ? '<col class="c-r" />' : ''}</colgroup>
+    <thead><tr><th>#</th><th class="team">Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>${scored[0]}</th><th>${scored[1]}</th><th>Dif</th>${showAdjustment ? '<th>Ajuste</th>' : ''}<th class="pts">Pts</th>${showRecent ? '<th>Últimos</th>' : ''}</tr></thead>
     <tbody>${rows || `<tr><td colspan="${columns}" class="empty">Todavía no hay equipos en esta división.</td></tr>`}</tbody>
   </table>`
 }
@@ -150,7 +152,7 @@ function notesMarkup(doc: PrintDocument, division: PrintDivision) {
   const boxes: string[] = []
   if (doc.options.notes) {
     const lines = [
-      ...division.adjustments.map((item) => `<p class="danger">* ${escapeHtml(item.team)}: ${escapeHtml(signed(item.amount))} puntos${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}.</p>`),
+      ...division.adjustments.map((item) => `<p class="${item.amount < 0 ? 'danger' : 'plus'}">Ajuste a ${escapeHtml(item.team)}: ${escapeHtml(signed(item.amount))} ${Math.abs(item.amount) === 1 ? 'punto' : 'puntos'}${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}.</p>`),
       `<p>Desempate: ${escapeHtml(doc.tiebreakLabel)}.</p>`,
       `<p>${doc.isFootball ? 'GF: goles a favor · GC: goles en contra' : 'PF: puntos a favor · PC: puntos en contra'} · Dif: diferencia.</p>`,
     ]
@@ -202,7 +204,7 @@ function baseCss(fonts: ReturnType<typeof pageFonts>) {
   .legend i, footer i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: ${c.accent}; }
   .notice { padding: 10px 14px; border-radius: 10px; background: ${c.warningSoft}; color: ${c.warningText}; font-size: 10px; font-weight: 500; line-height: 15px; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
-  col.c-pos { width: 30px; } col.c-n { width: 29px; } col.c-w { width: 36px; } col.c-d { width: 40px; } col.c-p { width: 44px; } col.c-r { width: 72px; }
+  col.c-pos { width: 30px; } col.c-n { width: 29px; } col.c-w { width: 36px; } col.c-d { width: 40px; } col.c-p { width: 44px; } col.c-a { width: 44px; } col.c-r { width: 72px; }
   thead th { padding: 8px 0; background: ${c.raised}; color: ${c.muted}; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: center; }
   thead th:first-child { border-radius: 8px 0 0 8px; } thead th:last-child { border-radius: 0 8px 8px 0; }
   thead th.team { text-align: left; } thead th.pts { color: ${c.accentText}; }
@@ -215,6 +217,7 @@ function baseCss(fonts: ReturnType<typeof pageFonts>) {
   .badge { display: inline-flex; width: 24px; height: 24px; margin-right: 8px; vertical-align: middle; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${c.line}; border-radius: 7px; background: ${c.raised}; font-size: 8.5px; font-weight: 700; }
   .badge img { width: 100%; height: 100%; object-fit: cover; }
   td.soft { color: ${c.muted}; }
+  td.adj { font-weight: 600; color: ${c.muted}; } td.adj.up { color: ${c.accentText}; } td.adj.down { color: ${c.dangerText}; }
   td.diff { font-weight: 600; } td.diff.up { color: ${c.accentText}; } td.diff.down { color: ${c.dangerText}; }
   td.pts { background: ${c.accentSoft}; color: ${c.text}; font-size: 13px; font-weight: 700; }
   td.recent { font-size: 0; } .dash { font-size: 11px; color: ${c.muted}; }
@@ -228,7 +231,7 @@ function baseCss(fonts: ReturnType<typeof pageFonts>) {
   .box h3 { margin: 0 0 7px; font-size: 8.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: ${c.muted}; }
   .box p { margin: 0 0 6px; font-size: 10px; line-height: 15px; color: ${c.secondary}; }
   .box p.strong { color: ${c.text}; font-weight: 600; } .box p span { padding: 0 4px; color: ${c.muted}; font-weight: 400; } .box p em { color: ${c.muted}; font-style: normal; font-weight: 400; }
-  .box p.danger { color: ${c.dangerText}; }
+  .box p.danger { color: ${c.dangerText}; } .box p.plus { color: ${c.accentText}; }
   footer { margin-top: auto; padding-top: 12px; display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid ${c.line}; font-size: 9px; color: ${c.muted}; }
   footer span:first-child { display: flex; align-items: center; gap: 6px; } footer i { width: 6px; height: 6px; }`
 }
@@ -276,12 +279,12 @@ export function compactHtml(doc: PrintDocument, fonts = pageFonts()) {
   table.compact thead th { padding: 6px 0; font-size: 8px; }
   .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 14px; border-radius: 10px; background: ${paper.raised}; font-size: 9px; color: ${paper.muted}; }
   .strip i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: ${paper.accent}; }
-  .strip .danger { color: ${paper.dangerText}; }`
+  .strip .danger { color: ${paper.dangerText}; } .strip .plus { color: ${paper.accentText}; }`
   const blocks = doc.divisions.map((division) => `<div class="division">
     <div class="division-title"><i></i><h2>${escapeHtml(division.name)}</h2><span>${division.rows.length} equipos${division.zone && doc.options.zone ? ` · ${escapeHtml(division.zoneLabel.toLowerCase())}: ${division.zone}` : ''} · ${escapeHtml(division.cutLabel.toLowerCase())}</span></div>
     ${tableMarkup(doc, division, true)}
   </div>`).join('')
-  const adjustments = doc.options.notes ? doc.divisions.flatMap((division) => division.adjustments).map((item) => `<span class="danger">* ${escapeHtml(item.team)}: ${escapeHtml(signed(item.amount))}${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}</span>`).join('') : ''
+  const adjustments = doc.options.notes ? doc.divisions.flatMap((division) => division.adjustments).map((item) => `<span class="${item.amount < 0 ? 'danger' : 'plus'}">Ajuste a ${escapeHtml(item.team)}: ${escapeHtml(signed(item.amount))}${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}</span>`).join('') : ''
   const body = `<section class="page">
     <header class="head small">
       ${crestMarkup(doc, 'sm')}

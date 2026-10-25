@@ -5,6 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` → `main` · nube · Columna "Ajuste" en la tabla y en el PDF
+
+**Qué se hizo**
+- Edwin preguntó dónde se ve el ajuste de puntos. Antes solo aparecía como "Ajuste ±N", en rojo aunque sumara, bajo el nombre del equipo.
+- Nueva columna **Ajuste** entre Dif y Pts, que solo aparece si la división tiene ajustes. Muestra +N en verde, −N en rojo y "—" donde no hay ajuste.
+- Se agregó la misma columna en los PDF oficial y compacto.
+- En las notas, verde o rojo según el signo, y "punto" o "puntos" según la cantidad.
+- En móvil el ajuste sigue bajo el nombre, ahora con color según el signo.
+- Panel de ajustes:
+  - El campo Motivo tiene `autoComplete="off"`.
+  - Se agregó un campo de usuario oculto, porque Chrome autocompletaba ahí el correo de la cuenta (en producción quedó un ajuste con el motivo "carversobers@gmail.com").
+
+**Archivos**: `Components/torneo/standings.tsx`, `lib/standings-print.ts`.
+
+**Verificación**
+- `tsc`, 25 de 25 pruebas y `build`.
+- Capturas con el mock temporal (ya retirado) en claro y en PDF, con un ajuste de +1 y otro de −2.
+
+**Pendiente**
+- El ajuste ya guardado con el correo como motivo se corrige volviendo a guardar el ajuste con el motivo correcto.
+
+---
+
 ## 2026-10-24 · `edwin` → `main` · nube · Tabla de posiciones y PDF rediseñados en código
 
 **Qué se hizo** (aplica el diseño de Figma de la entrada anterior)
