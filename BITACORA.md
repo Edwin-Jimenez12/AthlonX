@@ -5,6 +5,31 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Reestructurar QuickTournamentTeamsSection para coincidir con diseño Figma
+
+**Qué se hizo**
+- Reestructuración completa de `Components/quick-tournament-teams-section.tsx` para que tenga la misma estructura visual que `TournamentTeamsSection`:
+  - Cambio de estados: `teamMode` → `showAddExisting`, `showAddNew`, `showRemove` (consistente con TournamentTeamsSection).
+  - Encabezado reorganizado: label "TORNEO RÁPIDO · NO OFICIAL", título "EQUIPOS Y PLANTILLAS", descripción.
+  - Botones de control: "Invitar equipo" y "Añadir equipo no registrado" con toggles independientes.
+  - Secciones de formularios: "Invitar equipos" y "Añadir equipo no registrado" como paneles desplegables.
+  - Nueva sección: "Invitaciones pendientes" que muestra equipos con invitaciones en estado pending (con nuevo prop opcional `pendingInvitations`).
+  - Tipo de dato nuevo: `PendingInvitation` para gestionar invitaciones pendientes.
+  - Mismo sistema de tokens CSS (--ax-*) en toda la sección.
+- Estructura visual: coincide con diseño Figma mostrado en imagen 43 (oficial tournament view).
+
+**Archivos**: `Components/quick-tournament-teams-section.tsx` (reestructurado completamente).
+
+**Verificación**
+- Build `npm run build`: OK, sin errores TS.
+- El componente es backward-compatible: el prop `pendingInvitations` es opcional.
+
+**Pendiente**
+- Implementar consulta de invitaciones pendientes en `app/(panel)/torneos/ver/[id]/page.tsx` para pasar el prop `pendingInvitations` al componente.
+- Deploy a producción para visualizar los cambios.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Completar redesign de QuickTournamentTeamsSection
 
 **Qué se hizo**

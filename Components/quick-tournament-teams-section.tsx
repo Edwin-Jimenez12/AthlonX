@@ -12,6 +12,7 @@ type TeamSummary = { id: string; name: string; athlonx_code: string | null; hand
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
 type RosterEntry = { team_id: string; player_id: string; user_id: string | null; full_name: string; shirt_number: number | null; position: string | null; is_substitute: boolean; is_official: boolean; claimed_player_id: string | null }
+type PendingInvitation = { team_id: string; team_name: string; division_id: string; division_name: string; sent_at: string; status: string }
 
 type Props = {
   teams: TournamentTeam[]
@@ -19,6 +20,7 @@ type Props = {
   divisions: Division[]
   availableTeams: TeamSummary[]
   availablePlayers: PlayerSummary[]
+  pendingInvitations?: PendingInvitation[]
   modality: Modality | null
   modalityRule?: ModalityRule | null
   maxTeams?: number | null
@@ -93,9 +95,11 @@ function getPositionOptions(modality: Modality | null) {
   return ['Posición general']
 }
 
-export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, modality, modalityRule, maxTeams, maxRoster, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
+export function QuickTournamentTeamsSection({ teams, rosters, divisions, availableTeams, availablePlayers, pendingInvitations = [], modality, modalityRule, maxTeams, maxRoster, officialPlayerId, canManage, editMode, currentUserId, onAddTeam, onAddQuickTeam, onRemoveTeam, onAddQuickPlayer, onAddExistingPlayer, onClaimGuestPlayer, onNumberRequest }: Props) {
   const [expanded, setExpanded] = useState<string[]>([])
-  const [teamMode, setTeamMode] = useState<'existing' | 'new' | null>(null)
+  const [showAddExisting, setShowAddExisting] = useState(false)
+  const [showAddNew, setShowAddNew] = useState(false)
+  const [showRemove, setShowRemove] = useState(false)
   const [teamQuery, setTeamQuery] = useState('')
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<Record<string, string>>({})
@@ -161,7 +165,8 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
   }, [groupedTeams])
 
   function resetTeamForm() {
-    setTeamMode(null)
+    setShowAddExisting(false)
+    setShowAddNew(false)
     setTeamQuery('')
     setSelectedTeamIds([])
     setSelectedDivisionIds({})
@@ -239,11 +244,11 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
           <span className="inline-flex h-9 items-center rounded-[10px] border border-[var(--ax-line-strong)] px-3.5 text-[13px] font-bold text-[var(--ax-text-secondary)]">{maxTeams ? `${groupedTeams.length}/${maxTeams} equipos` : `${groupedTeams.length} equipos`}</span>
           {canManage && editMode && (
             <>
-              <button type="button" disabled={!hasTeamCapacity} onClick={() => setTeamMode(teamMode === 'existing' ? null : 'existing')} className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--ax-accent-line)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-text)] transition hover:border-[var(--ax-accent-text)] disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" disabled={!hasTeamCapacity} onClick={() => { setShowAddExisting(!showAddExisting); setShowAddNew(false); setShowRemove(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--ax-accent-line)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-text)] transition hover:border-[var(--ax-accent-text)] disabled:cursor-not-allowed disabled:opacity-50">
                 <Users size={15} />
                 Invitar equipo
               </button>
-              <button type="button" disabled={!hasTeamCapacity} onClick={() => setTeamMode(teamMode === 'new' ? null : 'new')} className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" disabled={!hasTeamCapacity} onClick={() => { setShowAddNew(!showAddNew); setShowAddExisting(false); setShowRemove(false) }} className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
                 <Users size={15} />
                 Añadir equipo no registrado
               </button>
@@ -252,7 +257,7 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
         </div>
       </div>
 
-      {canManage && editMode && teamMode === 'existing' && (
+      {canManage && editMode && showAddExisting && (
         <form onSubmit={submitExistingTeam} className="rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface)] p-4 sm:p-5 space-y-4">
           <label className="block">
             <p className="text-[13px] font-bold text-[var(--ax-text)]">Buscar equipo registrado para invitar</p>
@@ -274,13 +279,13 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
           </label>
           {selectedTeamIds.length > 0 && <div className="space-y-3 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-3">{selectedTeamIds.map((selectedId) => { const team = availableTeams.find((item) => item.id === selectedId); if (!team) return null; const options = getCompatibleDivisions(team); return <div key={selectedId} className="space-y-2.5"><div className="flex items-center justify-between gap-3"><span className="font-semibold text-[var(--ax-text)]">{team.name}</span><button type="button" onClick={() => { setSelectedTeamIds((current) => current.filter((id) => id !== selectedId)); setSelectedDivisionIds((current) => { const next = { ...current }; delete next[selectedId]; return next }) }} className="cursor-pointer text-xs font-bold text-[var(--ax-danger-text)]">Quitar</button></div><StyledSelect label="División" value={selectedDivisionIds[selectedId] || ''} onChange={(value) => setSelectedDivisionIds((current) => ({ ...current, [selectedId]: value }))} options={[{ value: '', label: 'Seleccionar división' }, ...options.map((division) => ({ value: division.id, label: division.name }))]} required /></div> })}</div>}
           <div className="flex flex-col-reverse gap-2 border-t border-[var(--ax-line)] pt-4 sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setTeamMode(null)} className="rounded-[10px] border border-[var(--ax-line)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-text)] transition hover:bg-[var(--ax-hover)]">Cancelar</button>
+            <button type="button" onClick={() => setShowAddExisting(false)} className="rounded-[10px] border border-[var(--ax-line)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-text)] transition hover:bg-[var(--ax-hover)]">Cancelar</button>
             <button type="submit" disabled={!selectedTeamIds.length || selectedTeamIds.some((selectedId) => !selectedDivisionIds[selectedId])} className="rounded-[10px] bg-[var(--ax-accent)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">Enviar invitación</button>
           </div>
         </form>
       )}
 
-      {canManage && editMode && teamMode === 'new' && (
+      {canManage && editMode && showAddNew && (
         <form onSubmit={submitNewTeam} className="rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface)] p-4 sm:p-5 space-y-4">
           <label className="block">
             <p className="text-[13px] font-bold text-[var(--ax-text)]">Nombre del equipo</p>
@@ -300,6 +305,24 @@ export function QuickTournamentTeamsSection({ teams, rosters, divisions, availab
             <button type="submit" disabled={!hasTeamCapacity} className="rounded-[10px] bg-[var(--ax-accent)] px-3.5 py-2 text-[13px] font-bold text-[var(--ax-bg)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">Añadir equipo no registrado</button>
           </div>
         </form>
+      )}
+
+      {pendingInvitations.length > 0 && (
+        <div className="rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface)] p-4 sm:p-5">
+          <h3 className="font-display text-lg uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Invitaciones pendientes</h3>
+          <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">Equipos a los que se envió invitación y están esperando respuesta.</p>
+          <div className="mt-4 space-y-2">
+            {pendingInvitations.map((invitation) => (
+              <div key={`${invitation.team_id}-${invitation.division_id}`} className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3.5 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{invitation.team_name}</p>
+                  <p className="mt-0.5 text-xs text-[var(--ax-muted)]">{invitation.division_name} · Invitación enviada</p>
+                </div>
+                <span className="inline-flex shrink-0 rounded-[6px] bg-amber-300/15 px-2 py-1 text-[10px] font-bold uppercase text-amber-300">Pendiente</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="space-y-3">
