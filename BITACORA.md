@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Script de liga de prueba (Rugby Sevens)
+
+- Nuevo `supabase/seed-liga-rugby-sevens-prueba.sql`: torneo oficial publicado, Rugby Sevens, todos contra todos a 4 vueltas, 1 cancha, fecha de hoy, Panamá. Tres divisiones con 4 equipos ficticios cada una, con invitación ya aceptada. Puntos 4/2/0.
+- El script NO genera fixtures ni jugadores; se generan desde la app.
+- Requiere reemplazar `OWNER_USER_ID` por el id de Supabase Auth del dueño. Es idempotente por slug.
+- NO ejecutado en Supabase. Pendiente de confirmación de Edwin.
+
+**Archivos**: `supabase/seed-liga-rugby-sevens-prueba.sql` (nuevo).
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Motivo mínimo en ajustes de puntos
 
 - Error: `tournament_standing_adjustments_reason_check` al guardar un ajuste con motivo de 1-2 caracteres. La base exige al menos 3 caracteres.
