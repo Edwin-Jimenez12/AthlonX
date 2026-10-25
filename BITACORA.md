@@ -5,6 +5,32 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Equipos del torneo oficial según Figma
+
+**Qué se hizo**
+- Aplicado en código el diseño `Torneo · Rugby · Oficial · Equipos · Escritorio · Oscuro` (nodo `1043:15354`, página `REDISEÑO`).
+- `Components/torneo/teams-section.tsx` (`TournamentTeamsSection`):
+  - Barra de herramientas: buscador (filtra equipos y jugadores), chips de división (Todas / una por división), contador de equipos y botón "Invitar equipo".
+  - Panel "Invitar equipos": selector de división, búsqueda de equipos registrados compatibles y botón "Invitar" por equipo.
+  - Una tarjeta por división con título en Bebas Neue, conteo y filas de equipo con escudo, código y ciudad, pill "Aceptada" y chevron.
+  - Plantilla expandida como tabla (#, Jugador, Posición, Estado). Estado "Activo" o "Sin dorsal" según el dorsal. Debajo sigue el detalle de convocatorias por fecha (`renderTeamDetails`).
+  - "Expulsar del torneo" aparece dentro de cada equipo expandido, en lugar del botón global de la barra.
+- Props sin cambios: `app/(panel)/torneos/ver/[id]/page.tsx` no se modificó.
+
+**Archivos**: `Components/torneo/teams-section.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK.
+- `npm run build`: OK.
+- Verificación visual en navegador: pendiente.
+
+**Pendiente**
+- El diseño muestra "Invitación pendiente" en equipos que aún no aceptan. El componente no recibe ese dato, así que todas las filas muestran "Aceptada". Falta cargar las invitaciones pendientes en la página y pasarlas como prop.
+- El diseño muestra "12 de 16 cupos"; la página no pasa el límite de equipos al componente oficial, así que se muestra solo el conteo.
+- Revisar en navegador (escritorio y móvil, claro y oscuro).
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Menú de notificaciones (campana)
 
 **Qué se hizo**
