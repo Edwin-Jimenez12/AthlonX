@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Penal retirado de rugby y resultados de prueba
+
+- Quitado el botón "Penal" de la gestión de partidos de rugby (`app/(panel)/torneos/ver/[id]/page.tsx` y `app/(panel)/torneos/[torneo]/page.tsx`) y la estadística "Penales" (también en la página `[torneo]`). Sin cambios de base: la restricción de `match_events` sigue aceptando `penalty`.
+- Nuevo `supabase/seed-liga-rugby-sevens-resultados.sql`: resultados de los partidos pendientes con tries, conversiones, amarillas, rojas, conmociones y lesiones. No ejecutado en Supabase.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `app/(panel)/torneos/[torneo]/page.tsx`, `supabase/seed-liga-rugby-sevens-resultados.sql` (nuevo).
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Script completo de la liga de prueba (torneo + equipos + jugadores)
 
 - Nuevo `supabase/seed-liga-rugby-sevens-prueba-completa.sql`: une torneo, divisiones, equipos aceptados y jugadores en un solo bloque. Dueño: UID de Edwin (`ede6717e-…`). Ciudad en `location` (la tabla no tiene `city`).

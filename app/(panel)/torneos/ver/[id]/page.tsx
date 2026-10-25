@@ -3024,7 +3024,6 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     : [
         { label: 'Tries', type: 'try' },
         { label: 'Conversiones', type: 'conversion' },
-        { label: 'Penales', type: 'penalty' },
         { label: 'Tarjetas amarillas', type: 'yellow_card' },
         { label: 'Tarjetas rojas', type: 'red_card' },
       ]
@@ -3071,7 +3070,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
             : `${periodLabel[0].toUpperCase()}${periodLabel.slice(1)} · ${timer}`
   const scoreButtons = isFootball
     ? [{ label: 'Gol', eventType: 'goal' as const, points: 1 }, { label: 'Gol de penal', eventType: 'penalty_kick' as const, points: 1 }]
-    : [{ label: 'Try', eventType: 'try' as const, points: 5 }, { label: 'Conversión', eventType: 'conversion' as const, points: 2 }, { label: 'Penal', eventType: 'penalty' as const, points: 3 }]
+    : [{ label: 'Try', eventType: 'try' as const, points: 5 }, { label: 'Conversión', eventType: 'conversion' as const, points: 2 }]
   const disciplineButtons = [
     { type: 'yellow_card' as const, label: 'Amarilla' },
     { type: 'red_card' as const, label: 'Roja' },

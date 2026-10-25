@@ -66,7 +66,7 @@ type FixtureRosterPlayer = {
   isSubstitute: boolean;
 };
 type IndicatorType = "yellow_card" | "red_card" | "injured" | "concussion";
-type ScoreAction = "try" | "conversion" | "penalty";
+type ScoreAction = "try" | "conversion";
 type MatchEventRecord = {
   id: string;
   teamId: string;
@@ -120,7 +120,6 @@ const emptyEventStats = (): EventStats => {
   const values: EventStatValues = {
     try: 0,
     conversion: 0,
-    penalty: 0,
     yellow_card: 0,
     red_card: 0,
     injured: 0,
@@ -330,7 +329,6 @@ export default function TournamentPage() {
         (stats, event: { event_type?: string }) => {
           if (event.event_type === "try") stats.tries += 1;
           if (event.event_type === "conversion") stats.conversions += 1;
-          if (event.event_type === "penalty") stats.penalties += 1;
           if (event.event_type === "yellow_card") stats.yellowCards += 1;
           if (event.event_type === "red_card") stats.redCards += 1;
           if (event.event_type === "injured") stats.injuries += 1;
@@ -612,7 +610,6 @@ function PrintableTournamentReport({
           <ReportMetric label="Pendientes" value={scheduledMatches} />
           <ReportMetric label="Tries" value={stats.tries} />
           <ReportMetric label="Conversiones" value={stats.conversions} />
-          <ReportMetric label="Penales" value={stats.penalties} />
         </div>
       </ReportSection>
 
@@ -2008,7 +2005,6 @@ function Matches({
             <div className="mt-3 grid grid-cols-3 gap-1">
               {actionButton("home", "try", "Try")}
               {actionButton("home", "conversion", "Conversión")}
-              {actionButton("home", "penalty", "Penal")}
             </div>
           </div>
           <div>
@@ -2037,7 +2033,6 @@ function Matches({
             <div className="mt-3 grid grid-cols-3 gap-1">
               {actionButton("away", "try", "Try")}
               {actionButton("away", "conversion", "Conversión")}
-              {actionButton("away", "penalty", "Penal")}
             </div>
           </div>
         </div>
@@ -2072,7 +2067,6 @@ function Matches({
           {([
             ["try", "Tries"],
             ["conversion", "Conversiones"],
-            ["penalty", "Penales"],
             ["yellow_card", "Tarjetas amarillas"],
             ["red_card", "Tarjetas rojas"],
             ["injured", "Lesiones"],
