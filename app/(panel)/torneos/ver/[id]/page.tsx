@@ -26,6 +26,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { LocationFields } from '../../../../../Components/location-fields'
 import { QuickTournamentTeamsSection } from '../../../../../Components/quick-tournament-teams-section'
+import { TournamentTeamsSection } from '../../../../../Components/torneo/teams-section'
 import { StyledSelect } from '../../../../../Components/styled-select'
 import { TournamentCallupsPanel } from '../../../../../Components/tournament-callups-panel'
 import { TournamentFixtureGenerator } from '../../../../../Components/tournament-fixture-generator'
@@ -1339,27 +1340,33 @@ export default function PublicTournamentPage() {
         onClaimGuestPlayer={requestClaimGuestPlayer}
         onNumberRequest={(request) => setNumberRequest(request)}
       />
-      : <TeamsSection
+      : <TournamentTeamsSection
         teams={teams}
-        rosters={rosters}
-        dates={dates}
-        fixtureDates={fixtureDates}
-        divisions={data.divisions ?? []}
+        allDivisions={data.divisions ?? []}
         availableTeams={availableTeams.filter((team) => (
           (!isBasketball || team.discipline_id === tournament.discipline?.id) &&
           !teams.some((current) => (
             teamIdentityKey(current) === teamIdentityKey(team)
           ))
         ))}
-        maxTeams={maxTeamsLimit}
+        fixtureDates={fixtureDates}
         callups={fixtureCallups}
         callupPlayers={fixtureCallupPlayers}
+        rosters={rosters}
         canManage={canManage}
         editMode={editMode}
-        currentUserId={currentUserId}
         onAddTeam={requestAddTeam}
         onRemoveTeam={requestRemoveTeam}
-        onNumberRequest={(request) => setNumberRequest(request)}
+        renderTeamDetails={(team, teamRoster) => (
+          <TeamFixtureCallupDates
+            team={team}
+            fixtureDates={fixtureDates}
+            callups={fixtureCallups}
+            callupPlayers={fixtureCallupPlayers}
+            rosters={teamRoster}
+            canManage={canManage}
+          />
+        )}
       />}</div>}
 
     {section === 'convocatorias' && !tournament.is_quick
