@@ -133,6 +133,7 @@ type TournamentPayload = { tournament: Tournament | null; divisions: Division[];
 type ModalityRule = { modality_id: string; players_on_field: number; max_roster_size: number; substitutions_allowed: number; substitutions_unlimited: boolean }
 type EditValues = { name: string; season: string; status: string; start_date: string; end_date: string; country: string; location: string; discipline_id: string; modality_id: string }
 type PendingChange = { label: string; before: string; after: string; beforeValue: string | null; afterValue: string | null }
+type PointRules = { win: number; draw: number; loss: number }
 type FixtureDateChange = { fixtureId: string; calendarDate: string | null }
 type FixtureTimeChange = { matchId: string; scheduledTime: string | null }
 type FixtureMatchChange = { matchId: string; localTeamId: string; visitorTeamId: string }
@@ -346,6 +347,7 @@ export default function PublicTournamentPage() {
   const [maxTeamsLimit, setMaxTeamsLimit] = useState<number | null>(null)
   const [maxRosterLimit, setMaxRosterLimit] = useState<number | null>(null)
   const [competitionFormat, setCompetitionFormat] = useState('')
+  const [pointRules, setPointRules] = useState<PointRules | null>(null)
   const [storedFixtureDates, setStoredFixtureDates] = useState<number[]>([])
   const [stageByFixture, setStageByFixture] = useState<Record<string, string>>({})
   const [leagueSettings, setLeagueSettings] = useState<LeagueSettings | null>(null)
@@ -425,7 +427,7 @@ export default function PublicTournamentPage() {
     const selectedModalityId = normalizedPayload.tournament?.modality?.id || ''
     const { data: competitionSettings } = await supabase
       .from('tournament_competition_settings')
-        .select('competition_format, max_teams, max_roster_size, round_robin_legs, qualifying_teams_per_group, courts_count, half_duration_minutes, halftime_duration_minutes, interval_between_matches_minutes')
+        .select('competition_format, max_teams, max_roster_size, round_robin_legs, qualifying_teams_per_group, courts_count, half_duration_minutes, halftime_duration_minutes, interval_between_matches_minutes, points_for_win, points_for_draw, points_for_loss')
       .eq('tournament_id', params.id)
       .maybeSingle()
     const { data: modalityRuleRow } = selectedModalityId
@@ -459,6 +461,8 @@ export default function PublicTournamentPage() {
     setMaxTeamsLimit(basketballTournament ? basketball.teams : Number(competitionSettings?.max_teams) || null)
     setMaxRosterLimit(basketballTournament ? basketball.maxRoster : Number(competitionSettings?.max_roster_size) || null)
     setCompetitionFormat(competitionSettings?.competition_format || '')
+    const footballRules = normalizedPayload.tournament?.discipline?.code === 'futbol'
+    setPointRules({ win: Number(competitionSettings?.points_for_win ?? (footballRules ? 3 : 4)), draw: Number(competitionSettings?.points_for_draw ?? (footballRules ? 1 : 2)), loss: Number(competitionSettings?.points_for_loss ?? 0) })
     setStageByFixture(Object.fromEntries((fixtureRows ?? []).map((fixture) => [fixture.id, fixture.stage || 'league'])))
     // Rugby sin configuración guardada: todos contra todos a una vuelta y tiempos de la modalidad.
     const sevens = normalizedPayload.tournament?.modality?.code !== 'xv'
@@ -632,11 +636,17 @@ export default function PublicTournamentPage() {
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
 
-  function requestSave(values: EditValues, divisionNames: string[]) {
+  function requestSave(values: EditValues, divisionNames: string[], rules: PointRules) {
     const before: EditValues = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }
     const labels: Record<keyof EditValues, string> = { name: 'Nombre', season: 'Temporada', status: 'Estado', start_date: 'Fecha inicial', end_date: 'Fecha final', country: 'País', location: 'Ciudad', discipline_id: 'Disciplina', modality_id: 'Modalidad' }
     const changes = Object.keys(values).reduce<Record<string, PendingChange>>((current, key) => { const field = key as keyof EditValues; if (before[field] !== values[field]) current[field] = { label: labels[field], before: formatEditValue(field, before[field], disciplines, modalities), after: formatEditValue(field, values[field], disciplines, modalities), beforeValue: before[field] || null, afterValue: values[field] || null }; return current }, {})
     if (!values.name.trim() || !values.start_date) return setMessage('Completa el nombre y la fecha de inicio del torneo.')
+    if (![rules.win, rules.draw, rules.loss].every((value) => Number.isInteger(value) && value >= 0)) return setMessage('Los puntos deben ser números enteros de 0 o más.')
+    const currentRules = pointRules ?? { win: 4, draw: 2, loss: 0 }
+    const ruleFields: [keyof PointRules, string][] = [['win', 'Puntos por victoria'], ['draw', 'Puntos por empate'], ['loss', 'Puntos por derrota']]
+    for (const [key, label] of ruleFields) {
+      if (rules[key] !== currentRules[key]) changes[`points_${key}`] = { label, before: String(currentRules[key]), after: String(rules[key]), beforeValue: String(currentRules[key]), afterValue: String(rules[key]) }
+    }
     const currentDivisionNames = data.divisions.map((division) => division.name)
     const divisionChanged = currentDivisionNames.length !== divisionNames.length || currentDivisionNames.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(divisionNames[index] || ''))
     const selectedNames = new Set(divisionNames.map(normalizeDivisionName))
@@ -681,10 +691,16 @@ export default function PublicTournamentPage() {
     if (!userData.user?.email) return setMessage('No se pudo identificar el correo de la cuenta.')
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password })
     if (reauthError) return setMessage('La contraseña no es correcta. No se guardaron cambios.')
-    const changes: Partial<EditValues> = Object.fromEntries(Object.entries(pendingChanges).filter(([field]) => field !== 'divisions').map(([field, change]) => [field, change.afterValue]))
+    const changes: Partial<EditValues> = Object.fromEntries(Object.entries(pendingChanges).filter(([field]) => field !== 'divisions' && !field.startsWith('points_')).map(([field, change]) => [field, change.afterValue]))
     if (Object.keys(changes).length) {
       const { error: updateError } = await supabase.from('tournaments').update(changes).eq('id', tournament.id).eq('created_by', userData.user.id)
       if (updateError) return setMessage(updateError.message)
+    }
+    if (Object.keys(pendingChanges).some((field) => field.startsWith('points_'))) {
+      const next: PointRules = { win: Number(pendingChanges.points_win?.afterValue ?? pointRules?.win ?? 4), draw: Number(pendingChanges.points_draw?.afterValue ?? pointRules?.draw ?? 2), loss: Number(pendingChanges.points_loss?.afterValue ?? pointRules?.loss ?? 0) }
+      const { error: rulesError } = await supabase.from('tournament_competition_settings').upsert({ tournament_id: tournament.id, points_for_win: next.win, points_for_draw: next.draw, points_for_loss: next.loss }, { onConflict: 'tournament_id' })
+      if (rulesError) return setMessage(rulesError.message)
+      setPointRules(next)
     }
     if (pendingDivisionNames) {
       const currentDivisions = data?.divisions ?? []
@@ -1424,6 +1440,7 @@ export default function PublicTournamentPage() {
       divisions={data.divisions ?? []}
       disciplines={disciplines}
       modalities={modalities}
+      pointRules={pointRules}
       competition={{ courts: leagueSettings?.courts ?? 1, intervalMinutes: leagueSettings?.intervalMinutes ?? 10, format: leagueSettings?.format ?? '', legs: leagueSettings?.legs ?? 1, playoffTeams: leagueSettings?.playoffTeams ?? 0, maxTeams: maxTeamsLimit, maxRoster: maxRosterLimit }}
       playersOnField={modalityRule?.players_on_field ?? null}
       canManage={canManage}
@@ -3457,7 +3474,7 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   </div>
 }
 
-function GeneralInfoSection({ tournament, divisions, disciplines, modalities, competition, playersOnField, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; competition: { courts: number; intervalMinutes: number; format: string; legs: number; playoffTeams: number; maxTeams: number | null; maxRoster: number | null }; playersOnField: number | null; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
+function GeneralInfoSection({ tournament, divisions, disciplines, modalities, competition, playersOnField, pointRules, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; competition: { courts: number; intervalMinutes: number; format: string; legs: number; playoffTeams: number; maxTeams: number | null; maxRoster: number | null }; playersOnField: number | null; pointRules: PointRules | null; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[], rules: PointRules) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
   const legsLabel = competition.legs === 2 ? 'Ida y vuelta' : `${competition.legs} vuelta${competition.legs === 1 ? '' : 's'}`
   const formatLabel = (leagueFormats as Record<string, string>)[competition.format] ?? 'Sin formato'
   return <section className="ax-v2 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-7">
@@ -3469,7 +3486,7 @@ function GeneralInfoSection({ tournament, divisions, disciplines, modalities, co
       </div>
       {canManage && !editMode && <button type="button" onClick={onEdit} className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-4 text-[13px] font-bold text-[var(--ax-on-accent)] transition hover:opacity-90"><Cog size={16} />Editar torneo</button>}
     </div>
-    {editMode && canManage ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <>
+    {editMode && canManage ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} pointRules={pointRules} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <>
       <InfoCard title="Datos del torneo">
         <InfoTile label="Nombre del torneo" value={tournament.name} />
         <InfoTile label="Código AthlonX" value={tournament.athlonx_code || 'Pendiente'} />
@@ -3659,9 +3676,10 @@ function CourtCountSettings({ tournamentId, footballEight = false }: { tournamen
   </div>
 }
 
-function EditTournamentForm({ tournament, divisions, disciplines, modalities, onRequestSave, onDirtyChange, onCancel }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; onRequestSave: (values: EditValues, divisionNames: string[]) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void }) {
+function EditTournamentForm({ tournament, divisions, disciplines, modalities, pointRules, onRequestSave, onDirtyChange, onCancel }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; pointRules: PointRules | null; onRequestSave: (values: EditValues, divisionNames: string[], rules: PointRules) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void }) {
   const [values, setValues] = useState<EditValues>({ name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' })
   const [divisionToAdd, setDivisionToAdd] = useState('')
+  const [rules, setRules] = useState<PointRules>(pointRules ?? { win: 4, draw: 2, loss: 0 })
   const [selectedDivisionNames, setSelectedDivisionNames] = useState(() => divisions.map((division) => division.name))
   const divisionOptions = Array.from(new Set([...defaultDivisionOptions, ...divisions.map((division) => division.name)]))
   useEffect(() => {
@@ -3669,19 +3687,19 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
     const fieldsChanged = Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues])
     const originalDivisions = divisions.map((division) => division.name)
     const divisionsChanged = originalDivisions.length !== selectedDivisionNames.length || originalDivisions.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(selectedDivisionNames[index] || ''))
-    onDirtyChange(fieldsChanged || divisionsChanged)
-  }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
+    const base = pointRules ?? { win: 4, draw: 2, loss: 0 }
+    const rulesChanged = rules.win !== base.win || rules.draw !== base.draw || rules.loss !== base.loss
+    onDirtyChange(fieldsChanged || divisionsChanged || rulesChanged)
+  }, [values, selectedDivisionNames, rules, pointRules, tournament, divisions, onDirtyChange])
   function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
   const automaticStatus = tournament.status === 'in_progress' || tournament.status === 'finished'
   const manualStatusOptions = statusOptions.filter((option) => option.value === 'draft' || option.value === 'published')
-  const isFootballDiscipline = /f[uú]tbol/i.test(tournament.discipline?.name || '')
-  const scoring: [string, string][] = isFootballDiscipline ? [['Victoria', '3'], ['Empate', '1'], ['Derrota', '0']] : [['Victoria', '4'], ['Empate', '2'], ['Derrota', '0']]
   const sectionLinks = [['tor-imagen', 'Imagen del torneo'], ['tor-datos', 'Datos generales'], ['tor-reglas', `Reglas de ${tournament.discipline?.name || 'la disciplina'}`], ['tor-divisiones', 'Divisiones']] as const
   return <div className="ax-v2 mt-6 grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
     <nav aria-label="Secciones de información" className="flex flex-wrap gap-2 lg:sticky lg:top-6 lg:flex-col lg:self-start">
       {sectionLinks.map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-[10px] border border-[var(--ax-line)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--ax-text-secondary)] transition hover:border-[var(--ax-accent-line)] hover:text-[var(--ax-text)]">{label}</a>)}
     </nav>
-    <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="min-w-0 space-y-5">
+    <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames, rules) }} className="min-w-0 space-y-5">
       <section id="tor-imagen" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
         <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Identidad</p>
         <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Imagen del torneo</h3>
@@ -3712,8 +3730,8 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
       <section id="tor-reglas" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
         <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Puntaje</p>
         <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Reglas de {tournament.discipline?.name || 'la disciplina'}</h3>
-        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Puntos por resultado. Están definidos por la disciplina y no se editan aquí.</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">{scoring.map(([label, points]) => <div key={label} className="rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-3.5"><p className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">{label}</p><p className="mt-1.5 text-[15px] font-semibold text-[var(--ax-text)]">{points} pts</p></div>)}</div>
+        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Puntos por resultado para la tabla de posiciones de este torneo.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">{([['win', 'Victoria'], ['draw', 'Empate'], ['loss', 'Derrota']] as const).map(([key, label]) => <label key={key} className="block text-[13px] font-semibold text-[var(--ax-text)]">{label}<input type="number" min="0" step="1" required value={rules[key]} onChange={(event) => setRules({ ...rules, [key]: Number(event.target.value) })} className={`mt-2 w-full ${axField}`} /></label>)}</div>
       </section>
 
       <section id="tor-divisiones" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">

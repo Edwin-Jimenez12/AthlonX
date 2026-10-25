@@ -5,6 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Puntos por resultado configurables por torneo
+
+**Qué se hizo**
+- Victoria, empate y derrota ahora son valores de cada torneo, no constantes de la disciplina.
+- Migración nueva `supabase/tournament-points-rules-migration.sql`: agrega `points_for_win`, `points_for_draw` y `points_for_loss` a `tournament_competition_settings` (enteros >= 0, nulos por defecto).
+- Página: lee las tres columnas y, si están vacías, usa 4/2/0 (3/1/0 en fútbol, disciplina `futbol`).
+- Formulario de edición: sección "Reglas" con tres campos numéricos. Los cambios pasan por el mismo diálogo de contraseña; al confirmar se guardan con upsert en `tournament_competition_settings`.
+- Tabla de posiciones (`Components/torneo/standings.tsx`): calcula los puntos con los valores del torneo y los muestra en la leyenda.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `Components/torneo/standings.tsx`, `supabase/tournament-points-rules-migration.sql` (nueva).
+
+**Verificación**
+- `npx tsc --noEmit`: OK. `npm run build`: OK.
+- La migración NO está aplicada en Supabase. Mientras no se aplique, la consulta de configuración de la página falla (las columnas no existen) y la tabla usa los valores por defecto.
+
+**Pendiente**
+- Aplicar la migración en el proyecto `mlvtsgseneqzihwkiatg`.
+- "Bonus ofensivo" del diseño de Figma no tiene modelo ni cálculo; no se implementó.
+- "Clasifican a semis" del diseño sigue en la configuración del generador (`qualifying_teams_per_group`); no se duplicó aquí.
+- Verificación visual en navegador: pendiente.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Estado del torneo: borrador / publicado manual, resto automático
 
 **Qué se hizo**

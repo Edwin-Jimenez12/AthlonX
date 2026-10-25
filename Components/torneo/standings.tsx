@@ -134,6 +134,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   const [adjustmentHistory, setAdjustmentHistory] = useState<AdjustmentHistory[]>([])
   const [tiebreakers, setTiebreakers] = useState<string[]>([])
   const [qualifyingTeams, setQualifyingTeams] = useState(4)
+  const [pointValues, setPointValues] = useState<{ win: number; draw: number; loss: number } | null>(null)
   const [organizationLogo, setOrganizationLogo] = useState<string | null>(null)
   const [panel, setPanel] = useState<'pdf' | 'adjust' | null>(null)
   const [draftAdjustments, setDraftAdjustments] = useState<Record<string, number>>({})
@@ -162,7 +163,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       const [{ data: owner }, { data: userData }, { data: settings }, { data: rules }, { data: rows }, { data: organization }, { data: history }] = await Promise.all([
         supabase.from('tournaments').select('created_by').eq('id', tournament.id).maybeSingle(),
         supabase.auth.getUser(),
-        supabase.from('tournament_competition_settings').select('qualifying_teams_per_group').eq('tournament_id', tournament.id).maybeSingle(),
+        supabase.from('tournament_competition_settings').select('qualifying_teams_per_group, points_for_win, points_for_draw, points_for_loss').eq('tournament_id', tournament.id).maybeSingle(),
         tournament.modality?.id
           ? supabase.from('sport_modality_rules').select('tiebreakers').eq('modality_id', tournament.modality.id).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -175,6 +176,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       if (!active) return
       setIsOwner(Boolean(owner?.created_by && owner.created_by === userData.user?.id))
       if (settings?.qualifying_teams_per_group) setQualifyingTeams(settings.qualifying_teams_per_group)
+      if (settings?.points_for_win != null) setPointValues({ win: settings.points_for_win, draw: settings.points_for_draw ?? 0, loss: settings.points_for_loss ?? 0 })
       setTiebreakers(Array.isArray(rules?.tiebreakers) ? rules.tiebreakers : [])
       setAdjustments((rows ?? []) as StandingAdjustment[])
       setOrganizationLogo((organization as { logo_url?: string | null } | null)?.logo_url || null)
@@ -189,6 +191,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   }
 
   function calculateStandings(divisionId: string): Row[] {
+    const points = pointValues ?? (isFootball ? { win: 3, draw: 1, loss: 0 } : { win: 4, draw: 2, loss: 0 })
     const played = divisionMatches(divisionId)
       .filter((match) => match.status === 'finished')
       .sort((left, right) => left.date_number - right.date_number || (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
@@ -203,9 +206,9 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         row.played += 1
         row.pointsFor += scored
         row.pointsAgainst += conceded
-        if (scored > conceded) { row.wins += 1; row.points += isFootball ? 3 : 4; row.recent.push('G') }
-        else if (scored === conceded) { row.draws += 1; row.points += isFootball ? 1 : 2; row.recent.push('E') }
-        else { row.losses += 1; row.recent.push('P') }
+        if (scored > conceded) { row.wins += 1; row.points += points.win; row.recent.push('G') }
+        else if (scored === conceded) { row.draws += 1; row.points += points.draw; row.recent.push('E') }
+        else { row.losses += 1; row.points += points.loss; row.recent.push('P') }
       }
       row.recent = row.recent.slice(-3)
       row.totalPoints = row.points + row.adjustment
@@ -276,7 +279,8 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
 
   const selectedName = divisions.find(([id]) => id === selectedDivisionId)?.[1] || 'División'
   const current = divisionSummary(selectedDivisionId, selectedName)
-  const scoring: [string, string][] = isFootball ? [['Victoria', '3'], ['Empate', '1'], ['Derrota', '0']] : [['Victoria', '4'], ['Empate', '2'], ['Derrota', '0']]
+  const scoringPoints = pointValues ?? (isFootball ? { win: 3, draw: 1, loss: 0 } : { win: 4, draw: 2, loss: 0 })
+  const scoring: [string, string][] = [['Victoria', String(scoringPoints.win)], ['Empate', String(scoringPoints.draw)], ['Derrota', String(scoringPoints.loss)]]
   const tiebreakLabel = (tiebreakers.filter((item) => item !== 'points').map((item) => tiebreakNames[item]?.[isFootball ? 1 : 0]).filter(Boolean).join(', ')
     || (isFootball ? 'diferencia de goles, goles a favor' : 'diferencia de puntos, puntos a favor'))
   const scored = isFootball ? ['GF', 'GC'] : ['PF', 'PC']
