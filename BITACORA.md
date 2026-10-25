@@ -5,6 +5,37 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Redesign de "Equipos y plantillas"
+
+**Qué se hizo**
+- Seguimiento del redesign anterior: Edwin pidió mejorar la sección de equipos y plantillas manteniendo coherencia con el sistema de diseño ya establecido (`.ax-v2`, tokens `--ax-*`).
+- Nuevo componente `TournamentTeamsSection` en `Components/torneo/teams-section.tsx`:
+  - Exporta función principal que renderiza la sección con tarjetas expandibles de equipos.
+  - Componente `TeamCrest` para logo/inicial del equipo.
+  - Formulario de búsqueda e invitación de equipos (si `canManage && editMode`).
+  - Botones de invitar y expulsar (si `canManage && editMode`).
+  - Tarjetas de equipo expandibles con ChevronDown animado; al expandir muestra detalles vía `renderTeamDetails` callback.
+  - Uso de componentes reutilizables de UI (`Button`, `Card`, `EmptyState`, `StyledSelect`) para consistencia.
+  - Responde a diseño Figma: espaciado, radios (10px botones/campos, 14px paneles), tipografía (Bebas Neue títulos, Inter interfaz).
+  - Soporta división compatible y accesorios para búsqueda (normalización de nombres con acentos).
+- Integración en `/app/(panel)/torneos/ver/[id]/page.tsx`:
+  - Reemplazó la función inline `TeamsSection` con import de `TournamentTeamsSection`.
+  - Props mapeados correctamente; se pasa `renderTeamDetails` como callback que renderiza `TeamFixtureCallupDates` (lista de convocados por fecha).
+- Corrección de tipos: `TournamentTeam` en el nuevo componente ahora incluye `handle`, `is_official`, `contact_phone` para matching con el tipo global.
+
+**Archivos**: `Components/torneo/teams-section.tsx` (NEW), `app/(panel)/torneos/ver/[id]/page.tsx` (actualizado import y JSX).
+
+**Verificación**
+- Build `npm run build`: OK, no errores TS. Turbopack compiló exitosamente.
+- Dev server `npm run dev`: levantó sin errores en 388ms.
+- Componente sigue patrón `.ax-v2` con tokens de color, accesibilidad (aria-expanded, aria-controls), y responsive (mobile-first).
+
+**Pendiente**
+- Prueba visual en navegador (dev server en localhost:3000).
+- Testear flujo de añadir/remover equipos y visualizar plantilla expandida.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Historial de ajustes de puntos
 
 **Qué se hizo**
