@@ -3680,6 +3680,8 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, po
   const [values, setValues] = useState<EditValues>({ name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' })
   const [divisionToAdd, setDivisionToAdd] = useState('')
   const [rules, setRules] = useState<PointRules>(pointRules ?? { win: 4, draw: 2, loss: 0 })
+  const basePoints = pointRules ?? { win: 4, draw: 2, loss: 0 }
+  const rulesChanged = rules.win !== basePoints.win || rules.draw !== basePoints.draw || rules.loss !== basePoints.loss
   const [selectedDivisionNames, setSelectedDivisionNames] = useState(() => divisions.map((division) => division.name))
   const divisionOptions = Array.from(new Set([...defaultDivisionOptions, ...divisions.map((division) => division.name)]))
   useEffect(() => {
@@ -3687,10 +3689,8 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, po
     const fieldsChanged = Object.keys(original).some((key) => original[key as keyof EditValues] !== values[key as keyof EditValues])
     const originalDivisions = divisions.map((division) => division.name)
     const divisionsChanged = originalDivisions.length !== selectedDivisionNames.length || originalDivisions.some((name, index) => normalizeDivisionName(name) !== normalizeDivisionName(selectedDivisionNames[index] || ''))
-    const base = pointRules ?? { win: 4, draw: 2, loss: 0 }
-    const rulesChanged = rules.win !== base.win || rules.draw !== base.draw || rules.loss !== base.loss
     onDirtyChange(fieldsChanged || divisionsChanged || rulesChanged)
-  }, [values, selectedDivisionNames, rules, pointRules, tournament, divisions, onDirtyChange])
+  }, [values, selectedDivisionNames, rulesChanged, tournament, divisions, onDirtyChange])
   function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
   const automaticStatus = tournament.status === 'in_progress' || tournament.status === 'finished'
   const manualStatusOptions = statusOptions.filter((option) => option.value === 'draft' || option.value === 'published')
@@ -3732,6 +3732,7 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, po
         <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Reglas de {tournament.discipline?.name || 'la disciplina'}</h3>
         <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Puntos por resultado para la tabla de posiciones de este torneo.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">{([['win', 'Victoria'], ['draw', 'Empate'], ['loss', 'Derrota']] as const).map(([key, label]) => <label key={key} className="block text-[13px] font-semibold text-[var(--ax-text)]">{label}<input type="number" min="0" step="1" required value={rules[key]} onChange={(event) => setRules({ ...rules, [key]: Number(event.target.value) })} className={`mt-2 w-full ${axField}`} /></label>)}</div>
+        {rulesChanged && <div role="alert" className="mt-4 flex gap-2 rounded-[10px] border border-amber-300/40 bg-amber-300/10 p-3 text-[13px] text-amber-300"><span className="font-bold">Advertencia:</span><span>al guardar, la tabla de posiciones de todas las divisiones se recalculará con estos puntos.</span></div>}
       </section>
 
       <section id="tor-divisiones" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">

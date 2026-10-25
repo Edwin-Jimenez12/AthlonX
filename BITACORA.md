@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Advertencia al cambiar puntos
+
+- La sección de reglas muestra una advertencia cuando los puntos cambian: al guardar, la tabla de posiciones de todas las divisiones se recalcula.
+- Error observado al guardar: `Could not find the 'points_for_draw' column`. Causa: la migración `supabase/tournament-points-rules-migration.sql` no está aplicada en Supabase. Requiere confirmación antes de ejecutarla en el proyecto real.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Puntos por resultado configurables por torneo
 
 **Qué se hizo**
