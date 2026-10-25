@@ -5,6 +5,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Migración de puntos aplicada
+
+- Aplicada por Edwin en el SQL Editor de Supabase, proyecto `mlvtsgseneqzihwkiatg` (main): `supabase/tournament-points-rules-migration.sql`. Verificado con consulta de solo lectura: existen `points_for_win`, `points_for_draw` y `points_for_loss`.
+- Fix: al guardar puntos, si el torneo aún no tiene fila en `tournament_competition_settings` se inserta con `competition_format: 'round_robin'` (columna obligatoria); si existe, solo se actualizan los puntos. Antes fallaba con `null value in column "competition_format"`.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK. `npm run build`: OK.
+- Guardado de puntos en navegador: pendiente de revisar.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Advertencia al cambiar puntos
 
 - La sección de reglas muestra una advertencia cuando los puntos cambian: al guardar, la tabla de posiciones de todas las divisiones se recalcula.

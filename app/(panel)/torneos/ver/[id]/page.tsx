@@ -698,7 +698,12 @@ export default function PublicTournamentPage() {
     }
     if (Object.keys(pendingChanges).some((field) => field.startsWith('points_'))) {
       const next: PointRules = { win: Number(pendingChanges.points_win?.afterValue ?? pointRules?.win ?? 4), draw: Number(pendingChanges.points_draw?.afterValue ?? pointRules?.draw ?? 2), loss: Number(pendingChanges.points_loss?.afterValue ?? pointRules?.loss ?? 0) }
-      const { error: rulesError } = await supabase.from('tournament_competition_settings').upsert({ tournament_id: tournament.id, points_for_win: next.win, points_for_draw: next.draw, points_for_loss: next.loss }, { onConflict: 'tournament_id' })
+      const pointColumns = { points_for_win: next.win, points_for_draw: next.draw, points_for_loss: next.loss }
+      const { data: settingsRow, error: lookupError } = await supabase.from('tournament_competition_settings').select('tournament_id').eq('tournament_id', tournament.id).maybeSingle()
+      if (lookupError) return setMessage(lookupError.message)
+      const { error: rulesError } = settingsRow
+        ? await supabase.from('tournament_competition_settings').update(pointColumns).eq('tournament_id', tournament.id)
+        : await supabase.from('tournament_competition_settings').insert({ tournament_id: tournament.id, competition_format: 'round_robin', ...pointColumns })
       if (rulesError) return setMessage(rulesError.message)
       setPointRules(next)
     }
