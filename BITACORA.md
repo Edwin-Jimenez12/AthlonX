@@ -5,6 +5,32 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Edición de Información según Figma (modo edición)
+
+**Qué se hizo**
+- `EditTournamentForm` (`app/(panel)/torneos/ver/[id]/page.tsx`) reescrito con la estructura del frame `Torneo · Compartido · Información general · Edición` (nodo `1055:17159`):
+  - Subnavegación lateral con anclas a cada sección.
+  - Secciones en tarjetas: Imagen del torneo, Datos generales, Reglas de la disciplina y Divisiones participantes.
+  - Barra de guardado al final (sticky) con Descartar y Guardar cambios. Guardar sigue usando el flujo existente de confirmación con contraseña.
+- Campos editables: nombre, temporada, estado, fecha de inicio, país y ciudad. Divisiones se agregan y quitan igual que antes.
+- Solo lectura, como indica Figma o por el modelo de datos: disciplina y modalidad (no se puede cambiar), tipo (oficial o rápido) y fecha de cierre (se registra sola).
+- Puntaje (victoria, empate, derrota) en modo lectura. Los valores (4/2/0 en rugby, 3/1/0 en fútbol) están fijos en `Components/torneo/standings.tsx` y se repiten aquí. Si cambian, hay que actualizar los dos lugares.
+- Duración de tiempo y descanso no aparecen en esta sección; viven en el generador de fixtures.
+
+**No implementado (faltan datos o funciones)**
+- Imagen: la carga de imágenes no está conectada. Se muestra la imagen actual como texto.
+- Visibilidad y Zona de riesgo: no hay campos para eso en el modelo; no se agregaron.
+- Contraseña en línea: Figma la pone en la barra; se mantiene el diálogo de confirmación existente.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK.
+- `npm run build`: OK.
+- Verificación visual en navegador: pendiente.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Información del torneo según Figma
 
 **Qué se hizo**

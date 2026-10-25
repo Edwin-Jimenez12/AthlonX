@@ -3663,7 +3663,6 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
   const [values, setValues] = useState<EditValues>({ name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' })
   const [divisionToAdd, setDivisionToAdd] = useState('')
   const [selectedDivisionNames, setSelectedDivisionNames] = useState(() => divisions.map((division) => division.name))
-  const availableModalities = modalities.filter((modality) => !values.discipline_id || modality.discipline_id === values.discipline_id)
   const divisionOptions = Array.from(new Set([...defaultDivisionOptions, ...divisions.map((division) => division.name)]))
   useEffect(() => {
     const original = { name: tournament.name, season: tournament.season || '', status: tournament.status, start_date: tournament.start_date || '', end_date: tournament.end_date || '', country: tournament.country || 'Panamá', location: tournament.location || '', discipline_id: tournament.discipline?.id || '', modality_id: tournament.modality?.id || '' }
@@ -3673,7 +3672,71 @@ function EditTournamentForm({ tournament, divisions, disciplines, modalities, on
     onDirtyChange(fieldsChanged || divisionsChanged)
   }, [values, selectedDivisionNames, tournament, divisions, onDirtyChange])
   function addDivision() { const cleanName = divisionToAdd.trim(); if (!cleanName || selectedDivisionNames.some((name) => normalizeDivisionName(name) === normalizeDivisionName(cleanName))) return; setSelectedDivisionNames([...selectedDivisionNames, cleanName]); setDivisionToAdd('') }
-  return <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="mt-6"><div className="flex items-center gap-2 rounded-[5px] border border-[#b4ff45]/30 bg-[#b4ff45]/10 p-3 text-sm text-[#dfffba]"><ShieldCheck size={17} />Los cambios se mostrarán antes de solicitar la contraseña.</div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="block text-sm font-semibold sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><label className="block text-sm font-semibold">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className="mt-2 w-full rounded-[5px] border border-[#31556b] bg-[#0d2232] px-4 py-3 outline-none focus:border-[#b4ff45]" /></label><StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required /><StyledSelect label="Disciplina" value={values.discipline_id} onChange={(discipline_id) => setValues({ ...values, discipline_id, modality_id: '' })} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} required /><StyledSelect label="Modalidad" value={values.modality_id} onChange={(modality_id) => setValues({ ...values, modality_id })} options={availableModalities.map((modality) => ({ value: modality.id, label: modality.name }))} disabled={!availableModalities.length} required /><LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" /><DateField label="Fecha de inicio" value={values.start_date} onChange={(start_date) => setValues({ ...values, start_date })} min="2020-01-01" max={`${new Date().getFullYear() + 3}-12-31`} hint={values.end_date ? `Terminó el ${formatDateRange(values.end_date, null)}.` : 'La fecha final se registra sola cuando termina el torneo.'} /><div className="rounded-[5px] border border-[#31556b] bg-[#0d2232] p-4 sm:col-span-2"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#b4ff45]">Categorías del torneo</p><h3 className="mt-1 font-display text-2xl uppercase">Divisiones participantes</h3><p className="mt-2 text-sm text-slate-400">Selecciona las divisiones que podrán inscribirse en este torneo.</p></div><span className="rounded-[5px] border border-[#31556b] px-3 py-2 text-xs font-bold text-slate-300">{selectedDivisionNames.length} divisiones</span></div><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={divisionToAdd} onChange={(event) => setDivisionToAdd(event.target.value)} className="min-w-0 flex-1 cursor-pointer rounded-[5px] border border-[#31556b] bg-[#0b1d2c] px-4 py-3 outline-none focus:border-[#b4ff45]"><option value="">Seleccionar división</option>{divisionOptions.filter((name) => !selectedDivisionNames.some((selected) => normalizeDivisionName(selected) === normalizeDivisionName(name))).map((name) => <option key={name} value={name}>{name}</option>)}</select><button type="button" onClick={addDivision} disabled={!divisionToAdd} className="cursor-pointer rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-50">Agregar división</button></div><div className="mt-4 flex flex-wrap gap-2">{selectedDivisionNames.map((name) => <span key={name} className="inline-flex items-center gap-2 rounded-[5px] border border-[#31556b] bg-[#07131e] px-3 py-2 text-sm text-slate-200">{name}<button type="button" onClick={() => setSelectedDivisionNames(selectedDivisionNames.filter((current) => current !== name))} className="cursor-pointer text-[#ff9ca5]" aria-label={`Quitar división ${name}`}><X size={15} /></button></span>)}{!selectedDivisionNames.length && <p className="text-sm text-slate-500">No hay divisiones seleccionadas.</p>}</div></div></div><div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-5"><button type="button" onClick={onCancel} className="cursor-pointer rounded-[5px] border border-[#31556b] px-5 py-3 font-bold text-slate-300 hover:border-white hover:text-white">Cancelar edición</button><button type="submit" className="inline-flex cursor-pointer items-center gap-2 rounded-[5px] bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e]"><Check size={17} />Guardar cambios</button></div></form>
+  const isFootballDiscipline = /f[uú]tbol/i.test(tournament.discipline?.name || '')
+  const scoring: [string, string][] = isFootballDiscipline ? [['Victoria', '3'], ['Empate', '1'], ['Derrota', '0']] : [['Victoria', '4'], ['Empate', '2'], ['Derrota', '0']]
+  const sectionLinks = [['tor-imagen', 'Imagen del torneo'], ['tor-datos', 'Datos generales'], ['tor-reglas', `Reglas de ${tournament.discipline?.name || 'la disciplina'}`], ['tor-divisiones', 'Divisiones']] as const
+  return <div className="ax-v2 mt-6 grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+    <nav aria-label="Secciones de información" className="flex flex-wrap gap-2 lg:sticky lg:top-6 lg:flex-col lg:self-start">
+      {sectionLinks.map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-[10px] border border-[var(--ax-line)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--ax-text-secondary)] transition hover:border-[var(--ax-accent-line)] hover:text-[var(--ax-text)]">{label}</a>)}
+    </nav>
+    <form id="edit-tournament-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onRequestSave(values, selectedDivisionNames) }} className="min-w-0 space-y-5">
+      <section id="tor-imagen" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Identidad</p>
+        <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Imagen del torneo</h3>
+        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">La foto identifica al torneo en búsquedas y tarjetas. El banner se muestra en la cabecera de la liga.</p>
+        <div className="mt-5 flex h-36 items-end rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-4">
+          <span className="flex h-16 w-16 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-2xl text-[var(--ax-on-accent)]">{values.name.slice(0, 2).toUpperCase()}</span>
+        </div>
+        <p className="mt-3 text-[13px] text-[var(--ax-muted)]">La carga de imágenes todavía no está conectada. Se mantiene la imagen actual.</p>
+      </section>
+
+      <section id="tor-datos" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Configuración</p>
+        <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Datos generales</h3>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block text-[13px] font-semibold text-[var(--ax-text)] sm:col-span-2">Nombre del torneo<input required value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} className={`mt-2 w-full ${axField}`} /></label>
+          <div><p className="text-[13px] font-semibold text-[var(--ax-text)]">Tipo</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{tournament.is_quick ? 'Rápido · no oficial' : 'Oficial · por invitación'}</p></div>
+          <StyledSelect label="Estado" value={values.status} onChange={(status) => setValues({ ...values, status })} options={statusOptions} required />
+          <div className="sm:col-span-2"><p className="text-[13px] font-semibold text-[var(--ax-text)]">Disciplina</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{[tournament.discipline?.name, tournament.modality?.name].filter(Boolean).join(' · ') || 'Sin disciplina'} <span className="text-xs">(no se puede cambiar)</span></p></div>
+          <label className="block text-[13px] font-semibold text-[var(--ax-text)]">Temporada<input value={values.season} onChange={(event) => setValues({ ...values, season: event.target.value })} className={`mt-2 w-full ${axField}`} /></label>
+          <div><p className="text-[13px] font-semibold text-[var(--ax-text)]">Fecha de cierre</p><p className="mt-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5 text-sm text-[var(--ax-muted)]">{values.end_date ? formatDateRange(values.end_date, null) : 'Se registra sola al terminar'}</p></div>
+          <DateField label="Fecha de inicio" value={values.start_date} onChange={(start_date) => setValues({ ...values, start_date })} min="2020-01-01" max={`${new Date().getFullYear() + 3}-12-31`} hint={values.end_date ? `Terminó el ${formatDateRange(values.end_date, null)}.` : 'La fecha final se registra sola cuando termina el torneo.'} />
+          <LocationFields country={values.country} city={values.location} onCountryChange={(country) => setValues({ ...values, country })} onCityChange={(location) => setValues({ ...values, location })} className="sm:col-span-2" />
+        </div>
+      </section>
+
+      <section id="tor-reglas" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Puntaje</p>
+        <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Reglas de {tournament.discipline?.name || 'la disciplina'}</h3>
+        <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Puntos por resultado. Están definidos por la disciplina y no se editan aquí.</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">{scoring.map(([label, points]) => <div key={label} className="rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-3.5"><p className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">{label}</p><p className="mt-1.5 text-[15px] font-semibold text-[var(--ax-text)]">{points} pts</p></div>)}</div>
+      </section>
+
+      <section id="tor-divisiones" className="scroll-mt-6 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Categorías del torneo</p>
+            <h3 className="mt-1.5 font-display text-2xl uppercase leading-none text-[var(--ax-text)]">Divisiones participantes</h3>
+            <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Selecciona las divisiones que podrán inscribirse en este torneo.</p>
+          </div>
+          <span className="rounded-[10px] border border-[var(--ax-line)] px-3 py-1.5 text-xs font-bold text-[var(--ax-text-secondary)]">{selectedDivisionNames.length} divisiones</span>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <select value={divisionToAdd} onChange={(event) => setDivisionToAdd(event.target.value)} className={`min-w-0 flex-1 cursor-pointer ${axField}`}><option value="">Seleccionar división</option>{divisionOptions.filter((name) => !selectedDivisionNames.some((selected) => normalizeDivisionName(selected) === normalizeDivisionName(name))).map((name) => <option key={name} value={name}>{name}</option>)}</select>
+          <button type="button" onClick={addDivision} disabled={!divisionToAdd} className={`${axBtnPrimary} disabled:cursor-not-allowed disabled:opacity-50`}>Agregar división</button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">{selectedDivisionNames.map((name) => <span key={name} className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2 text-[13px] font-semibold text-[var(--ax-text)]">{name}<button type="button" onClick={() => setSelectedDivisionNames(selectedDivisionNames.filter((current) => current !== name))} className="cursor-pointer text-[var(--ax-danger-text)]" aria-label={`Quitar división ${name}`}><X size={14} /></button></span>)}{!selectedDivisionNames.length && <p className="text-[13px] text-[var(--ax-muted)]">No hay divisiones seleccionadas.</p>}</div>
+      </section>
+
+      <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface)] p-4 shadow-xl">
+        <p className="min-w-0 flex-1 text-[13px] text-[var(--ax-muted)]">Se mostrarán los cambios y después se pedirá tu contraseña para confirmar.</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel} className={axBtnGhost}>Descartar</button>
+          <button type="submit" className={axBtnPrimary}><Check size={16} />Guardar cambios</button>
+        </div>
+      </div>
+    </form>
+  </div>
 }
 
 function PlayerNumberRequestModal({ request, onCancel, onSubmit }: { request: { playerName: string; currentNumber: number | null }; onCancel: () => void; onSubmit: (number: number) => void }) {
