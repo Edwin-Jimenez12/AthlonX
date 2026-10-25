@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Script de jugadores de la liga de prueba
+
+- Nuevo `supabase/seed-liga-rugby-sevens-prueba-jugadores.sql`: 12 jugadores por equipo de prueba (`handle` `prueba-rugby-%`), dorsales 1-12, posiciones de rugby seven, 5 suplentes. Idempotente por equipo.
+- Depende de `seed-liga-rugby-sevens-prueba.sql`. No ejecutado en Supabase.
+
+**Archivos**: `supabase/seed-liga-rugby-sevens-prueba-jugadores.sql` (nuevo).
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Script de liga de prueba (Rugby Sevens)
 
 - Nuevo `supabase/seed-liga-rugby-sevens-prueba.sql`: torneo oficial publicado, Rugby Sevens, todos contra todos a 4 vueltas, 1 cancha, fecha de hoy, Panamá. Tres divisiones con 4 equipos ficticios cada una, con invitación ya aceptada. Puntos 4/2/0.
