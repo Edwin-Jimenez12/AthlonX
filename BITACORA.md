@@ -5,6 +5,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-25 · `edwin` · nube → Menú de notificaciones (campana)
+
+**Qué se hizo**
+- Implementado en código el menú desplegable de notificaciones aprobado en Figma (nodo `1124:18187`, página `REDISEÑO`).
+- `Components/notifications-menu.tsx`: panel con `.ax-v2` y tokens `--ax-*`, radio de 14px, encabezado con botón de cierre, ícono por tipo de notificación (torneo, dorsal, afiliación), hora relativa, punto de no leída, estado "Pendiente" y botones Aceptar / Rechazar, y pie "Ver historial completo".
+- La lógica de respuesta (RPC de invitaciones, afiliaciones y dorsales), el conteo de no leídas y el cierre por clic externo no cambian.
+
+**Archivos**: `Components/notifications-menu.tsx`.
+
+**Verificación**
+- `npx tsc --noEmit`: OK.
+- `npm run build`: OK.
+- Verificación visual en navegador: pendiente (la sesión de Playwright no arranca y el menú requiere sesión con notificaciones reales).
+
+**Pendiente**
+- Revisar en navegador (escritorio y móvil, claro y oscuro) con notificaciones reales.
+- El diseño de Figma muestra "Aceptada" en notificaciones ya respondidas; el componente no tiene ese estado, así que solo muestra "Pendiente" en las que aún se pueden responder.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Rediseño de Fixtures (editor de fixtures)
 
 **Qué se hizo**
