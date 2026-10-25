@@ -31,8 +31,8 @@ begin
     raise exception 'No se encontró la disciplina rugby o la modalidad seven.';
   end if;
 
-  insert into public.tournaments (name, slug, season, start_date, status, created_by, is_public, is_quick, discipline_id, modality_id, country, city, location)
-  values ('Liga Rugby Sevens de prueba', 'liga-rugby-sevens-prueba-2026', '2026', current_date, 'published', owner_id, true, false, rugby_id, seven_id, 'Panamá', 'Panamá', 'Estadio de prueba')
+  insert into public.tournaments (name, slug, season, start_date, status, created_by, is_public, is_quick, discipline_id, modality_id, country, location)
+  values ('Liga Rugby Sevens de prueba', 'liga-rugby-sevens-prueba-2026', '2026', current_date, 'published', owner_id, true, false, rugby_id, seven_id, 'Panamá', 'Panamá')
   returning id into tournament_id;
 
   insert into public.tournament_competition_settings (tournament_id, competition_format, round_robin_legs, courts_count, half_duration_minutes, halftime_duration_minutes, interval_between_matches_minutes, points_for_win, points_for_draw, points_for_loss)
