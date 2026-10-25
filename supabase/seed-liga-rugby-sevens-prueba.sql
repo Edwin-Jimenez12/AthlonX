@@ -8,7 +8,7 @@
 
 do $$
 declare
-  owner_id uuid := 'OWNER_USER_ID'::uuid;
+  owner_id uuid := 'ede6717e-6b7e-4ba5-9126-58ae0a292a56'::uuid;
   rugby_id uuid;
   seven_id uuid;
   tournament_id uuid;
