@@ -296,6 +296,11 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
     const projection: [string, string][] = started && divisionZone === 4 && rows.length >= 4
       ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
       : started && divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]] : []
+    const leagueDone = own.length > 0 && own.every((match) => match.status === 'finished')
+    const bracket: [string, string][] = !leagueDone ? []
+      : divisionZone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
+      : divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]]
+      : []
     const nextDate = Math.min(...own.filter((match) => match.status !== 'finished').map((match) => match.date_number))
     const nextMatches = Number.isFinite(nextDate) ? own.filter((match) => match.date_number === nextDate && match.status !== 'finished')
       .sort((left, right) => (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
@@ -320,6 +325,8 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       zoneLabel: isFootball ? 'Zona de clasificación' : divisionZone === 2 ? 'Clasifican a la final' : 'Clasifican a semifinales',
       projectionTitle: divisionZone === 2 ? 'Camino a la final' : 'Camino a semifinales',
       projection,
+      bracket,
+      bracketTitle: divisionZone === 2 ? 'Final' : 'Semifinales',
       nextDateLabel: Number.isFinite(nextDate) ? `Fecha ${nextDate}${nextCalendar ? ` · ${shortDate(nextCalendar)}` : ''}` : '',
       nextMatches,
       adjustments: rows.filter((row) => row.adjustment).map((row) => {
@@ -571,6 +578,16 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       </div>
     </section>}
 
+    {current.bracket.length > 0 && <Card labelledBy="bracket-title">
+      <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Fase final</p>
+      <h2 id="bracket-title" className="mt-1 font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">{current.bracketTitle}</h2>
+      <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">Fase de liga terminada · así quedó la llave según la tabla final.</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {current.bracket.map(([left, right]) => <div key={`${left}-${right}`} className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ax-text)]">
+          <span className="truncate">{left}</span><span className="text-xs font-normal text-[var(--ax-muted)]">vs</span><span className="truncate">{right}</span>
+        </div>)}
+      </div>
+    </Card>}
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
       <Card labelledBy="standings-title" className="sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -697,15 +714,6 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
             }) : <p className="rounded-[10px] bg-[var(--ax-surface-raised)] p-3 text-[13px] text-[var(--ax-muted)]">Sin ajustes en esta división.</p>}
           </div>
         </Card>
-        {current.zone > 0 && <Card labelledBy="path-title">
-          <h2 id="path-title" className="font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">{current.projectionTitle}</h2>
-          <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{current.projection.length ? 'Si la liga terminara hoy · se confirman al cerrar la fase regular' : 'Se arman con la tabla cuando se jueguen los primeros partidos'}</p>
-          <div className="mt-4 space-y-2">
-            {(current.projection.length ? current.projection : (current.zone === 2 ? [['1.º', '2.º']] : [['1.º', '4.º'], ['2.º', '3.º']])).map(([left, right]) => <p key={`${left}-${right}`} className="flex items-center gap-2 rounded-[10px] border border-[var(--ax-line-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--ax-text)]">
-              <span className="truncate">{left}</span><span className="text-xs font-normal text-[var(--ax-muted)]">vs</span><span className="truncate">{right}</span>
-            </p>)}
-          </div>
-        </Card>}
       </div>
     </div>
 

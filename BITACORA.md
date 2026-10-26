@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Llave de fase final en Tablas
+
+- En Tablas, encima de la tabla de posiciones, aparece la llave de la fase final de la división seleccionada solo cuando todos sus partidos de liga están finalizados. Con 4 clasificados: 1.º vs 4.º y 2.º vs 3.º (título "Semifinales"); con 2: 1.º vs 2.º (título "Final").
+- Se quitó el card lateral "Camino a semifinales", que mostraba la llave antes de terminar la liga.
+
+**Archivos**: `Components/torneo/standings.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador: pendiente.
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Script de torneo rápido Liga + Fase final
 
 - Nuevo `supabase/seed-liga-rugby-rapido-fase-final.sql`: torneo rápido (`is_quick`), publicado, formato `league_playoffs`, 1 vuelta, 4 clasificados por división, 1 cancha. Divisiones: Primera (5 equipos), Segunda (4) y Femenina (5). 14 equipos registrados con invitación aceptada y 12 jugadores por equipo. No genera fixtures.
