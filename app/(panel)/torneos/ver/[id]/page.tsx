@@ -2066,7 +2066,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
             {canManage && <div className="flex flex-wrap gap-2">
               {!isEditing && <button type="button" onClick={() => { setEditingDate(fixture.date); setDeletedMatchIds([]) }} className={axBtnOutline}><Pencil size={15} />Editar</button>}
               {isEditing && <>
-                <button type="button" onClick={() => { setEditingDate(null); setDeletedMatchIds([]) }} className={axBtnGhost}>Cancelar</button>
+                <button type="button" onClick={() => { setEditingDate(null); setAddingDate(null); setDeletedMatchIds([]) }} className={axBtnGhost}>Cancelar</button>
                 <button type="button" onClick={() => void deleteDate(fixture.date)} className={axBtnDanger}><Trash2 size={15} />Eliminar fecha</button>
                 <button type="button" onClick={() => void saveDate(fixture.date)} className={axBtnPrimary}><Check size={15} />Guardar</button>
               </>}
@@ -2102,7 +2102,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
               </div>
             </div>
           })}</div>
-          {canManage && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent)]/5 p-4">
+          {canManage && isEditing && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent)]/5 p-4">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Nuevo enfrentamiento</p>
               <p className="mt-1 text-[13px] text-[var(--ax-muted)]">Añade otro partido a esta fecha.</p>

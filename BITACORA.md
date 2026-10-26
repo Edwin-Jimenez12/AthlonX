@@ -5,6 +5,16 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Agregar enfrentamiento solo al editar
+
+- En Fixtures, el banner "Nuevo enfrentamiento" (con el botón "Añadir enfrentamiento") solo aparece cuando la fecha está en modo edición. Al cancelar la edición se cierra también el formulario de agregar.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador: pendiente.
+
+---
+
 ## 2026-10-25 · `edwin` · nube → Penal retirado de rugby y resultados de prueba
 
 - Quitado el botón "Penal" de la gestión de partidos de rugby (`app/(panel)/torneos/ver/[id]/page.tsx` y `app/(panel)/torneos/[torneo]/page.tsx`) y la estadística "Penales" (también en la página `[torneo]`). Sin cambios de base: la restricción de `match_events` sigue aceptando `penalty`.
