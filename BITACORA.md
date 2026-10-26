@@ -5,6 +5,14 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Resultados de la fase de liga del torneo rápido
+
+- Nuevo `supabase/seed-liga-rugby-rapido-resultados.sql`: resultados solo de la fase `league` del torneo rápido (tries, conversiones, tarjetas, conmociones, lesiones). Semifinales y final quedan pendientes. No ejecutado en Supabase.
+
+**Archivos**: `supabase/seed-liga-rugby-rapido-resultados.sql` (nuevo).
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Llave de fase final en Tablas
 
 - En Tablas, encima de la tabla de posiciones, aparece la llave de la fase final de la división seleccionada solo cuando todos sus partidos de liga están finalizados. Con 4 clasificados: 1.º vs 4.º y 2.º vs 3.º (título "Semifinales"); con 2: 1.º vs 2.º (título "Final").
