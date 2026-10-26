@@ -40,7 +40,7 @@ import { rugbyActiveSinBins, rugbySinBinSeconds } from '../../../../../lib/rugby
 import { isLeagueFormat, leagueFormats } from '../../../../../lib/league'
 import type { LeagueSettings, ScheduleDate } from '../../../../../Components/torneo/league-generator'
 import { SaveBar, StatTile, StatusBadge, TournamentHero, TournamentTabs, defaultMeta, sportOf, type SaveBarItem } from '../../../../../Components/torneo/ui'
-import { StandingsSection } from '../../../../../Components/torneo/standings'
+import { DivisionWinners, StandingsSection } from '../../../../../Components/torneo/standings'
 import { supabase } from '../../../../../lib/supabase'
 import {
   footballEightNextPhase,
@@ -1488,6 +1488,7 @@ function SummarySection({ tournament, divisions, teams, matches, events, correct
     {rows.length ? <div className="mt-3 space-y-0.5">{rows.map((match) => <MatchRow key={match.id} match={match} selected={false} onPreview={onOpenFixtures} />)}</div> : <p className="mt-3 text-[13px] text-[var(--ax-muted)]">{empty}</p>}
   </Card>
   return <div className="ax-v2 space-y-5">
+    <DivisionWinners tournament={tournament} teams={teams} matches={matches} />
     {featuredMatch
       ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} rosters={rosters} />
       : <Card><EmptyState icon={CalendarDays} title="Aún no hay partidos" description={directKnockout ? 'La llave todavía no se ha generado.' : 'Todavía no se ha generado el fixture.'} action={canManage ? <Button variant="primary" onClick={onOpenFixtures}>{directKnockout ? 'Generar llave' : 'Generar fixture'}</Button> : undefined} /></Card>}

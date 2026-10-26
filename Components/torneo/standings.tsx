@@ -33,6 +33,7 @@ type StandingsTournament = {
   id: string
   name: string
   season: string | null
+  status?: string
   athlonx_code: string | null
   cover_url: string | null
   discipline: { code: string } | null
@@ -127,6 +128,92 @@ function DesignThumb({ design }: { design: PdfDesign }) {
   </span>
 }
 
+export function calculateDivisionRows({ teams, matches, divisionId, adjustments, tiebreakers, points }: { teams: StandingsTeam[]; matches: StandingsMatch[]; divisionId: string; adjustments: StandingAdjustment[]; tiebreakers: string[]; points: { win: number; draw: number; loss: number } }): Row[] {
+  const played = matches.filter((match) => match.division_id === divisionId)
+    .filter((match) => match.status === 'finished')
+    .sort((left, right) => left.date_number - right.date_number || (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
+  return teams.filter((team) => team.division_id === divisionId).map((team) => {
+    const adjustment = adjustments.find((item) => item.division_id === divisionId && item.team_id === team.id)?.points_adjustment || 0
+    const row: Row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0, adjustment, totalPoints: 0, recent: [] }
+    for (const match of played) {
+      if (match.local_team_id !== team.id && match.visitor_team_id !== team.id) continue
+      const local = match.local_team_id === team.id
+      const scored = local ? match.local_score : match.visitor_score
+      const conceded = local ? match.visitor_score : match.local_score
+      row.played += 1
+      row.pointsFor += scored
+      row.pointsAgainst += conceded
+      if (scored > conceded) { row.wins += 1; row.points += points.win; row.recent.push('G') }
+      else if (scored === conceded) { row.draws += 1; row.points += points.draw; row.recent.push('E') }
+      else { row.losses += 1; row.points += points.loss; row.recent.push('P') }
+    }
+    row.recent = row.recent.slice(-3)
+    row.totalPoints = row.points + row.adjustment
+    return row
+  }).sort((a, b) => {
+    for (const criterion of tiebreakers) {
+      if (criterion === 'points' && b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
+      if (criterion === 'goal_difference' && b.pointsFor - b.pointsAgainst !== a.pointsFor - a.pointsAgainst) return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
+      if (criterion === 'goals_for' && b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor
+      if (criterion === 'wins' && b.wins !== a.wins) return b.wins - a.wins
+    }
+    // Sin diferencias (por ejemplo, antes de la primera fecha) se ordena alfabéticamente.
+    return b.totalPoints - a.totalPoints || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst) || b.pointsFor - a.pointsFor || a.team.name.localeCompare(b.team.name, 'es')
+  })
+}
+
+export function DivisionWinners({ tournament, teams, matches }: { tournament: StandingsTournament; teams: StandingsTeam[]; matches: StandingsMatch[] }) {
+  const [adjustments, setAdjustments] = useState<StandingAdjustment[]>([])
+  const [tiebreakers, setTiebreakers] = useState<string[]>([])
+  const [pointValues, setPointValues] = useState<{ win: number; draw: number; loss: number } | null>(null)
+
+  useEffect(() => {
+    if (!supabase || tournament.status !== 'finished') return
+    let active = true
+    void (async () => {
+      const [{ data: settings }, { data: rules }, { data: rows }] = await Promise.all([
+        supabase.from('tournament_competition_settings').select('points_for_win, points_for_draw, points_for_loss').eq('tournament_id', tournament.id).maybeSingle(),
+        tournament.modality?.id
+          ? supabase.from('sport_modality_rules').select('tiebreakers').eq('modality_id', tournament.modality.id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase.from('tournament_standing_adjustments').select('division_id, team_id, points_adjustment, reason').eq('tournament_id', tournament.id),
+      ])
+      if (!active) return
+      if (settings?.points_for_win != null) setPointValues({ win: settings.points_for_win, draw: settings.points_for_draw ?? 0, loss: settings.points_for_loss ?? 0 })
+      setTiebreakers(Array.isArray(rules?.tiebreakers) ? rules.tiebreakers : [])
+      setAdjustments((rows ?? []) as StandingAdjustment[])
+    })()
+    return () => { active = false }
+  }, [tournament.id, tournament.modality?.id, tournament.status])
+
+  if (tournament.status !== 'finished') return null
+  const isFootball = tournament.discipline?.code === 'futbol'
+  const points = pointValues ?? (isFootball ? { win: 3, draw: 1, loss: 0 } : { win: 4, draw: 2, loss: 0 })
+  const divisions = Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])).entries())
+  const winners = divisions.flatMap(([divisionId, divisionName]) => {
+    const first = calculateDivisionRows({ teams, matches, divisionId, adjustments, tiebreakers, points })[0]
+    return first ? [{ divisionId, divisionName, row: first }] : []
+  })
+  if (!winners.length) return null
+
+  return <section className="ax-v2 rounded-[20px] border border-[var(--ax-accent-line)] bg-[var(--ax-surface)] p-5 sm:p-6">
+    <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Torneo finalizado</p>
+    <h3 className="mt-1.5 font-display text-2xl uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Ganadores por división</h3>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {winners.map(({ divisionId, divisionName, row }) => <div key={divisionId} className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-4">
+        <p className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">{divisionName}</p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] text-sm font-bold text-[var(--ax-text)]">{row.team.logo_url ? <img src={row.team.logo_url} alt="" className="h-full w-full object-cover" /> : row.team.name.slice(0, 1).toUpperCase()}</span>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-[var(--ax-text)]">{row.team.name}</p>
+            <p className="mt-0.5 text-xs text-[var(--ax-muted)]">{row.totalPoints} pts · {row.wins} G · {row.draws} E · {row.losses} P</p>
+          </div>
+        </div>
+      </div>)}
+    </div>
+  </section>
+}
+
 export function StandingsSection({ tournament, teams, matches, zoneSize }: { tournament: StandingsTournament; teams: StandingsTeam[]; matches: StandingsMatch[]; zoneSize?: number }) {
   const [selectedDivisionId, setSelectedDivisionId] = useState(teams[0]?.division_id || '')
   const [isOwner, setIsOwner] = useState(false)
@@ -191,38 +278,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
   }
 
   function calculateStandings(divisionId: string): Row[] {
-    const points = pointValues ?? (isFootball ? { win: 3, draw: 1, loss: 0 } : { win: 4, draw: 2, loss: 0 })
-    const played = divisionMatches(divisionId)
-      .filter((match) => match.status === 'finished')
-      .sort((left, right) => left.date_number - right.date_number || (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
-    return teams.filter((team) => team.division_id === divisionId).map((team) => {
-      const adjustment = adjustments.find((item) => item.division_id === divisionId && item.team_id === team.id)?.points_adjustment || 0
-      const row: Row = { team, played: 0, wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0, adjustment, totalPoints: 0, recent: [] }
-      for (const match of played) {
-        if (match.local_team_id !== team.id && match.visitor_team_id !== team.id) continue
-        const local = match.local_team_id === team.id
-        const scored = local ? match.local_score : match.visitor_score
-        const conceded = local ? match.visitor_score : match.local_score
-        row.played += 1
-        row.pointsFor += scored
-        row.pointsAgainst += conceded
-        if (scored > conceded) { row.wins += 1; row.points += points.win; row.recent.push('G') }
-        else if (scored === conceded) { row.draws += 1; row.points += points.draw; row.recent.push('E') }
-        else { row.losses += 1; row.points += points.loss; row.recent.push('P') }
-      }
-      row.recent = row.recent.slice(-3)
-      row.totalPoints = row.points + row.adjustment
-      return row
-    }).sort((a, b) => {
-      for (const criterion of tiebreakers) {
-        if (criterion === 'points' && b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
-        if (criterion === 'goal_difference' && b.pointsFor - b.pointsAgainst !== a.pointsFor - a.pointsAgainst) return (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst)
-        if (criterion === 'goals_for' && b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor
-        if (criterion === 'wins' && b.wins !== a.wins) return b.wins - a.wins
-      }
-      // Sin diferencias (por ejemplo, antes de la primera fecha) se ordena alfabéticamente.
-      return b.totalPoints - a.totalPoints || (b.pointsFor - b.pointsAgainst) - (a.pointsFor - a.pointsAgainst) || b.pointsFor - a.pointsFor || a.team.name.localeCompare(b.team.name, 'es')
-    })
+    return calculateDivisionRows({ teams, matches, divisionId, adjustments, tiebreakers, points: pointValues ?? (isFootball ? { win: 3, draw: 1, loss: 0 } : { win: 4, draw: 2, loss: 0 }) })
   }
 
   // Las fechas pueden no empezar en 1 (fixtures borrados o fases nuevas): se cuenta hasta la última.

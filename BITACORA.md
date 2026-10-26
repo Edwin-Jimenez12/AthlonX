@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Ganadores por división en el Resumen
+
+- Al finalizar el torneo (`status = 'finished'`), el Resumen muestra "Ganadores por división": el primer lugar de la tabla de cada división, con puntos, G/E/P.
+- Para reutilizar la misma lógica de la tabla, el cálculo de posiciones se extrajo a `calculateDivisionRows` (función pura en `Components/torneo/standings.tsx`). `StandingsSection` la usa igual que antes.
+- Nuevo componente `DivisionWinners`: carga puntos, desempates y ajustes del torneo, y no se muestra si el torneo no está finalizado ni si no hay equipos.
+
+**Archivos**: `Components/torneo/standings.tsx`, `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador con el torneo de prueba al finalizar: pendiente.
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Agregar enfrentamiento solo al editar
 
 - En Fixtures, el banner "Nuevo enfrentamiento" (con el botón "Añadir enfrentamiento") solo aparece cuando la fecha está en modo edición. Al cancelar la edición se cierra también el formulario de agregar.
