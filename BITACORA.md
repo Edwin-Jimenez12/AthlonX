@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Script de torneo rápido Liga + Fase final
+
+- Nuevo `supabase/seed-liga-rugby-rapido-fase-final.sql`: torneo rápido (`is_quick`), publicado, formato `league_playoffs`, 1 vuelta, 4 clasificados por división, 1 cancha. Divisiones: Primera (5 equipos), Segunda (4) y Femenina (5). 14 equipos registrados con invitación aceptada y 12 jugadores por equipo. No genera fixtures.
+- No ejecutado en Supabase.
+
+**Archivos**: `supabase/seed-liga-rugby-rapido-fase-final.sql` (nuevo).
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Ganadores por división en el Resumen
 
 - Al finalizar el torneo (`status = 'finished'`), el Resumen muestra "Ganadores por división": el primer lugar de la tabla de cada división, con puntos, G/E/P.
