@@ -298,8 +298,8 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       : started && divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]] : []
     const leagueDone = own.length > 0 && own.every((match) => match.status === 'finished')
     const bracket: [string, string][] = !leagueDone ? []
-      : divisionZone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
-      : divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]]
+      : zone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
+      : zone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]]
       : []
     const nextDate = Math.min(...own.filter((match) => match.status !== 'finished').map((match) => match.date_number))
     const nextMatches = Number.isFinite(nextDate) ? own.filter((match) => match.date_number === nextDate && match.status !== 'finished')

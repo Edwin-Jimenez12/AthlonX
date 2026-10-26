@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Llave no aparecía con 4 equipos y 4 clasificados
+
+- Causa: la condición de la llave usaba la zona de clasificación solo si era menor que el número de equipos. Con 4 equipos y 4 clasificados, la llave no aparecía (caso de Segunda división).
+- Fix: la llave usa la zona configurada directamente.
+- Propuesta de diseño en Figma (frame `1143:18230`, página `REDISEÑO`): llave debajo de la tabla con clasificados, semifinales, final y campeón, con lugares "Por definir" antes de jugar. Pendiente aprobación; el cambio de ubicación (debajo de la tabla) no está implementado.
+
+**Archivos**: `Components/torneo/standings.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK.
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Resultados de la fase de liga del torneo rápido
 
 - Nuevo `supabase/seed-liga-rugby-rapido-resultados.sql`: resultados solo de la fase `league` del torneo rápido (tries, conversiones, tarjetas, conmociones, lesiones). Semifinales y final quedan pendientes. No ejecutado en Supabase.
