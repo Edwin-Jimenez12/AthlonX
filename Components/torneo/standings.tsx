@@ -297,10 +297,10 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
       : started && divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]] : []
     const leagueDone = own.length > 0 && own.every((match) => match.status === 'finished')
-    const bracket: [string, string][] = !leagueDone ? []
-      : zone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]]
-      : zone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]]
-      : []
+    const playoffZone = zone > 0 && rows.length >= zone ? zone : 0
+    const seeds = rows.slice(0, playoffZone).map((row) => ({ name: row.team.name, points: row.totalPoints }))
+    const semis: [string, string][] = playoffZone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]] : []
+    const finalPair: [string, string] | null = playoffZone === 2 && rows.length >= 2 ? [rows[0].team.name, rows[1].team.name] : null
     const nextDate = Math.min(...own.filter((match) => match.status !== 'finished').map((match) => match.date_number))
     const nextMatches = Number.isFinite(nextDate) ? own.filter((match) => match.date_number === nextDate && match.status !== 'finished')
       .sort((left, right) => (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
@@ -325,8 +325,12 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       zoneLabel: isFootball ? 'Zona de clasificación' : divisionZone === 2 ? 'Clasifican a la final' : 'Clasifican a semifinales',
       projectionTitle: divisionZone === 2 ? 'Camino a la final' : 'Camino a semifinales',
       projection,
-      bracket,
-      bracketTitle: divisionZone === 2 ? 'Final' : 'Semifinales',
+      leagueDone,
+      playoffZone,
+      seeds,
+      semis,
+      finalPair,
+      divisionName: divisionName,
       nextDateLabel: Number.isFinite(nextDate) ? `Fecha ${nextDate}${nextCalendar ? ` · ${shortDate(nextCalendar)}` : ''}` : '',
       nextMatches,
       adjustments: rows.filter((row) => row.adjustment).map((row) => {
@@ -578,16 +582,6 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       </div>
     </section>}
 
-    {current.bracket.length > 0 && <Card labelledBy="bracket-title">
-      <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Fase final</p>
-      <h2 id="bracket-title" className="mt-1 font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">{current.bracketTitle}</h2>
-      <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">Fase de liga terminada · así quedó la llave según la tabla final.</p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {current.bracket.map(([left, right]) => <div key={`${left}-${right}`} className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-4 py-3 text-sm font-semibold text-[var(--ax-text)]">
-          <span className="truncate">{left}</span><span className="text-xs font-normal text-[var(--ax-muted)]">vs</span><span className="truncate">{right}</span>
-        </div>)}
-      </div>
-    </Card>}
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
       <Card labelledBy="standings-title" className="sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -717,6 +711,45 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       </div>
     </div>
 
+    {current.playoffZone > 0 && <Card labelledBy="bracket-title" className="mt-5 sm:p-6">
+      <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Fase final · {current.divisionName}</p>
+      <h2 id="bracket-title" className="mt-1 font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Llave de campeonato</h2>
+      <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{current.leagueDone ? 'Fase de liga terminada · llave según la tabla final.' : 'Se arma con la tabla final de la liga. Los lugares son provisionales hasta terminar la fase.'}</p>
+      <div className={cx('mt-5 grid gap-4', current.playoffZone === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+        <div className="space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Clasificados</p>
+          {current.seeds.map((seed, index) => <div key={seed.name} className="flex items-center gap-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5">
+            <span className="rounded-[6px] border border-[var(--ax-line)] bg-[var(--ax-surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--ax-accent-text)]">{index + 1}.º</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--ax-text)]">{seed.name}</span>
+            <span className="text-xs font-bold text-[var(--ax-muted)]">{seed.points} pts</span>
+          </div>)}
+        </div>
+        {current.playoffZone === 4 && <div className="space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Semifinales</p>
+          {current.semis.map(([left, right], index) => <div key={`${left}-${right}`} className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3">
+            <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">Semifinal {index + 1}</span><span className="text-[11px] font-semibold text-amber-300">{current.leagueDone ? 'Por jugar' : 'Provisional'}</span></div>
+            <p className="mt-2 truncate text-sm font-semibold text-[var(--ax-text)]">{left}</p>
+            <p className="mt-1 truncate text-sm font-semibold text-[var(--ax-text)]">{right}</p>
+          </div>)}
+        </div>}
+        <div className="space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Final</p>
+          <div className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3">
+            {current.playoffZone === 2 && current.finalPair
+              ? <><p className="truncate text-sm font-semibold text-[var(--ax-text)]">{current.finalPair[0]}</p><p className="mt-1 truncate text-sm font-semibold text-[var(--ax-text)]">{current.finalPair[1]}</p></>
+              : <><p className="text-sm text-[var(--ax-muted)]">Ganador semifinal 1</p><p className="mt-1 text-sm text-[var(--ax-muted)]">Ganador semifinal 2</p></>}
+            <span className="mt-2 inline-block text-[11px] font-semibold text-amber-300">Pendiente</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Campeón</p>
+          <div className="rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent)]/10 p-4">
+            <p className="font-display text-[26px] uppercase leading-none text-[var(--ax-text)]">Por definir</p>
+            <p className="mt-2 text-[12px] text-[var(--ax-muted)]">Se confirma al jugar la final</p>
+          </div>
+        </div>
+      </div>
+    </Card>}
     {adjustmentHistory.filter((h) => h.division_id === selectedDivisionId).length > 0 && <div ref={historyRef} className="pt-6">
       <Card labelledBy="history-title">
         <h2 id="history-title" className="font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Historial de ajustes</h2>

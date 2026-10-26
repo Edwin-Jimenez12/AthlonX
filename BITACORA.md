@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-26 · `edwin` · nube → Llave de fase final debajo de la tabla (aprobada en Figma `1143:18230`)
+
+- La llave pasa debajo de la tabla de posiciones, en 4 columnas: clasificados, semifinales, final y campeón. Con zona de 2 no hay semifinales.
+- Antes de terminar la liga, los nombres de la tabla se muestran como provisionales y los campeones como "Por definir". Al terminar, la llave usa la tabla final.
+- Se muestra en cualquier división con zona de clasificación, aunque la liga no haya empezado.
+
+**Archivos**: `Components/torneo/standings.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador: pendiente.
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Llave no aparecía con 4 equipos y 4 clasificados
 
 - Causa: la condición de la llave usaba la zona de clasificación solo si era menor que el número de equipos. Con 4 equipos y 4 clasificados, la llave no aparecía (caso de Segunda división).
