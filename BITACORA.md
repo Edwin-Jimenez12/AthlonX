@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Corregir carga de campos de overtime en SELECTs de Supabase
+
+- ✅ Problema identificado: Los campos `match_phase`, `overtime_minutes`, `overtime_started_at` no se cargaban porque los SELECT queries no los incluían.
+- ✅ Corregidos SELECTs en 3 archivos:
+  1. `app/(panel)/torneos/[torneo]/page.tsx` (línea 309): SELECT principal de matches para el Generador
+  2. `app/(panel)/torneos/ver/[id]/page.tsx` (línea 447-450): SELECT de courtRows que obtiene datos adicionales de matches
+  3. Tipos TypeScript actualizados para incluir campos de overtime en:
+     - `FixtureMatch` en `[torneo]/page.tsx`
+     - `Match` en `ver/[id]/page.tsx`
+     - `FixtureMatch` en `tournament-fixture-generator.tsx`
+
+**Archivos modificados** (3):
+1. `app/(panel)/torneos/[torneo]/page.tsx` - SELECT + tipos + mapeo
+2. `app/(panel)/torneos/ver/[id]/page.tsx` - SELECT + tipos
+3. `Components/tournament-fixture-generator.tsx` - tipos
+
+**Verificación**: `npm run build`: ✅ OK. Los campos ahora se cargan y están disponibles en el componente LeagueGenerator para renderizar RugbyOvertimePanel.
+
+**Resultado**: El OvertimePanel ahora aparecerá en la pestaña "Generador" cuando exista una semifinal empatada.
+
+---
+
 ## 2026-10-29 · `edwin` · nube → Implementar sistema de prórroga (prórroga) con muerte subida para rugby 7
 
 - ✅ Migración SQL: agregar campos `match_phase`, `overtime_minutes`, `overtime_started_at` a tabla `matches`.

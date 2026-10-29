@@ -1,67 +1,235 @@
 {
   "app": {
+    "[project]/app/(panel)/actualizaciones/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
     "[project]/app/(panel)/atleta/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/busqueda/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/calendario/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/configuracion/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/directivo/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/entrenador/equipo/[id]/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/entrenador/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/equipo/convocatoria/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/equipo/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/equipos/[id]/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/equipos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/estadisticas/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/eventos/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/mi-perfil/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/notificaciones/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/organizaciones/[id]/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/organizaciones/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/participantes/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/partidos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/perfil/[id]/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/perfil/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/staff/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/torneos/[torneo]/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/torneos/liga-panamena-rugby/partidos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/(panel)/torneos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/(panel)/torneos/ver/[id]/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/_not-found/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/contactanos/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/invitacion/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/nosotros/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
+    ],
+    "[project]/app/novedades/page": [
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ],
     "[project]/app/page": [
-      "static/media/Inter_VariableFont_opsz,wght-s.p.cf290510.ttf",
-      "static/media/BebasNeue_Regular-s.p.d0683059.ttf",
-      "static/media/Oswald_VariableFont_wght-s.p.1a2084bc.ttf",
-      "static/media/BarlowCondensed_Regular-s.p.dee9f15f.ttf",
-      "static/media/BarlowCondensed_SemiBold-s.p.0de01790.ttf"
+      "static/media/Inter_VariableFont_opsz,wght-s.p.24zbyljy1vorm.ttf",
+      "static/media/BebasNeue_Regular-s.p.2w6e6n91awk1s.ttf",
+      "static/media/Oswald_VariableFont_wght-s.p.3wq32w0y9fyt7.ttf",
+      "static/media/BarlowCondensed_Regular-s.p.2rco3cqcfa_n-.ttf",
+      "static/media/BarlowCondensed_SemiBold-s.p.0f-3u_1bihgzt.ttf"
     ]
   },
   "appUsingSizeAdjust": true,

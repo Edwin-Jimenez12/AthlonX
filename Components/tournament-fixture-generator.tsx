@@ -9,7 +9,7 @@ import { LeagueGenerator, type LeagueSettings, type ScheduleDate } from './torne
 
 type Division = { id: string; name: string }
 type Team = { id: string; name: string; division_id: string; division_name: string; logo_url: string | null }
-type FixtureMatch = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_id: string | null; division_name: string | null; local_team_id: string; local_team_name: string; visitor_team_id: string; visitor_team_name: string; scheduled_time: string | null; court_number?: number | null; status: string; local_score: number; visitor_score: number }
+type FixtureMatch = { id: string; fixture_id: string; date_number: number; calendar_date: string | null; division_id: string | null; division_name: string | null; local_team_id: string; local_team_name: string; visitor_team_id: string; visitor_team_name: string; scheduled_time: string | null; court_number?: number | null; status: string; local_score: number; visitor_score: number; match_phase?: string; overtime_minutes?: number | null; overtime_started_at?: string | null }
 type MatchEvent = { match_id: string; team_id?: string | null; event_type: string; points: number; is_corrected?: boolean }
 type Mode = 'automatic' | 'manual'
 

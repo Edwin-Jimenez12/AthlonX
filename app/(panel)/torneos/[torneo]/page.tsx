@@ -42,6 +42,9 @@ type FixtureMatch = {
   elapsedSeconds?: number;
   localTeamId?: string;
   visitorTeamId?: string;
+  matchPhase?: string;
+  overtimeMinutes?: number;
+  overtimeStartedAt?: string | null;
 };
 type FixtureDate = {
   id: string;
@@ -306,7 +309,7 @@ export default function TournamentPage() {
       const { data: matchRows } = fixtureIds.length
         ? await supabase
             .from("matches")
-            .select("id,fixture_id,scheduled_time,local_score,visitor_score,status,period,is_paused,started_at,elapsed_seconds,local_team_id,visitor_team_id,teams!matches_local_team_id_fkey(name,logo_url),visitor:teams!matches_visitor_team_id_fkey(name,logo_url),tournament_divisions(name)")
+            .select("id,fixture_id,scheduled_time,local_score,visitor_score,status,period,is_paused,started_at,elapsed_seconds,local_team_id,visitor_team_id,match_phase,overtime_minutes,overtime_started_at,teams!matches_local_team_id_fkey(name,logo_url),visitor:teams!matches_visitor_team_id_fkey(name,logo_url),tournament_divisions(name)")
             .in("fixture_id", fixtureIds)
         : { data: [] };
       const matchIds = (matchRows ?? [])
@@ -357,6 +360,9 @@ export default function TournamentPage() {
         isPaused: match.is_paused ?? false,
         startedAt: match.started_at ?? null,
         elapsedSeconds: match.elapsed_seconds ?? 0,
+        matchPhase: match.match_phase ?? "regular",
+        overtimeMinutes: match.overtime_minutes ?? undefined,
+        overtimeStartedAt: match.overtime_started_at ?? null,
       })).filter((match: FixtureMatch) => match.local && match.visitor);
       setTournament({
         id: data.id,

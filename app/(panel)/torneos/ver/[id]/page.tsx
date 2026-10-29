@@ -83,6 +83,9 @@ type Match = {
   started_at?: string | null
   is_paused?: boolean
   period?: 'first_half' | 'second_half'
+  match_phase?: string
+  overtime_minutes?: number | null
+  overtime_started_at?: string | null
 }
 type FixtureRecess = { id: string; time: string | null; label?: string | null }
 type FixtureRecord = { id: string; date_number: number; calendar_date: string | null; recesses: FixtureRecess[] | null }
@@ -444,7 +447,8 @@ export default function PublicTournamentPage() {
         .select(
           'id, court_number, period, elapsed_seconds, first_half_seconds, '
           + 'second_half_seconds, started_at, is_paused, '
-          + 'shootout_local_score, shootout_visitor_score',
+          + 'shootout_local_score, shootout_visitor_score, '
+          + 'match_phase, overtime_minutes, overtime_started_at',
         )
         .in('id', matchIds)
       : { data: [] }

@@ -3,26 +3,397 @@ globalThis.__BUILD_MANIFEST = {
     "/_app": []
   },
   "devFiles": [],
-  "ampDevFiles": [],
   "polyfillFiles": [
-    "static/chunks/node_modules_next_dist_build_polyfills_polyfill-nomodule.js"
+    "static/chunks/0cz1d0mv5g_q7.js"
   ],
-  "lowPriorityFiles": [],
+  "lowPriorityFiles": [
+    "static/kCKuNy8yWjeH3AWgTBbNw/_buildManifest.js",
+    "static/kCKuNy8yWjeH3AWgTBbNw/_ssgManifest.js",
+    "static/kCKuNy8yWjeH3AWgTBbNw/_clientMiddlewareManifest.js"
+  ],
   "rootMainFiles": [
-    "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
-    "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
-    "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",
-    "static/chunks/node_modules_next_dist_compiled_5150ccfd._.js",
-    "static/chunks/node_modules_next_dist_client_cf1d9188._.js",
-    "static/chunks/node_modules_next_dist_b0daae9a._.js",
-    "static/chunks/node_modules_@swc_helpers_cjs_b3dc30d6._.js",
-    "static/chunks/_a0ff3932._.js",
-    "static/chunks/turbopack-_cdba956c._.js"
+    "static/chunks/1x6obpmlu1_c2.js",
+    "static/chunks/1-nqmp1rl8kqt.js",
+    "static/chunks/2khxl0v1q4i6n.js",
+    "static/chunks/2-6b9idk461ia.js",
+    "static/chunks/turbopack-3-ry682tkyiqk.js"
   ],
-  "ampFirstPages": []
+  "rootMainFilesTree": {},
+  "pagesChunkGroupBootstrapParams": {
+    "/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/_not-found/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/_global-error/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/actualizaciones/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/atleta/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/busqueda/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/calendario/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/configuracion/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/directivo/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/entrenador/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/entrenador/equipo/[id]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/equipo/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/equipo/convocatoria/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/equipos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/equipos/[id]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/estadisticas/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/eventos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/mi-perfil/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/notificaciones/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/organizaciones/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/organizaciones/[id]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/participantes/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/partidos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/perfil/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/perfil/[id]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/staff/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/torneos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/torneos/[torneo]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/torneos/liga-panamena-rugby/partidos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/(panel)/torneos/ver/[id]/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/contactanos/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/invitacion/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/nosotros/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    },
+    "/novedades/page": {
+      "otherChunks": [
+        "static/chunks/1x6obpmlu1_c2.js",
+        "static/chunks/1-nqmp1rl8kqt.js",
+        "static/chunks/2khxl0v1q4i6n.js",
+        "static/chunks/2-6b9idk461ia.js"
+      ],
+      "runtimeModuleIds": [
+        94553
+      ]
+    }
+  },
+  "chunkLoadingGlobal": "TURBOPACK"
 };
-globalThis.__BUILD_MANIFEST.lowPriorityFiles = [
-"/static/" + process.env.__NEXT_BUILD_ID + "/_buildManifest.js",
-,"/static/" + process.env.__NEXT_BUILD_ID + "/_ssgManifest.js",
-
-];
