@@ -5,6 +5,21 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Cuartos de final (8 equipos) con actualización automática
+
+- Implementado sistema de 8 equipos: cuartos (1.º vs 8.º, 2.º vs 7.º, 3.º vs 6.º, 4.º vs 5.º), semifinales desde ganadores de cuartos, final desde ganadores de semis.
+- El generador permite seleccionar 8 equipos para fase final y genera automáticamente cuartos, semis y final en botones secuenciales.
+- La llave renderiza 5 columnas con 8 equipos: clasificados, cuartos, semifinales, final y campeón. Se actualiza automáticamente cuando se registra un resultado.
+- Cambios en `standings.tsx`: agregado cálculo de cuartos y lógica de actualización de semis desde ganadores de cuartos.
+
+**Archivos**: `Components/torneo/league-generator.tsx`, `Components/torneo/standings.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador: pendiente (ver llave con 8 equipos, generar cuartos, verificar actualización automática de semifinales al terminar cuartos).
+
+**Pendiente**: Script SQL de resultados de cuartos, semifinales y final para torneo de prueba (opcional, usuario a confirmar).
+
+---
+
 ## 2026-10-28 · `edwin` · nube → Llave con resultados y campeón
 
 - La llave lee los partidos de semifinal y final de cada división: muestra marcadores, resalta al ganador de cada semifinal y de la final, y muestra el campeón cuando la final termina.
