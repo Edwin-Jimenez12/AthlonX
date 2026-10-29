@@ -5,6 +5,20 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Fijar error TypeScript en tipo ScheduleDate
+
+- El commit bbb3116 agregó soporte para cuartos de final pero no incluyó 'quarterfinal' en el tipo `ScheduleDate`.
+- Fix: actualizar tipo `ScheduleDate` para incluir `'quarterfinal'` en valores válidos de `stage`.
+- Build local y cloud ahora pasan exitosamente.
+
+**Archivos**: `Components/torneo/league-generator.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK.
+
+**Pendiente**: Revisión visual en navegador (ver llave con 8 equipos, generar cuartos, verificar actualización automática). Script SQL de resultados para prueba.
+
+---
+
 ## 2026-10-29 · `edwin` · nube → Cuartos de final (8 equipos) con actualización automática
 
 - Implementado sistema de 8 equipos: cuartos (1.º vs 8.º, 2.º vs 7.º, 3.º vs 6.º, 4.º vs 5.º), semifinales desde ganadores de cuartos, final desde ganadores de semis.
