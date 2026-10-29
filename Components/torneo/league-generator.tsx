@@ -16,6 +16,14 @@ export type LeagueSettings = { format: LeagueFormat; legs: number; playoffTeams:
 export type ScheduleDate = { calendarDate: string | null; stage: 'league' | 'quarterfinal' | 'semifinal' | 'final'; recesses: { time: string; minutes: number }[]; matches: (LeaguePairing & { time: string; court: number })[] }
 type Mode = 'automatic' | 'manual'
 
+// El formato se elige al crear la liga; aquí solo se muestra.
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0">
+    <FieldLabel>{label}</FieldLabel>
+    <p className="mt-1 flex h-10 items-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] px-3 text-sm font-semibold text-[var(--ax-text)]">{value}</p>
+  </div>
+}
+
 function addDays(date: string, days: number) {
   if (!date) return null
   const value = new Date(`${date}T00:00:00Z`)
@@ -182,9 +190,9 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
     <Card labelledBy="league-format">
       <CardHeader id="league-format" title="Formato de juego" subtitle={`${teamCount} equipos · cada equipo juega ${perTeam} partido${perTeam === 1 ? '' : 's'} de liga · ${totalLeague} partidos en total, ${pool.length} por programar`} />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Select label="Formato" value={settings.format} onChange={(value) => update({ format: value as LeagueFormat })} options={Object.entries(leagueFormats).map(([value, label]) => ({ value, label }))} />
-        <Select label="Vueltas" value={String(settings.legs)} onChange={(value) => update({ legs: Number(value) })} options={[{ value: '1', label: '1 vuelta' }, { value: '2', label: 'Ida y vuelta' }, { value: '3', label: '3 vueltas' }, { value: '4', label: '4 vueltas' }]} />
-        {settings.format === 'league_playoffs' && <Select label="Fase final" value={String(settings.playoffTeams)} onChange={(value) => update({ playoffTeams: Number(value) })} options={[{ value: '8', label: 'Cuartos, semis y final (8)' }, { value: '4', label: 'Semifinales y final (4)' }, { value: '2', label: 'Final directa (2)' }]} />}
+        <ReadOnlyField label="Formato" value={leagueFormats[settings.format]} />
+        <ReadOnlyField label="Vueltas" value={settings.legs === 1 ? '1 vuelta' : `${settings.legs} vueltas`} />
+        {settings.format === 'league_playoffs' && <ReadOnlyField label="Fase final" value={({ 8: 'Cuartos, semis y final (8)', 4: 'Semifinales y final (4)', 2: 'Final directa (2)' } as Record<number, string>)[settings.playoffTeams] ?? String(settings.playoffTeams)} />}
       </div>
       <div className="mt-5">{modePicker}</div>
     </Card>

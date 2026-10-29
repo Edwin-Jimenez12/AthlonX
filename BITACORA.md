@@ -5,6 +5,14 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Formato de juego solo lectura en el Generador de liga
+
+**Cambio**: en `Components/torneo/league-generator.tsx`, Formato, Vueltas y Fase final se muestran como campos de solo lectura (`ReadOnlyField`). Ya no son selectores editables, porque el formato se define al crear la liga.
+
+**Verificación**: `npm run build` OK. No probado en navegador.
+
+**Pendiente**: revisar en navegador que la sección muestra los valores correctos con liga de 6 equipos.
+
 ## 2026-10-29 · `edwin` · nube → Llave de campeonato muestra "Primer/Segundo lugar" hasta terminar la liga
 
 **Problema**: la llave de campeonato mostraba nombres de equipos (Cóndores, Guerreros) aunque no hubiera fixture ni partidos jugados.
