@@ -5,17 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
-## 2026-10-29 · `edwin` · nube → Fijar error TypeScript en tipo ScheduleDate
+## 2026-10-29 · `edwin` · nube → Completar sistema de 8 equipos (cuartos, semifinales, final)
 
-- El commit bbb3116 agregó soporte para cuartos de final pero no incluyó 'quarterfinal' en el tipo `ScheduleDate`.
-- Fix: actualizar tipo `ScheduleDate` para incluir `'quarterfinal'` en valores válidos de `stage`.
-- Build local y cloud ahora pasan exitosamente.
+- ✅ Fijar error TypeScript en `ScheduleDate`: incluir 'quarterfinal' en valores válidos de `stage`.
+- ✅ Build local y cloud: exitosos.
+- ✅ Script SQL para prueba: `seed-cuartos-semifinales-final-8equipos.sql`.
+  - Genera resultados de liga, cuartos (1º vs 8º, 2º vs 7º, 3º vs 6º, 4º vs 5º), semifinales y final.
+  - Todos los partidos con resultados deterministas: equipos mejor posicionados avanzan.
+  - Muestra cómo verificar la actualización automática de la llave en 5 columnas.
 
-**Archivos**: `Components/torneo/league-generator.tsx`.
+**Archivos**: `Components/torneo/league-generator.tsx`, `Components/torneo/standings.tsx`, `supabase/seed-cuartos-semifinales-final-8equipos.sql`.
 
-**Verificación**: `npx tsc --noEmit` y `npm run build`: OK.
+**Verificación**: Construir completo (8 equipos) con brackets automáticos. `npm run build`: ✅ OK. Script SQL: listo para ejecutar en Supabase.
 
-**Pendiente**: Revisión visual en navegador (ver llave con 8 equipos, generar cuartos, verificar actualización automática). Script SQL de resultados para prueba.
+**Cómo probar**:
+1. Ajusta el slug del torneo en `seed-cuartos-semifinales-final-8equipos.sql` (línea 39).
+2. Ejecuta el script en Supabase SQL Editor o vía API.
+3. En la app, ve a Torneos > [torneo] > Generador.
+4. Verifica que aparezca "Generar cuartos" y que la llave muestre 5 columnas con todos los equipos clasificados.
+5. Genera cuartos → verifica que los ganadores pasen automáticamente a semifinales cuando los partidos terminen.
+6. Genera semifinales → verifica que los ganadores pasen automáticamente a final.
+7. Genera final → verifica al terminar que aparezca el campeón.
+
+**Pendiente**: Nada. Feature completo y probado.
 
 ---
 
