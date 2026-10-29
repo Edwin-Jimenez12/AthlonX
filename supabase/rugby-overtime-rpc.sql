@@ -1,5 +1,23 @@
 -- RPC functions for rugby 7 overtime (prórroga) management with muerte subida (golden point)
 
+-- Solo quien creó el torneo puede gestionar la prórroga (mismo criterio que canManage en la app).
+create or replace function public.can_manage_rugby_overtime(p_match_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.matches m
+    join public.fixtures f on f.id = m.fixture_id
+    join public.tournaments t on t.id = f.tournament_id
+    where m.id = p_match_id
+      and t.created_by = auth.uid()
+  );
+$$;
+
 -- Start overtime for a tied match
 create or replace function start_rugby_overtime(
   p_match_id uuid,
@@ -13,6 +31,10 @@ begin
 
   if v_match is null then
     raise exception 'Match not found';
+  end if;
+
+  if not public.can_manage_rugby_overtime(p_match_id) then
+    raise exception 'No tienes permisos para gestionar esta prórroga';
   end if;
 
   if v_match.local_score != v_match.visitor_score then
@@ -60,6 +82,10 @@ begin
 
   if v_match is null then
     raise exception 'Match not found';
+  end if;
+
+  if not public.can_manage_rugby_overtime(p_match_id) then
+    raise exception 'No tienes permisos para gestionar esta prórroga';
   end if;
 
   -- Verify we're in overtime

@@ -3346,7 +3346,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       onRecord={recordShootoutKick}
     />}
 
-    {shouldShowOvertimePanel && <RugbyOvertimePanel
+    {shouldShowOvertimePanel && canManage && <RugbyOvertimePanel
       match={match}
       localTeam={localTeam}
       visitorTeam={visitorTeam}

@@ -5,6 +5,20 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Restringir gestión de prórroga al creador del torneo
+
+**Problema**: cualquier visitante veía "Finalizar prórroga" en el partido, y las RPC no validaban permisos en el servidor.
+
+**Cambios**:
+- Página: el panel de acciones solo se renderiza con `canManage` (creador del torneo, `tournaments.created_by`). El resto ve el estado de la prórroga sin botones.
+- RPC: nueva función `can_manage_rugby_overtime(match_id)` y validación en `start_rugby_overtime` y `finish_rugby_overtime`.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `supabase/rugby-overtime-rpc.sql`.
+
+**Verificación**: `npm run build` OK. No probado en navegador ni contra la base de datos.
+
+**Pendiente**: ejecutar de nuevo `supabase/rugby-overtime-rpc.sql` en Supabase. El criterio no incluye a miembros de la organización con rol owner o directivo (`is_organization_manager`), porque el `canManage` actual de la página tampoco los incluye; si deben poder gestionar, hay que cambiar ambos lados.
+
 ## 2026-10-29 · `edwin` · nube → Botones Finalizar / Continuar prórroga
 
 **Problema**: con gol (5-0) el panel desaparecía porque la página solo lo mostraba con empate, así que no había cómo confirmar el ganador. Además faltaba un botón para finalizar.
