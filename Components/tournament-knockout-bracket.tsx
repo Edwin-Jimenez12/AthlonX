@@ -492,11 +492,10 @@ function LegacyTournamentKnockoutBracket({
                 disabled:cursor-not-allowed disabled:opacity-50">
               PDF de la llave
             </button>
-            {(!footballEight || generationMode === 'automatic') && (
+            {(!footballEight || generationMode === 'automatic') && !stages.length && (
               <button
                 type="button"
                 onClick={() => void generateBracket()}
-                disabled={footballEight && stages.length > 0}
                 className="rounded-lg bg-[#b4ff45] px-4 py-2 font-bold text-[#07131e]"
               >
                 Generar llave automática

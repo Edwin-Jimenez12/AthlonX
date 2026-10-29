@@ -1258,7 +1258,8 @@ export default function PublicTournamentPage() {
     ['historial', 'Historial'],
   ] as const)
     .filter(([value]) => (
-      (value !== 'generador' || canManage)
+      (value !== 'generador' || (canManage && editMode))
+      && (value !== 'tablas' || !isFootballEightKnockout || isBasketball)
       && (value !== 'llaves' || showBracketTab)
       && (value !== 'convocatorias' || !tournament.is_quick)
       && (value !== 'fixtures' || showFixtureSections)
@@ -1277,6 +1278,7 @@ export default function PublicTournamentPage() {
     if (pendingOperations.length || dirtySection || pendingChanges) return setMessage('Guarda o descarta los cambios antes de salir del modo edición.')
     setEditMode(false)
     setMessage('')
+    if (section === 'generador') setSection('resumen')
   }
 
   return <main className="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-10"><div className="mx-auto max-w-6xl space-y-5">
@@ -1334,7 +1336,7 @@ export default function PublicTournamentPage() {
       teams={teams}
       matches={matches}
       events={matchEvents}
-      canManage={canManage}
+      canManage={canManage && editMode}
       footballEight={isFootballEightKnockout}
       discipline={tournament.discipline?.code}
       tournamentName={tournament.name}

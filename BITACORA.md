@@ -5,6 +5,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Fútbol 8 eliminación directa: sin Tablas, llave sin botón repetido, edición solo en modo edición
+
+**Cambios**:
+- Torneo de eliminación directa (fútbol 8): la pestaña Tablas ya no aparece.
+- Botón "Generar llave automática" se oculta cuando la llave ya tiene etapas.
+- Llaves y Generador solo se pueden editar con el dueño en modo edición. La pestaña Generador solo aparece en modo edición; al salir de edición se vuelve a Resumen.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `Components/tournament-knockout-bracket.tsx`.
+
+**Verificación**: `npm run build` OK. No probado en navegador.
+
+**Pendiente**: revisar en navegador con "Futbol Prueba" antes y después de generar la llave.
+
 ## 2026-10-29 · `edwin` · nube → Formato de juego solo lectura en el Generador de liga
 
 **Cambio**: en `Components/torneo/league-generator.tsx`, Formato, Vueltas y Fase final se muestran como campos de solo lectura (`ReadOnlyField`). Ya no son selectores editables, porque el formato se define al crear la liga.
