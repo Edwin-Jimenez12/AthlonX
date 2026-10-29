@@ -5,12 +5,13 @@ import { useMemo, useState } from 'react'
 import { Badge, Button, Card, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../mi-equipo/ui'
 import { DateField, Switch } from '../mi-perfil/ui'
 import { leagueFormats, leaguePool, leagueStandings, orderDate, pairKey, scheduleBlocks, splitIntoDates, type LeagueFormat, type LeaguePairing } from '../../lib/league'
+import { RugbyOvertimePanel } from '../rugby-overtime-panel'
 
 // Generador de fixtures para ligas (rugby): todos contra todos y liga con fase final.
 
 type Division = { id: string; name: string }
 type Team = { id: string; name: string; division_id: string }
-type LeagueMatch = { id: string; fixture_id: string; date_number: number; division_id: string | null; local_team_id: string; visitor_team_id: string; local_score: number; visitor_score: number; status: string }
+type LeagueMatch = { id: string; fixture_id: string; date_number: number; division_id: string | null; local_team_id: string; visitor_team_id: string; local_score: number; visitor_score: number; status: string; is_paused?: boolean; match_phase?: string; overtime_minutes?: number; overtime_started_at?: string | null }
 export type LeagueSettings = { format: LeagueFormat; legs: number; playoffTeams: number; courts: number; halfMinutes: number; halftimeMinutes: number; intervalMinutes: number }
 export type ScheduleDate = { calendarDate: string | null; stage: 'league' | 'quarterfinal' | 'semifinal' | 'final'; recesses: { time: string; minutes: number }[]; matches: (LeaguePairing & { time: string; court: number })[] }
 type Mode = 'automatic' | 'manual'
@@ -307,7 +308,20 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
             <ol className="mt-2 space-y-1">{division.rows.slice(0, settings.playoffTeams).map((row, index) => <li key={row.teamId} className="flex items-center gap-2 text-[13px]"><span className="w-5 font-semibold tabular-nums text-[var(--ax-accent-text)]">{index + 1}</span><span className="min-w-0 flex-1 truncate text-[var(--ax-text)]">{teamName(row.teamId)}</span><span className="tabular-nums text-[var(--ax-muted)]">{row.points} pts</span></li>)}</ol>
           </div>)}
         </div>
-        {tiedSemis.map((match) => <Select key={match.id} label={`Empate en semifinal: ${teamName(match.local_team_id)} vs ${teamName(match.visitor_team_id)}. ¿Quién pasa a la final?`} value={finalWinners[match.id] || ''} onChange={(value) => setFinalWinners((current) => ({ ...current, [match.id]: value }))} options={[{ value: match.local_team_id, label: teamName(match.local_team_id) }, { value: match.visitor_team_id, label: teamName(match.visitor_team_id) }]} />)}
+        {tiedSemis.map((match) => {
+          const localTeam = match.local_team_id ? { id: match.local_team_id, name: teamName(match.local_team_id) } : null
+          const visitorTeam = match.visitor_team_id ? { id: match.visitor_team_id, name: teamName(match.visitor_team_id) } : null
+          return <RugbyOvertimePanel
+            key={match.id}
+            match={match}
+            localTeam={localTeam}
+            visitorTeam={visitorTeam}
+            onOvertimeFinished={async () => {
+              // Refresh the component to reflect the finished overtime
+              // This will be handled by the parent component that renders the league-generator
+            }}
+          />
+        })}
         <div className="flex flex-wrap gap-2">
           {settings.playoffTeams === 8 && !quarters.length && <Button variant="primary" icon={Trophy} disabled={!quarterPairings.length} onClick={() => queue(playoffSchedule('quarterfinal', quarterPairings), 'Cuartos de final')}>Generar cuartos</Button>}
           {settings.playoffTeams === 4 && !semis.length && <Button variant="primary" icon={Trophy} disabled={!semiPairings.length} onClick={() => queue(playoffSchedule('semifinal', semiPairings), 'Semifinales')}>Generar semifinales</Button>}

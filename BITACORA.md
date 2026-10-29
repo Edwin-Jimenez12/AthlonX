@@ -5,6 +5,42 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Implementar sistema de prórroga (prórroga) con muerte subida para rugby 7
+
+- ✅ Migración SQL: agregar campos `match_phase`, `overtime_minutes`, `overtime_started_at` a tabla `matches`.
+- ✅ RPC functions Supabase: `start_rugby_overtime()` y `finish_rugby_overtime()` con lógica de muerte subida (primer gol gana).
+- ✅ Componente React: `RugbyOvertimePanel.tsx` con flujo completo:
+  - Detecta empates en semifinales/finales.
+  - Input para duración de prórroga (1-60 minutos).
+  - Reloj en tiempo real durante la prórroga.
+  - Auto-detección de cambios de puntuación (muerte subida).
+  - Confirmación manual del ganador cuando se detecta el gol.
+- ✅ Integración en `league-generator.tsx`: reemplaza selector manual con `RugbyOvertimePanel`.
+- ✅ Script de prueba: `seed-rugby-overtime-test.sql` crea escenario de semifinal empatada.
+
+**Archivos** (6 creados/modificados):
+1. `supabase/rugby-overtime-migration.sql` - Campos en DB
+2. `supabase/rugby-overtime-rpc.sql` - Funciones serverless
+3. `Components/rugby-overtime-panel.tsx` - Componente principal (250+ líneas)
+4. `Components/torneo/league-generator.tsx` - Integración (import + reemplazo de Select)
+5. `supabase/seed-rugby-overtime-test.sql` - Escenario de test
+
+**Cómo probar**:
+1. Ejecuta migraciones: `rugby-overtime-migration.sql` en Supabase.
+2. Ejecuta RPC: `rugby-overtime-rpc.sql` en Supabase.
+3. Carga datos de test: `seed-rugby-overtime-test.sql` → genera semifinal empatada a 15-15.
+4. En app: Torneos > [torneo] > Generador → ves botón "Configurar prórroga".
+5. Click → input de minutos → "Iniciar prórroga" → reloj corre → simula gol → "Confirmar ganador".
+6. Ganador avanza automáticamente a final.
+
+**Verificación**: `npm run build` (TypeScript, import de RPC client OK). Script SQL sintaxis OK.
+
+**Pendiente**: 
+- Integrar con sistema de scoring real (match_events) para auto-detectar goles sin manual input.
+- Agregar soporte para prórroga múltiple si los equipos siguen empatados.
+
+---
+
 ## 2026-10-29 · `edwin` · nube → Completar sistema de 8 equipos (cuartos, semifinales, final)
 
 - ✅ Fijar error TypeScript en `ScheduleDate`: incluir 'quarterfinal' en valores válidos de `stage`.
