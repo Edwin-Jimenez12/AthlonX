@@ -28,6 +28,7 @@ type StandingsMatch = {
   visitor_team_name: string
   local_score: number
   visitor_score: number
+  stage?: string
 }
 type StandingsTournament = {
   id: string
@@ -214,7 +215,7 @@ export function DivisionWinners({ tournament, teams, matches }: { tournament: St
   </section>
 }
 
-export function StandingsSection({ tournament, teams, matches, zoneSize }: { tournament: StandingsTournament; teams: StandingsTeam[]; matches: StandingsMatch[]; zoneSize?: number }) {
+export function StandingsSection({ tournament, teams, matches, playoffMatches = [], zoneSize }: { tournament: StandingsTournament; teams: StandingsTeam[]; matches: StandingsMatch[]; playoffMatches?: StandingsMatch[]; zoneSize?: number }) {
   const [selectedDivisionId, setSelectedDivisionId] = useState(teams[0]?.division_id || '')
   const [isOwner, setIsOwner] = useState(false)
   const [adjustments, setAdjustments] = useState<StandingAdjustment[]>([])
@@ -299,8 +300,39 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
     const leagueDone = own.length > 0 && own.every((match) => match.status === 'finished')
     const playoffZone = zone > 0 && rows.length >= zone ? zone : 0
     const seeds = rows.slice(0, playoffZone).map((row) => ({ name: row.team.name, points: row.totalPoints }))
-    const semis: [string, string][] = playoffZone === 4 && rows.length >= 4 ? [[rows[0].team.name, rows[3].team.name], [rows[1].team.name, rows[2].team.name]] : []
-    const finalPair: [string, string] | null = playoffZone === 2 && rows.length >= 2 ? [rows[0].team.name, rows[1].team.name] : null
+    const scoreOf = (match: StandingsMatch, teamId: string) => match.local_team_id === teamId ? match.local_score : match.visitor_score
+    const winnerName = (match: StandingsMatch) => {
+      if (match.status !== 'finished' || match.local_score === match.visitor_score) return null
+      return match.local_score > match.visitor_score ? match.local_team_name : match.visitor_team_name
+    }
+    const playoffOf = (stage: string) => playoffMatches.filter((match) => match.division_id === divisionId && match.stage === stage)
+    const findPlayoff = (stage: string, idA: string, idB: string) => playoffOf(stage).find((match) =>
+      (match.local_team_id === idA && match.visitor_team_id === idB) || (match.local_team_id === idB && match.visitor_team_id === idA))
+    const semis = playoffZone === 4 && rows.length >= 4
+      ? ([[0, 3], [1, 2]] as const).map(([a, b]) => {
+        const left = rows[a]
+        const right = rows[b]
+        const match = findPlayoff('semifinal', left.team.id, right.team.id)
+        return {
+          left: { name: left.team.name, score: match ? scoreOf(match, left.team.id) : null },
+          right: { name: right.team.name, score: match ? scoreOf(match, right.team.id) : null },
+          finished: Boolean(match && match.status === 'finished'),
+          winner: match ? winnerName(match) : null,
+        }
+      })
+      : []
+    const finalMatch = playoffOf('final')[0]
+    const semiWinners = semis.map((semi) => semi.winner)
+    const finalTeams: [string, string] | null = playoffZone === 2 && rows.length >= 2
+      ? [rows[0].team.name, rows[1].team.name]
+      : semis.length === 2 && semiWinners.every(Boolean) ? [semiWinners[0] as string, semiWinners[1] as string] : null
+    const final = {
+      left: { name: finalMatch ? finalMatch.local_team_name : finalTeams?.[0] ?? 'Por definir', score: finalMatch ? finalMatch.local_score : null },
+      right: { name: finalMatch ? finalMatch.visitor_team_name : finalTeams?.[1] ?? 'Por definir', score: finalMatch ? finalMatch.visitor_score : null },
+      finished: Boolean(finalMatch && finalMatch.status === 'finished'),
+      winner: finalMatch ? winnerName(finalMatch) : null,
+    }
+    const champion = final.finished ? final.winner : null
     const nextDate = Math.min(...own.filter((match) => match.status !== 'finished').map((match) => match.date_number))
     const nextMatches = Number.isFinite(nextDate) ? own.filter((match) => match.date_number === nextDate && match.status !== 'finished')
       .sort((left, right) => (left.scheduled_time || '').localeCompare(right.scheduled_time || ''))
@@ -329,7 +361,8 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
       playoffZone,
       seeds,
       semis,
-      finalPair,
+      final,
+      champion,
       divisionName: divisionName,
       nextDateLabel: Number.isFinite(nextDate) ? `Fecha ${nextDate}${nextCalendar ? ` · ${shortDate(nextCalendar)}` : ''}` : '',
       nextMatches,
@@ -714,7 +747,7 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
     {current.playoffZone > 0 && <Card labelledBy="bracket-title" className="mt-5 sm:p-6">
       <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">Fase final · {current.divisionName}</p>
       <h2 id="bracket-title" className="mt-1 font-display text-[26px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Llave de campeonato</h2>
-      <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{current.leagueDone ? 'Fase de liga terminada · llave según la tabla final.' : 'Se arma con la tabla final de la liga. Los lugares son provisionales hasta terminar la fase.'}</p>
+      <p className="mt-1.5 text-[13px] text-[var(--ax-muted)]">{current.leagueDone ? 'Fase de liga terminada · la llave se actualiza con cada resultado.' : 'Se arma con la tabla final de la liga. Los lugares son provisionales hasta terminar la fase.'}</p>
       <div className={cx('mt-5 grid gap-4', current.playoffZone === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Clasificados</p>
@@ -726,26 +759,27 @@ export function StandingsSection({ tournament, teams, matches, zoneSize }: { tou
         </div>
         {current.playoffZone === 4 && <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Semifinales</p>
-          {current.semis.map(([left, right], index) => <div key={`${left}-${right}`} className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3">
-            <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">Semifinal {index + 1}</span><span className="text-[11px] font-semibold text-amber-300">{current.leagueDone ? 'Por jugar' : 'Provisional'}</span></div>
-            <p className="mt-2 truncate text-sm font-semibold text-[var(--ax-text)]">{left}</p>
-            <p className="mt-1 truncate text-sm font-semibold text-[var(--ax-text)]">{right}</p>
+          {current.semis.map((semi, index) => <div key={index} className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3">
+            <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-bold uppercase tracking-[.1em] text-[var(--ax-muted)]">Semifinal {index + 1}</span><span className={cx('text-[11px] font-semibold', semi.finished ? 'text-[var(--ax-accent-text)]' : 'text-amber-300')}>{semi.finished ? 'Finalizada' : 'Por jugar'}</span></div>
+            {[semi.left, semi.right].map((team) => <div key={team.name} className={cx('mt-2 flex items-center justify-between gap-2 text-sm font-semibold', semi.winner === team.name ? 'text-[var(--ax-accent-text)]' : 'text-[var(--ax-text)]')}>
+              <span className="truncate">{team.name}</span><span className="tabular-nums">{team.score ?? '—'}</span>
+            </div>)}
           </div>)}
         </div>}
         <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Final</p>
           <div className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-3">
-            {current.playoffZone === 2 && current.finalPair
-              ? <><p className="truncate text-sm font-semibold text-[var(--ax-text)]">{current.finalPair[0]}</p><p className="mt-1 truncate text-sm font-semibold text-[var(--ax-text)]">{current.finalPair[1]}</p></>
-              : <><p className="text-sm text-[var(--ax-muted)]">Ganador semifinal 1</p><p className="mt-1 text-sm text-[var(--ax-muted)]">Ganador semifinal 2</p></>}
-            <span className="mt-2 inline-block text-[11px] font-semibold text-amber-300">Pendiente</span>
+            {[current.final.left, current.final.right].map((team) => <div key={team.name} className={cx('flex items-center justify-between gap-2 text-sm font-semibold', current.final.winner === team.name ? 'text-[var(--ax-accent-text)]' : team.name === 'Por definir' ? 'text-[var(--ax-muted)]' : 'text-[var(--ax-text)]')}>
+              <span className="truncate">{team.name}</span><span className="tabular-nums">{team.score ?? '—'}</span>
+            </div>)}
+            <span className={cx('mt-2 inline-block text-[11px] font-semibold', current.final.finished ? 'text-[var(--ax-accent-text)]' : 'text-amber-300')}>{current.final.finished ? 'Finalizada' : 'Pendiente'}</span>
           </div>
         </div>
         <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[var(--ax-muted)]">Campeón</p>
           <div className="rounded-[14px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent)]/10 p-4">
-            <p className="font-display text-[26px] uppercase leading-none text-[var(--ax-text)]">Por definir</p>
-            <p className="mt-2 text-[12px] text-[var(--ax-muted)]">Se confirma al jugar la final</p>
+            <p className="font-display text-[26px] uppercase leading-none text-[var(--ax-text)]">{current.champion ?? 'Por definir'}</p>
+            <p className="mt-2 text-[12px] text-[var(--ax-muted)]">{current.champion ? 'Ganó la final' : 'Se confirma al jugar la final'}</p>
           </div>
         </div>
       </div>

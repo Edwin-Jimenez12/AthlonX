@@ -1320,6 +1320,7 @@ export default function PublicTournamentPage() {
       tournament={tournament}
       teams={teams}
       matches={matches.filter((match) => (stageByFixture[match.fixture_id] || 'league') === 'league')}
+      playoffMatches={matches.filter((match) => ['semifinal', 'final'].includes(stageByFixture[match.fixture_id] || '')).map((match) => ({ ...match, stage: stageByFixture[match.fixture_id] }))}
       zoneSize={sport === 'rugby' ? (leagueSettings?.format === 'league_playoffs' ? leagueSettings.playoffTeams : 0) : undefined}
     />}
 

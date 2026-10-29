@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-28 · `edwin` · nube → Llave con resultados y campeón
+
+- La llave lee los partidos de semifinal y final de cada división: muestra marcadores, resalta al ganador de cada semifinal y de la final, y muestra el campeón cuando la final termina.
+- La página pasa a la tabla los partidos de fase final (`playoffMatches`, con su fase).
+- Pendiente: la pestaña Generador muestra "Generar desde cuartos" según el usuario; no hay texto de cuartos en la ruta de liga. Falta captura para revisarlo.
+
+**Archivos**: `Components/torneo/standings.tsx`, `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**: `npx tsc --noEmit` y `npm run build`: OK. Revisión en navegador: pendiente.
+
+---
+
 ## 2026-10-26 · `edwin` · nube → Llave de fase final debajo de la tabla (aprobada en Figma `1143:18230`)
 
 - La llave pasa debajo de la tabla de posiciones, en 4 columnas: clasificados, semifinales, final y campeón. Con zona de 2 no hay semifinales.
