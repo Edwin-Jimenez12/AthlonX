@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Prórroga: reloj propio, reinicio hasta desempate y constraint de match_phase
+
+**Problema reportado**: al iniciar la prórroga el partido seguía con etiqueta "Final", el reloj del tiempo regular se mezclaba con la prórroga, el botón "Terminar 2.º tiempo" seguía visible, y al acabarse el tiempo con empate no había forma de seguir.
+
+**Causas**:
+- `start_rugby_overtime` no reiniciaba `started_at`, `elapsed_seconds` ni `period`, así que el reloj heredaba el tiempo del partido.
+- El botón de periodo (`transitionPeriod`) seguía activo en prórroga.
+- El panel no tenía el caso "tiempo agotado con empate".
+- Al ejecutar `alter ... drop constraint matches_match_phase_check` se eliminó el constraint y el `add column if not exists` posterior no lo recreó. El código también escribe `extra_time` y `penalty_shootout`.
+
+**Cambios**:
+- RPC `start_rugby_overtime`: acepta partido finalizado o prórroga ya iniciada y empatada; fija `period='extra_first_half'`, `started_at=now()`, `elapsed_seconds=0`, `finished_at=null`.
+- UI partidos: el panel aparece también con `match_phase='overtime'`; el reloj muestra "Prórroga"; se oculta el botón de periodo durante la prórroga.
+- Panel: al cumplirse `overtime_minutes` con empate muestra "Iniciar otra prórroga", que vuelve a llamar la RPC hasta que haya desempate.
+- Migración: restaura `matches_match_phase_check` con `regular, extra_time, penalty_shootout, overtime, overtime_finished`. Los valores `extra_time` y `penalty_shootout` se tomaron del código; confirmar contra el constraint original antes de ejecutar.
+
+**Archivos**: `Components/rugby-overtime-panel.tsx`, `app/(panel)/torneos/ver/[id]/page.tsx`, `supabase/rugby-overtime-rpc.sql`, `supabase/rugby-overtime-migration.sql`.
+
+**Verificación**: `npm run build` OK. No se probó en navegador ni contra la base de datos real; la RPC en Supabase debe volver a ejecutarse (`create or replace`) para que tome efecto.
+
+**Pendiente**: ejecutar en Supabase el bloque de `rugby-overtime-migration.sql` (restaurar constraint) y `rugby-overtime-rpc.sql`; probar el flujo completo en el partido empatado; revisar que el reloj de la prórroga se detenga al terminar el tiempo sin gol (hoy el reloj sigue corriendo hasta que se reinicia o se confirma ganador).
+
 ## 2026-10-29 · `edwin` · nube → Actualizar OvertimePanel: mostrar reloj, badge "En prórroga" y recarga automática
 
 **Problema**: Panel funcionaba pero:

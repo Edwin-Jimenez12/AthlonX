@@ -40,7 +40,7 @@ export function RugbyOvertimePanel({
   pending = false,
 }: OvertimePanelProps) {
   const [step, setStep] = useState<'check' | 'input' | 'overtime' | 'finished'>('check')
-  const [overtimeMinutes, setOvertimeMinutes] = useState(5)
+  const [overtimeMinutes, setOvertimeMinutes] = useState(match.overtime_minutes ?? 5)
   const [now, setNow] = useState(Date.now())
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -136,9 +136,6 @@ export function RugbyOvertimePanel({
     }
   }
 
-  const minutes = Math.floor(overtimeElapsed / 60)
-  const seconds = overtimeElapsed % 60
-
   // Styling
   const panel = 'mt-4 rounded-lg border border-[#31556b] bg-[#07131e] p-4'
   const input = 'mt-1 w-full rounded-lg border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-white outline-none focus:border-[#b4ff45]'
@@ -213,6 +210,9 @@ export function RugbyOvertimePanel({
     const scoreChanged =
       match.local_score > match.visitor_score ||
       match.visitor_score > match.local_score
+    const limitSeconds = (match.overtime_minutes ?? 0) * 60
+    const timeUp = !scoreChanged && limitSeconds > 0 && overtimeElapsed >= limitSeconds
+    const shownElapsed = limitSeconds > 0 ? Math.min(overtimeElapsed, limitSeconds) : overtimeElapsed
 
     return (
       <div className={panel}>
@@ -223,7 +223,7 @@ export function RugbyOvertimePanel({
           </div>
           <div className="text-right">
             <p className="font-mono text-3xl text-[#b4ff45]">
-              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+              {String(Math.floor(shownElapsed / 60)).padStart(2, '0')}:{String(shownElapsed % 60).padStart(2, '0')}
             </p>
             <p className="text-xs text-slate-400">Duración: {match.overtime_minutes} min</p>
           </div>
@@ -254,6 +254,24 @@ export function RugbyOvertimePanel({
                 ? `${localTeam?.name} gana por muerte subida`
                 : `${visitorTeam?.name} gana por muerte subida`}
             </p>
+          </div>
+        )}
+
+        {timeUp && (
+          <div className="mt-4 rounded-lg border border-[#31556b] bg-[#0b1d2c] p-3">
+            <p className="text-sm font-bold text-slate-200">
+              Se terminó el tiempo de la prórroga sin gol.
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              El partido sigue empatado: inicia otra prórroga hasta que haya desempate.
+            </p>
+            <button
+              onClick={handleStartOvertime}
+              disabled={pending || isLoading}
+              className={`${button} mt-3 w-full`}
+            >
+              Iniciar otra prórroga ({overtimeMinutes} min)
+            </button>
           </div>
         )}
 

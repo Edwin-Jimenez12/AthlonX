@@ -3067,6 +3067,8 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const minuteOf = (second?: number | null) => `${Math.floor((second ?? 0) / 60)}'`
   const clockLabel = match.status === 'scheduled'
     ? `Programado${match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}`
+    : match.match_phase === 'overtime'
+      ? 'Prórroga'
     : match.status === 'finished'
       ? 'Final'
       : inShootout
@@ -3266,7 +3268,9 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     </table>
   </Card>
 
-  const shouldShowOvertimePanel = match.status === 'finished' && match.local_score === match.visitor_score && (!match.match_phase || match.match_phase === 'regular')
+  const shouldShowOvertimePanel = match.local_score === match.visitor_score
+    && (match.status === 'finished' || match.match_phase === 'overtime')
+    && match.match_phase !== 'overtime_finished'
   const localTeam = { id: match.local_team_id || '', name: match.local_team_name || 'Equipo Local' }
   const visitorTeam = { id: match.visitor_team_id || '', name: match.visitor_team_name || 'Equipo Visitante' }
 
@@ -3304,7 +3308,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       </ul>}
       {canManage && (match.status === 'scheduled' || (live && !inShootout)) && <div className="mt-5 flex flex-wrap justify-center gap-2">
         {match.status === 'scheduled' && <Button variant="primary" icon={Play} disabled={saving} onClick={() => void changeStatus('live')}>Iniciar primer tiempo</Button>}
-        {live && !inShootout && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionLabel}</Button>}
+        {live && !inShootout && match.match_phase !== 'overtime' && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionLabel}</Button>}
         {live && <Button variant="ghost" icon={Pencil} onClick={() => { setCorrectionEvent(null); setCorrectionMode((current) => !current) }}>{correctionMode ? 'Cerrar corrección' : 'Corregir marcador'}</Button>}
       </div>}
       {confirmEarlyFinish && <div role="group" aria-label="Confirmar fin del tiempo" className="ax-drop-in mx-auto mt-4 flex max-w-lg flex-wrap items-center gap-2 rounded-[12px] border border-[var(--ax-card-yellow-line)] bg-[var(--ax-warning-soft)] p-3">

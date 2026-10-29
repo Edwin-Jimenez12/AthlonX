@@ -8,33 +8,33 @@ create or replace function start_rugby_overtime(
 returns json as $$
 declare
   v_match public.matches;
-  v_error text;
 begin
-  -- Get current match state
   select * into v_match from public.matches where id = p_match_id;
 
   if v_match is null then
     raise exception 'Match not found';
   end if;
 
-  -- Verify match is tied
   if v_match.local_score != v_match.visitor_score then
     raise exception 'Match is not tied';
   end if;
 
-  -- Verify match is finished
-  if v_match.status != 'finished' then
+  -- Inicia desde el partido finalizado o reinicia una prórroga que terminó empatada.
+  if v_match.status != 'finished' and v_match.match_phase != 'overtime' then
     raise exception 'Match is not finished';
   end if;
 
-  -- Update match to overtime state
   update public.matches
   set
     match_phase = 'overtime',
     overtime_minutes = p_overtime_minutes,
     overtime_started_at = now(),
     status = 'live',
-    is_paused = false
+    is_paused = false,
+    period = 'extra_first_half',
+    started_at = now(),
+    elapsed_seconds = 0,
+    finished_at = null
   where id = p_match_id;
 
   return json_build_object(
