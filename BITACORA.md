@@ -5,6 +5,21 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Botones Finalizar / Continuar prórroga
+
+**Problema**: con gol (5-0) el panel desaparecía porque la página solo lo mostraba con empate, así que no había cómo confirmar el ganador. Además faltaba un botón para finalizar.
+
+**Cambios**:
+- Página: el panel se muestra durante toda la prórroga (`match_phase = 'overtime'`), y también al cerrarla o en empate final.
+- Panel en prórroga: botón "Finalizar prórroga" (activo solo si hay gol; llama `finish_rugby_overtime`). Si se acaba el tiempo sin gol, aparece "Continuar prórroga" para iniciar otra hasta que haya desempate.
+- Se quitó el efecto que cambiaba el panel a "finalizada" antes de confirmar el ganador.
+
+**Archivos**: `Components/rugby-overtime-panel.tsx`, `app/(panel)/torneos/ver/[id]/page.tsx`.
+
+**Verificación**: `npm run build` OK (incluye TypeScript). No probado en navegador.
+
+**Pendiente**: probar con gol y con empate al acabarse el tiempo.
+
 ## 2026-10-29 · `edwin` · nube → Prórroga en el mismo marcador (sin segundo panel de marcador)
 
 **Problema**: la prórroga mostraba un segundo marcador dentro del panel, y el reloj del marcador principal decía "+1878:28" porque usaba `started_at` del partido original.

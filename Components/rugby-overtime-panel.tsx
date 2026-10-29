@@ -39,58 +39,44 @@ export function RugbyOvertimePanel({
   onOvertimeFinished,
   pending = false,
 }: OvertimePanelProps) {
-  const [step, setStep] = useState<'check' | 'input' | 'overtime' | 'finished'>('check')
+  const [step, setStep] = useState<'check' | 'input' | 'finished'>('check')
   const [overtimeMinutes, setOvertimeMinutes] = useState(match.overtime_minutes ?? 5)
   const [now, setNow] = useState(Date.now())
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const clockRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Detect if match is tied
   const isTied = match.local_score === match.visitor_score
   const isInOvertime = match.match_phase === 'overtime'
   const isOvertimeFinished = match.match_phase === 'overtime_finished'
+  const localWins = match.local_score > match.visitor_score
+  const winnerId = localWins ? match.local_team_id : match.visitor_team_id
+  const winnerName = localWins ? localTeam?.name : visitorTeam?.name
 
-  // Calculate elapsed time in overtime
   let overtimeElapsed = 0
   if (isInOvertime && match.overtime_started_at) {
     const startTime = new Date(match.overtime_started_at).getTime()
     overtimeElapsed = Math.floor((now - startTime) / 1000)
   }
+  const limitSeconds = (match.overtime_minutes ?? 0) * 60
+  const timeUp = isInOvertime && isTied && limitSeconds > 0 && overtimeElapsed >= limitSeconds
 
-  // Initialize step based on match state
   useEffect(() => {
     if (isOvertimeFinished) {
       setStep('finished')
-    } else if (isInOvertime) {
-      setStep('overtime')
     } else if (isTied && match.status === 'finished') {
       setStep('check')
     }
-  }, [isTied, isInOvertime, isOvertimeFinished, match.status])
+  }, [isTied, isOvertimeFinished, match.status])
 
-  // Clock update
   useEffect(() => {
-    if (isInOvertime && !isOvertimeFinished) {
+    if (isInOvertime) {
       clockRef.current = window.setInterval(() => setNow(Date.now()), 1000) as unknown as ReturnType<typeof setInterval>
       return () => {
         if (clockRef.current) window.clearInterval(clockRef.current as unknown as number)
       }
     }
-  }, [isInOvertime, isOvertimeFinished])
-
-  // Auto-detect score change during overtime (muerte subida)
-  useEffect(() => {
-    if (isInOvertime && !isOvertimeFinished) {
-      if (match.local_score > match.visitor_score) {
-        setMessage('¡Gol detectado en prórroga! Local gana por muerte subida.')
-        setStep('finished')
-      } else if (match.visitor_score > match.local_score) {
-        setMessage('¡Gol detectado en prórroga! Visitante gana por muerte subida.')
-        setStep('finished')
-      }
-    }
-  }, [match.local_score, match.visitor_score, isInOvertime, isOvertimeFinished])
+  }, [isInOvertime])
 
   async function handleStartOvertime() {
     if (overtimeMinutes < 1 || overtimeMinutes > 60) {
@@ -100,12 +86,11 @@ export function RugbyOvertimePanel({
     setIsLoading(true)
     setMessage('')
     try {
-      const { data, error } = await supabase.rpc('start_rugby_overtime', {
+      const { error } = await supabase.rpc('start_rugby_overtime', {
         p_match_id: match.id,
         p_overtime_minutes: overtimeMinutes,
       })
       if (error) throw error
-      setStep('overtime')
       if (onOvertimeStarted) {
         await onOvertimeStarted()
       }
@@ -116,11 +101,12 @@ export function RugbyOvertimePanel({
     }
   }
 
-  async function handleConfirmWinner(winnerId: string) {
+  async function handleFinishOvertime() {
+    if (!winnerId) return
     setIsLoading(true)
     setMessage('')
     try {
-      const { data, error } = await supabase.rpc('finish_rugby_overtime', {
+      const { error } = await supabase.rpc('finish_rugby_overtime', {
         p_match_id: match.id,
         p_winner_team_id: winnerId,
       })
@@ -130,17 +116,58 @@ export function RugbyOvertimePanel({
         await onOvertimeFinished()
       }
     } catch (e) {
-      setMessage((e as Error).message || 'No se pudo confirmar el ganador.')
+      setMessage((e as Error).message || 'No se pudo finalizar la prórroga.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Styling
   const panel = 'mt-4 rounded-lg border border-[#31556b] bg-[#07131e] p-4'
   const input = 'mt-1 w-full rounded-lg border border-[#31556b] bg-[#0b1d2c] px-3 py-2 text-sm text-white outline-none focus:border-[#b4ff45]'
   const button = 'cursor-pointer rounded-lg bg-[#b4ff45] px-4 py-2 text-sm font-bold text-[#07131e] disabled:cursor-not-allowed disabled:opacity-40'
   const secondary = 'cursor-pointer rounded-lg border border-[#31556b] px-4 py-2 text-sm font-bold text-slate-200 disabled:cursor-not-allowed disabled:opacity-40'
+
+  if (isInOvertime) {
+    return (
+      <div className={panel}>
+        <h3 className="font-bold text-[#b4ff45]">Prórroga</h3>
+        <p className="mt-1 text-xs text-slate-400">Muerte subida: el primer gol gana.</p>
+
+        {!isTied ? (
+          <div className="mt-3 rounded-lg border border-orange-500 bg-orange-500/10 p-3">
+            <p className="text-sm font-bold text-orange-200">¡Gol en prórroga!</p>
+            <p className="mt-1 text-sm text-slate-300">{winnerName} gana por muerte subida.</p>
+          </div>
+        ) : timeUp ? (
+          <div className="mt-3 rounded-lg border border-[#31556b] bg-[#0b1d2c] p-3">
+            <p className="text-sm font-bold text-slate-200">Se terminó el tiempo sin gol.</p>
+            <p className="mt-1 text-sm text-slate-400">Sigue empatado: continúa la prórroga hasta que haya desempate.</p>
+          </div>
+        ) : null}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={handleFinishOvertime}
+            disabled={pending || isLoading || isTied || !winnerId}
+            className={button}
+          >
+            Finalizar prórroga
+          </button>
+          {timeUp && (
+            <button
+              onClick={handleStartOvertime}
+              disabled={pending || isLoading}
+              className={secondary}
+            >
+              Continuar prórroga ({overtimeMinutes} min)
+            </button>
+          )}
+        </div>
+        {isTied && <p className="mt-2 text-xs text-slate-400">Para finalizar hace falta un gol.</p>}
+        {message && <p className="mt-2 text-sm text-red-200">{message}</p>}
+      </div>
+    )
+  }
 
   if (step === 'check' && isTied) {
     return (
@@ -206,71 +233,7 @@ export function RugbyOvertimePanel({
     )
   }
 
-  if (step === 'overtime') {
-    const scoreChanged =
-      match.local_score > match.visitor_score ||
-      match.visitor_score > match.local_score
-    const limitSeconds = (match.overtime_minutes ?? 0) * 60
-    const timeUp = !scoreChanged && limitSeconds > 0 && overtimeElapsed >= limitSeconds
-
-    if (!scoreChanged && !timeUp && !message) return null
-
-    return (
-      <div className={panel}>
-        {scoreChanged && (
-          <div className="rounded-lg border border-orange-500 bg-orange-500/10 p-3">
-            <p className="text-sm font-bold text-orange-200">
-              ¡Gol en prórroga detectado!
-            </p>
-            <p className="mt-1 text-sm text-slate-300">
-              {match.local_score > match.visitor_score
-                ? `${localTeam?.name} gana por muerte subida`
-                : `${visitorTeam?.name} gana por muerte subida`}
-            </p>
-          </div>
-        )}
-
-        {timeUp && (
-          <div className="mt-4 rounded-lg border border-[#31556b] bg-[#0b1d2c] p-3">
-            <p className="text-sm font-bold text-slate-200">
-              Se terminó el tiempo de la prórroga sin gol.
-            </p>
-            <p className="mt-1 text-sm text-slate-400">
-              El partido sigue empatado: inicia otra prórroga hasta que haya desempate.
-            </p>
-            <button
-              onClick={handleStartOvertime}
-              disabled={pending || isLoading}
-              className={`${button} mt-3 w-full`}
-            >
-              Iniciar otra prórroga ({overtimeMinutes} min)
-            </button>
-          </div>
-        )}
-
-        {scoreChanged && (
-          <button
-            onClick={() =>
-              handleConfirmWinner(
-                match.local_score > match.visitor_score
-                  ? match.local_team_id!
-                  : match.visitor_team_id!
-              )
-            }
-            disabled={pending || isLoading}
-            className={`${button} mt-4 w-full`}
-          >
-            Confirmar ganador y avanzar
-          </button>
-        )}
-
-        {message && <p className="mt-2 text-sm text-red-200">{message}</p>}
-      </div>
-    )
-  }
-
   if (step === 'finished') {
-    const localWins = match.local_score > match.visitor_score
     const winner = localWins ? localTeam : visitorTeam
 
     return (

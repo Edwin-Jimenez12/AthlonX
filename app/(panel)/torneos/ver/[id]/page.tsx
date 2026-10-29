@@ -3273,9 +3273,9 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     </table>
   </Card>
 
-  const shouldShowOvertimePanel = match.local_score === match.visitor_score
-    && (match.status === 'finished' || match.match_phase === 'overtime')
-    && match.match_phase !== 'overtime_finished'
+  const shouldShowOvertimePanel = match.match_phase === 'overtime'
+    || match.match_phase === 'overtime_finished'
+    || (match.status === 'finished' && match.local_score === match.visitor_score && (!match.match_phase || match.match_phase === 'regular'))
   const localTeam = { id: match.local_team_id || '', name: match.local_team_name || 'Equipo Local' }
   const visitorTeam = { id: match.visitor_team_id || '', name: match.visitor_team_name || 'Equipo Visitante' }
 
