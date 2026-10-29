@@ -32,6 +32,7 @@ import { TournamentCallupsPanel } from '../../../../../Components/tournament-cal
 import { TournamentFixtureGenerator } from '../../../../../Components/tournament-fixture-generator'
 import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
 import { BasketballTournamentPanels } from '../../../../../Components/basketball-tournament-panels'
+import { RugbyOvertimePanel } from '../../../../../Components/rugby-overtime-panel'
 import { basketball } from '../../../../../lib/basketball'
 import { DateField } from '../../../../../Components/mi-perfil/ui'
 import { Badge, Button, buttonClass, Card, initialsOf, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../../../../../Components/mi-equipo/ui'
@@ -2539,6 +2540,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const [shootoutDraft, setShootoutDraft] = useState<{ local: string; visitor: string } | null>(null)
   // Tarjeta o incidencia que se está registrando: abre el panel inline del equipo.
   const [cardDraft, setCardDraft] = useState<{ teamId: string; type: 'yellow_card' | 'red_card' | 'injured' | 'concussion'; playerId: string } | null>(null)
+  const [overtimeFinished, setOvertimeFinished] = useState(false)
   const scoringEventTypes = isFootball
     ? ['goal', 'penalty_kick']
     : ['try', 'conversion', 'penalty']
@@ -3264,6 +3266,10 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     </table>
   </Card>
 
+  const shouldShowOvertimePanel = match.status === 'finished' && match.local_score === match.visitor_score && (!match.match_phase || match.match_phase === 'regular')
+  const localTeam = { id: match.local_team_id || '', name: match.local_team_name || 'Equipo Local' }
+  const visitorTeam = { id: match.visitor_team_id || '', name: match.visitor_team_name || 'Equipo Visitante' }
+
   return <article aria-label={`${match.local_team_name} contra ${match.visitor_team_name}`} className="ax-v2 space-y-5">
     <section className={cx('rounded-2xl border bg-[var(--ax-surface)] p-4 sm:rounded-[20px] sm:p-7', live ? 'border-[var(--ax-accent-line)]' : 'border-[var(--ax-line)]')}>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ax-muted)]">
@@ -3329,6 +3335,17 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       canManage={canManage}
       saving={saving}
       onRecord={recordShootoutKick}
+    />}
+
+    {shouldShowOvertimePanel && <RugbyOvertimePanel
+      match={match}
+      localTeam={localTeam}
+      visitorTeam={visitorTeam}
+      onOvertimeFinished={async () => {
+        setOvertimeFinished(true)
+        window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+        window.location.reload()
+      }}
     />}
 
     {canRecord

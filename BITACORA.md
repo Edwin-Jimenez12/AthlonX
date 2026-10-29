@@ -5,6 +5,29 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Integrar RugbyOvertimePanel en la sección de Partidos (MatchHighlight)
+
+**Requerimiento del usuario**: El panel de prórroga debe aparecer "dentro de la seccion de partidos, en el mismo partido que quedo empate", no solo en la pestaña Generador.
+
+- ✅ Importado `RugbyOvertimePanel` en `app/(panel)/torneos/ver/[id]/page.tsx`
+- ✅ Agregado estado `overtimeFinished` para rastrear cuando se completa la prórroga
+- ✅ Creada lógica de detección: muestra panel cuando:
+  - `match.status === 'finished'` (partido finalizado)
+  - `match.local_score === match.visitor_score` (marcador empatado)
+  - `!match.match_phase || match.match_phase === 'regular'` (no está en prórroga aún)
+- ✅ Construidos objetos Team locales desde datos del match (id + name)
+- ✅ Renderizado `RugbyOvertimePanel` en MatchHighlight (después de ShootoutPanel)
+- ✅ Callback `onOvertimeFinished` recarga la página para mostrar estado actualizado
+
+**Archivos modificados** (1):
+1. `app/(panel)/torneos/ver/[id]/page.tsx` - import, estado, lógica, rendering
+
+**Verificación**: `npm run build`: ✅ OK (TypeScript sin errores tras hacer async el callback).
+
+**Resultado**: El botón de prórroga aparece en el mismo partido empatado dentro de la sección Partidos, en lugar de solo en Generador.
+
+---
+
 ## 2026-10-29 · `edwin` · nube → Corregir carga de campos de overtime en SELECTs de Supabase
 
 - ✅ Problema identificado: Los campos `match_phase`, `overtime_minutes`, `overtime_started_at` no se cargaban porque los SELECT queries no los incluían.
