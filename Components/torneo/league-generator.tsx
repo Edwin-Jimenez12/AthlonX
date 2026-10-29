@@ -118,22 +118,52 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
     setManualPairings([])
   }
 
-  // Fase final: semifinales 1.º–4.º y 2.º–3.º, o final directa 1.º–2.º.
-  const playoffDates = matches.filter((match) => ['semifinal', 'final'].includes(stageByFixture[match.fixture_id] || ''))
+  // Fase final: cuartos (8), semifinales (4 o 2), o final directa (2).
+  const playoffDates = matches.filter((match) => ['quarterfinal', 'semifinal', 'final'].includes(stageByFixture[match.fixture_id] || ''))
+  const quarters = playoffDates.filter((match) => stageByFixture[match.fixture_id] === 'quarterfinal')
   const semis = playoffDates.filter((match) => stageByFixture[match.fixture_id] === 'semifinal')
   const finals = playoffDates.filter((match) => stageByFixture[match.fixture_id] === 'final')
   const pendingLeague = leagueMatches.filter((match) => match.status !== 'finished').length + pool.length
   const standingsByDivision = divisionTeams.map((division) => ({ ...division, rows: leagueStandings(division.teamIds, leagueMatches.filter((match) => match.division_id === division.id), adjustments) }))
-  function playoffSchedule(stage: 'semifinal' | 'final', pairings: LeaguePairing[]): ScheduleDate[] {
+  function playoffSchedule(stage: 'quarterfinal' | 'semifinal' | 'final', pairings: LeaguePairing[]): ScheduleDate[] {
     const blocks = orderDate(pairings, settings.courts, false)
     const ordered = blocks.flat()
     const times = scheduleBlocks(blocks.map((block) => block.length), { ...timing, recesses: [] })
     return [{ calendarDate: firstDate || null, stage, recesses: [], matches: ordered.map((pairing, position) => ({ ...pairing, ...times.slots[position] })) }]
   }
-  const semiPairings = standingsByDivision.flatMap((division) => settings.playoffTeams === 4 && division.rows.length >= 4
-    ? [{ divisionId: division.id, localTeamId: division.rows[0].teamId, visitorTeamId: division.rows[3].teamId }, { divisionId: division.id, localTeamId: division.rows[1].teamId, visitorTeamId: division.rows[2].teamId }]
-    : [])
   const winnerOf = (match: LeagueMatch) => match.status !== 'finished' ? '' : match.local_score > match.visitor_score ? match.local_team_id : match.visitor_score > match.local_score ? match.visitor_team_id : finalWinners[match.id] || ''
+
+  // Cuartos: 1.º vs 8.º, 2.º vs 7.º, 3.º vs 6.º, 4.º vs 5.º
+  const quarterPairings = standingsByDivision.flatMap((division) => settings.playoffTeams === 8 && division.rows.length >= 8
+    ? [
+      { divisionId: division.id, localTeamId: division.rows[0].teamId, visitorTeamId: division.rows[7].teamId },
+      { divisionId: division.id, localTeamId: division.rows[1].teamId, visitorTeamId: division.rows[6].teamId },
+      { divisionId: division.id, localTeamId: division.rows[2].teamId, visitorTeamId: division.rows[5].teamId },
+      { divisionId: division.id, localTeamId: division.rows[3].teamId, visitorTeamId: division.rows[4].teamId },
+    ]
+    : [])
+
+  // Semifinales: 1.º vs 4.º y 2.º vs 3.º (desde tabla si 4 equipos, desde cuartos si 8)
+  const semiPairings = settings.playoffTeams === 8
+    ? standingsByDivision.flatMap((division) => {
+      const divisionQuarters = quarters.filter((match) => match.division_id === division.id)
+      if (divisionQuarters.length < 4) return []
+      const winners = [
+        winnerOf(divisionQuarters[0]), // 1.º vs 8.º
+        winnerOf(divisionQuarters[1]), // 2.º vs 7.º
+        winnerOf(divisionQuarters[2]), // 3.º vs 6.º
+        winnerOf(divisionQuarters[3]), // 4.º vs 5.º
+      ]
+      return winners.every(Boolean) ? [
+        { divisionId: division.id, localTeamId: winners[0], visitorTeamId: winners[3] },
+        { divisionId: division.id, localTeamId: winners[1], visitorTeamId: winners[2] },
+      ] : []
+    })
+    : standingsByDivision.flatMap((division) => settings.playoffTeams === 4 && division.rows.length >= 4
+      ? [{ divisionId: division.id, localTeamId: division.rows[0].teamId, visitorTeamId: division.rows[3].teamId }, { divisionId: division.id, localTeamId: division.rows[1].teamId, visitorTeamId: division.rows[2].teamId }]
+      : [])
+
+  // Final: ganadores de semifinal o 1.º vs 2.º
   const finalPairings = settings.playoffTeams === 2
     ? standingsByDivision.filter((division) => division.rows.length >= 2).map((division) => ({ divisionId: division.id, localTeamId: division.rows[0].teamId, visitorTeamId: division.rows[1].teamId }))
     : divisionTeams.flatMap((division) => {
@@ -153,7 +183,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Select label="Formato" value={settings.format} onChange={(value) => update({ format: value as LeagueFormat })} options={Object.entries(leagueFormats).map(([value, label]) => ({ value, label }))} />
         <Select label="Vueltas" value={String(settings.legs)} onChange={(value) => update({ legs: Number(value) })} options={[{ value: '1', label: '1 vuelta' }, { value: '2', label: 'Ida y vuelta' }, { value: '3', label: '3 vueltas' }, { value: '4', label: '4 vueltas' }]} />
-        {settings.format === 'league_playoffs' && <Select label="Fase final" value={String(settings.playoffTeams)} onChange={(value) => update({ playoffTeams: Number(value) })} options={[{ value: '4', label: 'Semifinales y final (4)' }, { value: '2', label: 'Final directa (2)' }]} />}
+        {settings.format === 'league_playoffs' && <Select label="Fase final" value={String(settings.playoffTeams)} onChange={(value) => update({ playoffTeams: Number(value) })} options={[{ value: '8', label: 'Cuartos, semis y final (8)' }, { value: '4', label: 'Semifinales y final (4)' }, { value: '2', label: 'Final directa (2)' }]} />}
       </div>
       <div className="mt-5">{modePicker}</div>
     </Card>
@@ -268,7 +298,7 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
     </div>
 
     {settings.format === 'league_playoffs' && <Card labelledBy="league-playoffs">
-      <CardHeader id="league-playoffs" title="Fase final" subtitle={settings.playoffTeams === 4 ? 'Semifinales: 1.º contra 4.º y 2.º contra 3.º. La final la juegan los ganadores.' : 'Final directa entre el 1.º y el 2.º de la tabla.'} />
+      <CardHeader id="league-playoffs" title="Fase final" subtitle={settings.playoffTeams === 8 ? 'Cuartos: 1.º vs 8.º, 2.º vs 7.º, 3.º vs 6.º, 4.º vs 5.º. Semifinales: ganadores. Final: ganadores de semifinal.' : settings.playoffTeams === 4 ? 'Semifinales: 1.º contra 4.º y 2.º contra 3.º. La final la juegan los ganadores.' : 'Final directa entre el 1.º y el 2.º de la tabla.'} />
       <div className="mt-4 space-y-4">
         {pendingLeague > 0 && <Notice tone="warning" icon={CircleAlert}>Faltan {pendingLeague} partido{pendingLeague === 1 ? '' : 's'} de liga por jugar o programar: la tabla todavía puede cambiar.</Notice>}
         <div className="grid gap-3 md:grid-cols-2">
@@ -279,11 +309,13 @@ export function LeagueGenerator({ mode, modePicker, divisions, teams, matches, s
         </div>
         {tiedSemis.map((match) => <Select key={match.id} label={`Empate en semifinal: ${teamName(match.local_team_id)} vs ${teamName(match.visitor_team_id)}. ¿Quién pasa a la final?`} value={finalWinners[match.id] || ''} onChange={(value) => setFinalWinners((current) => ({ ...current, [match.id]: value }))} options={[{ value: match.local_team_id, label: teamName(match.local_team_id) }, { value: match.visitor_team_id, label: teamName(match.visitor_team_id) }]} />)}
         <div className="flex flex-wrap gap-2">
+          {settings.playoffTeams === 8 && !quarters.length && <Button variant="primary" icon={Trophy} disabled={!quarterPairings.length} onClick={() => queue(playoffSchedule('quarterfinal', quarterPairings), 'Cuartos de final')}>Generar cuartos</Button>}
           {settings.playoffTeams === 4 && !semis.length && <Button variant="primary" icon={Trophy} disabled={!semiPairings.length} onClick={() => queue(playoffSchedule('semifinal', semiPairings), 'Semifinales')}>Generar semifinales</Button>}
+          {settings.playoffTeams === 8 && !semis.length && quarters.length > 0 && <Button variant="primary" icon={Trophy} disabled={!semiPairings.length} onClick={() => queue(playoffSchedule('semifinal', semiPairings), 'Semifinales')}>Generar semifinales</Button>}
           {!finals.length && (settings.playoffTeams === 2 || semis.length > 0) && <Button variant="primary" icon={Trophy} disabled={!finalPairings.length} onClick={() => queue(playoffSchedule('final', finalPairings), 'Final')}>Generar final</Button>}
           {finals.length > 0 && <Badge tone="success">Final programada</Badge>}
         </div>
-        <p className="text-xs text-[var(--ax-muted)]">Usa el día, la hora y los tiempos de "Partidos y horarios", con las canchas del torneo. Las semifinales y la final no suman en la tabla.</p>
+        <p className="text-xs text-[var(--ax-muted)]">Usa el día, la hora y los tiempos de "Partidos y horarios", con las canchas del torneo. Los cuartos, semifinales y la final no suman en la tabla.</p>
       </div>
     </Card>}
   </div>
