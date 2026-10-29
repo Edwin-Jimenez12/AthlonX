@@ -299,7 +299,9 @@ export function StandingsSection({ tournament, teams, matches, playoffMatches = 
       : started && divisionZone === 2 && rows.length >= 2 ? [[rows[0].team.name, rows[1].team.name]] : []
     const leagueDone = own.length > 0 && own.every((match) => match.status === 'finished')
     const playoffZone = zone > 0 && rows.length >= zone ? zone : 0
-    const seeds = rows.slice(0, playoffZone).map((row) => ({ name: row.team.name, points: row.totalPoints }))
+    const placeLabels = ['Primer', 'Segundo', 'Tercer', 'Cuarto', 'Quinto', 'Sexto', 'Séptimo', 'Octavo']
+    const slotName = (index: number, teamName: string) => leagueDone ? teamName : `${placeLabels[index]} lugar`
+    const seeds = rows.slice(0, playoffZone).map((row, index) => ({ name: slotName(index, row.team.name), points: leagueDone ? row.totalPoints : null }))
     const scoreOf = (match: StandingsMatch, teamId: string) => match.local_team_id === teamId ? match.local_score : match.visitor_score
     const winnerName = (match: StandingsMatch) => {
       if (match.status !== 'finished' || match.local_score === match.visitor_score) return null
@@ -316,8 +318,8 @@ export function StandingsSection({ tournament, teams, matches, playoffMatches = 
         const right = rows[b]
         const match = findPlayoff('quarterfinal', left.team.id, right.team.id)
         return {
-          left: { name: left.team.name, score: match ? scoreOf(match, left.team.id) : null },
-          right: { name: right.team.name, score: match ? scoreOf(match, right.team.id) : null },
+          left: { name: slotName(a, left.team.name), score: match ? scoreOf(match, left.team.id) : null },
+          right: { name: slotName(b, right.team.name), score: match ? scoreOf(match, right.team.id) : null },
           finished: Boolean(match && match.status === 'finished'),
           winner: match ? winnerName(match) : null,
         }
@@ -345,8 +347,8 @@ export function StandingsSection({ tournament, teams, matches, playoffMatches = 
         const right = rows[b]
         const match = findPlayoff('semifinal', left.team.id, right.team.id)
         return {
-          left: { name: left.team.name, score: match ? scoreOf(match, left.team.id) : null },
-          right: { name: right.team.name, score: match ? scoreOf(match, right.team.id) : null },
+          left: { name: slotName(a, left.team.name), score: match ? scoreOf(match, left.team.id) : null },
+          right: { name: slotName(b, right.team.name), score: match ? scoreOf(match, right.team.id) : null },
           finished: Boolean(match && match.status === 'finished'),
           winner: match ? winnerName(match) : null,
         }
@@ -355,7 +357,7 @@ export function StandingsSection({ tournament, teams, matches, playoffMatches = 
     const finalMatch = playoffOf('final')[0]
     const semiWinners = semis.map((semi) => semi.winner)
     const finalTeams: [string, string] | null = playoffZone === 2 && rows.length >= 2
-      ? [rows[0].team.name, rows[1].team.name]
+      ? [slotName(0, rows[0].team.name), slotName(1, rows[1].team.name)]
       : semis.length === 2 && semiWinners.every(Boolean) ? [semiWinners[0] as string, semiWinners[1] as string] : null
     const final = {
       left: { name: finalMatch ? finalMatch.local_team_name : finalTeams?.[0] ?? 'Por definir', score: finalMatch ? finalMatch.local_score : null },
@@ -786,7 +788,7 @@ export function StandingsSection({ tournament, teams, matches, playoffMatches = 
           {current.seeds.map((seed, index) => <div key={seed.name} className="flex items-center gap-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5">
             <span className="rounded-[6px] border border-[var(--ax-line)] bg-[var(--ax-surface)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--ax-accent-text)]">{index + 1}.º</span>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--ax-text)]">{seed.name}</span>
-            <span className="text-xs font-bold text-[var(--ax-muted)]">{seed.points} pts</span>
+            {seed.points !== null && <span className="text-xs font-bold text-[var(--ax-muted)]">{seed.points} pts</span>}
           </div>)}
         </div>
         {current.playoffZone === 8 && <div className="space-y-2">

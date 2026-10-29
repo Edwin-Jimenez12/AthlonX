@@ -5,6 +5,16 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Llave de campeonato muestra "Primer/Segundo lugar" hasta terminar la liga
+
+**Problema**: la llave de campeonato mostraba nombres de equipos (Cóndores, Guerreros) aunque no hubiera fixture ni partidos jugados.
+
+**Cambios**: `Components/torneo/standings.tsx` usa nombres reales solo cuando la fase de liga terminó (`leagueDone`). Antes muestra "Primer lugar", "Segundo lugar", etc. en clasificados, cuartos, semifinales y final, y oculta los puntos.
+
+**Verificación**: `npm run build` OK. No probado en navegador.
+
+**Pendiente**: revisar en navegador con la liga de prueba sin fixture y con la liga terminada.
+
 ## 2026-10-29 · `edwin` · nube → Restringir gestión de prórroga al creador del torneo
 
 **Problema**: cualquier visitante veía "Finalizar prórroga" en el partido, y las RPC no validaban permisos en el servidor.
