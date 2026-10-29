@@ -26,6 +26,7 @@ interface OvertimePanelProps {
   match: Match
   localTeam: Team | null
   visitorTeam: Team | null
+  onOvertimeStarted?: () => Promise<void>
   onOvertimeFinished?: () => Promise<void>
   pending?: boolean
 }
@@ -34,6 +35,7 @@ export function RugbyOvertimePanel({
   match,
   localTeam,
   visitorTeam,
+  onOvertimeStarted,
   onOvertimeFinished,
   pending = false,
 }: OvertimePanelProps) {
@@ -104,6 +106,9 @@ export function RugbyOvertimePanel({
       })
       if (error) throw error
       setStep('overtime')
+      if (onOvertimeStarted) {
+        await onOvertimeStarted()
+      }
     } catch (e) {
       setMessage((e as Error).message || 'No se pudo iniciar la prórroga.')
     } finally {

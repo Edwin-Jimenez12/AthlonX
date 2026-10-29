@@ -5,6 +5,32 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Actualizar OvertimePanel: mostrar reloj, badge "En prórroga" y recarga automática
+
+**Problema**: Panel funcionaba pero:
+1. Badge seguía mostrando "Final" aunque estuviera en prórroga
+2. Reloj no se actualizaba después de iniciar prórroga
+3. Estado del match no se refrescaba automáticamente
+
+**Solución**:
+- ✅ Actualizado status badge en MatchHighlight: ahora muestra "En prórroga" cuando `match.match_phase === 'overtime'`
+- ✅ Agregado callback `onOvertimeStarted` en RugbyOvertimePanel que se ejecuta tras iniciar exitosamente
+- ✅ Callback dispara recarga de página para que match.status actualice a 'live'
+- ✅ Con `status: 'live'`, el reloj de MatchHighlight se actualiza automáticamente cada segundo
+
+**Archivos modificados** (2):
+1. `app/(panel)/torneos/ver/[id]/page.tsx` - actualizar status + agregar callback onOvertimeStarted
+2. `Components/rugby-overtime-panel.tsx` - agregar prop onOvertimeStarted + ejecutar al iniciar
+
+**Verificación**: `npm run build`: ✅ OK
+
+**Resultado**: 
+- Badge cambia a "En prórroga" cuando comienza
+- Reloj sigue contando en tiempo real
+- Estado se actualiza automáticamente con recarga
+
+---
+
 ## 2026-10-29 · `edwin` · nube → Integrar RugbyOvertimePanel en la sección de Partidos (MatchHighlight)
 
 **Requerimiento del usuario**: El panel de prórroga debe aparecer "dentro de la seccion de partidos, en el mismo partido que quedo empate", no solo en la pestaña Generador.

@@ -2981,7 +2981,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     if (secondYellow) await recordEvent(teamId, playerId, 'red_card', 0)
     setCardDraft(null)
   }
-  const status = match.status === 'live' ? 'En vivo' : match.status === 'finished' ? 'Finalizado' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
+  const status = match.match_phase === 'overtime' ? 'En prórroga' : match.match_phase === 'overtime_finished' ? 'Prórroga finalizada' : match.status === 'live' ? 'En vivo' : match.status === 'finished' ? 'Finalizado' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
   const activeEvents = events.filter((event) => !event.is_corrected)
   const points = activeEvents.reduce((total, event) => total + (event.points || 0), 0)
   const regularSeconds = Math.min(seconds, periodLimit)
@@ -3341,6 +3341,10 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       match={match}
       localTeam={localTeam}
       visitorTeam={visitorTeam}
+      onOvertimeStarted={async () => {
+        window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+        window.location.reload()
+      }}
       onOvertimeFinished={async () => {
         setOvertimeFinished(true)
         window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
