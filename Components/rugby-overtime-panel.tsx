@@ -212,40 +212,13 @@ export function RugbyOvertimePanel({
       match.visitor_score > match.local_score
     const limitSeconds = (match.overtime_minutes ?? 0) * 60
     const timeUp = !scoreChanged && limitSeconds > 0 && overtimeElapsed >= limitSeconds
-    const shownElapsed = limitSeconds > 0 ? Math.min(overtimeElapsed, limitSeconds) : overtimeElapsed
+
+    if (!scoreChanged && !timeUp && !message) return null
 
     return (
       <div className={panel}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-bold text-[#b4ff45]">Prórroga en curso</h3>
-            <p className="mt-1 text-xs text-slate-400">Muerte subida activada</p>
-          </div>
-          <div className="text-right">
-            <p className="font-mono text-3xl text-[#b4ff45]">
-              {String(Math.floor(shownElapsed / 60)).padStart(2, '0')}:{String(shownElapsed % 60).padStart(2, '0')}
-            </p>
-            <p className="text-xs text-slate-400">Duración: {match.overtime_minutes} min</p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded border border-[#31556b] bg-[#0b1d2c] p-3 text-center">
-            <p className="text-sm text-slate-300">{localTeam?.name}</p>
-            <p className="mt-2 text-4xl font-bold text-[#b4ff45]">
-              {match.local_score}
-            </p>
-          </div>
-          <div className="rounded border border-[#31556b] bg-[#0b1d2c] p-3 text-center">
-            <p className="text-sm text-slate-300">{visitorTeam?.name}</p>
-            <p className="mt-2 text-4xl font-bold text-[#b4ff45]">
-              {match.visitor_score}
-            </p>
-          </div>
-        </div>
-
         {scoreChanged && (
-          <div className="mt-4 rounded-lg border border-orange-500 bg-orange-500/10 p-3">
+          <div className="rounded-lg border border-orange-500 bg-orange-500/10 p-3">
             <p className="text-sm font-bold text-orange-200">
               ¡Gol en prórroga detectado!
             </p>

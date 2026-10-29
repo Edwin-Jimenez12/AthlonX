@@ -2634,16 +2634,20 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   useEffect(() => { setEventCorrections(corrections) }, [corrections, match.id])
   useEffect(() => {
     if (match.status !== 'live' || match.is_paused) return
-    const startedAt = match.started_at ? new Date(match.started_at).getTime() : Date.now()
+    const inOvertime = match.match_phase === 'overtime' && Boolean(match.overtime_started_at)
+    const startedAt = inOvertime
+      ? new Date(match.overtime_started_at as string).getTime()
+      : match.started_at ? new Date(match.started_at).getTime() : Date.now()
+    const baseSeconds = inOvertime ? 0 : (match.elapsed_seconds || 0)
     const updateClock = () => {
-      const nextSeconds = (match.elapsed_seconds || 0) + Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      const nextSeconds = baseSeconds + Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
       secondsRef.current = nextSeconds
       setSeconds(nextSeconds)
     }
     updateClock()
     const timer = window.setInterval(updateClock, 1000)
     return () => window.clearInterval(timer)
-  }, [match.id, match.status, match.is_paused, match.started_at, match.elapsed_seconds])
+  }, [match.id, match.status, match.is_paused, match.started_at, match.elapsed_seconds, match.match_phase, match.overtime_started_at])
   const halftimeSeconds = (loadedRules?.halftime_duration_minutes || 5) * 60
   const isHalftime = isFootball8
     && match.status === 'live'
@@ -2984,8 +2988,9 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const status = match.match_phase === 'overtime' ? 'En prórroga' : match.match_phase === 'overtime_finished' ? 'Prórroga finalizada' : match.status === 'live' ? 'En vivo' : match.status === 'finished' ? 'Finalizado' : match.status === 'cancelled' ? 'Cancelado' : 'Programado'
   const activeEvents = events.filter((event) => !event.is_corrected)
   const points = activeEvents.reduce((total, event) => total + (event.points || 0), 0)
-  const regularSeconds = Math.min(seconds, periodLimit)
-  const stoppageSeconds = Math.max(0, seconds - periodLimit)
+  const inOvertimeClock = match.match_phase === 'overtime'
+  const regularSeconds = inOvertimeClock ? seconds : Math.min(seconds, periodLimit)
+  const stoppageSeconds = inOvertimeClock ? 0 : Math.max(0, seconds - periodLimit)
   const timer = `${String(Math.floor(regularSeconds / 60)).padStart(2, '0')}:${String(regularSeconds % 60).padStart(2, '0')}`
   const stoppageTimer = `+${String(Math.floor(stoppageSeconds / 60)).padStart(2, '0')}:${String(stoppageSeconds % 60).padStart(2, '0')}`
   const periodLabel = String(match.period).startsWith('extra_') ? 'tiempo extra' : match.period === 'second_half' ? 'segundo tiempo' : 'primer tiempo'
@@ -3068,7 +3073,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const clockLabel = match.status === 'scheduled'
     ? `Programado${match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}`
     : match.match_phase === 'overtime'
-      ? 'Prórroga'
+      ? `Prórroga · ${timer}`
     : match.status === 'finished'
       ? 'Final'
       : inShootout

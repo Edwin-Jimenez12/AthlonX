@@ -5,6 +5,20 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Prórroga en el mismo marcador (sin segundo panel de marcador)
+
+**Problema**: la prórroga mostraba un segundo marcador dentro del panel, y el reloj del marcador principal decía "+1878:28" porque usaba `started_at` del partido original.
+
+**Cambios**:
+- El reloj de MatchHighlight usa `overtime_started_at` durante la prórroga y no suma tiempo de descuento. La etiqueta muestra "Prórroga · mm:ss" en el mismo marcador.
+- `RugbyOvertimePanel` ya no repite el marcador ni el cronómetro. Solo muestra avisos de acción: gol detectado con botón de confirmar ganador, y tiempo agotado con empate con botón de otra prórroga. Si no hay acción, no renderiza nada.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx`, `Components/rugby-overtime-panel.tsx`.
+
+**Verificación**: `npm run build` OK; no probado en navegador. Requiere haber vuelto a ejecutar `rugby-overtime-rpc.sql`, porque el reloj depende de `overtime_started_at` que escribe esa función.
+
+**Pendiente**: confirmar en navegador el reloj del marcador principal y que la confirmación de ganador aparece solo al detectar gol.
+
 ## 2026-10-29 · `edwin` · nube → Prórroga: reloj propio, reinicio hasta desempate y constraint de match_phase
 
 **Problema reportado**: al iniciar la prórroga el partido seguía con etiqueta "Final", el reloj del tiempo regular se mezclaba con la prórroga, el botón "Terminar 2.º tiempo" seguía visible, y al acabarse el tiempo con empate no había forma de seguir.
