@@ -107,6 +107,8 @@ function LegacyTournamentKnockoutBracket({
     createManualPairings,
   )
   const [courtsCount, setCourtsCount] = useState(1)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const divisions = useMemo(() => (
     Array.from(new Map(teams.map((team) => [team.division_id, team.division_name])))
@@ -213,6 +215,20 @@ function LegacyTournamentKnockoutBracket({
     }).sort((a, b) => (
       b.points - a.points || b.difference - a.difference || b.scored - a.scored
     )).map((row) => row.team)
+  }
+
+  // Elimina la llave de fútbol 8 para poder generar una nueva con cruces sorteados.
+  async function deleteBracket() {
+    if (!supabase || !canManage || !footballEight) return
+    setDeleting(true)
+    setMessage('')
+    const { error } = await supabase.rpc('delete_football_eight_bracket', { p_tournament_id: tournamentId })
+    setDeleting(false)
+    if (error) {
+      setConfirmDelete(false)
+      return setMessage(error.message)
+    }
+    window.location.reload()
   }
 
   async function generateBracket() {
@@ -492,6 +508,13 @@ function LegacyTournamentKnockoutBracket({
                 disabled:cursor-not-allowed disabled:opacity-50">
               PDF de la llave
             </button>
+            {footballEight && stages.length > 0 && (
+              <button type="button" onClick={() => setConfirmDelete(true)}
+                className="rounded-lg border border-[#ff7d88]/60 px-4 py-2 font-bold text-[#ffb0b7]
+                  hover:bg-[#ff7d88]/10">
+                Eliminar llave
+              </button>
+            )}
             {(!footballEight || generationMode === 'automatic') && !stages.length && (
               <button
                 type="button"
@@ -504,6 +527,22 @@ function LegacyTournamentKnockoutBracket({
           </div>
         )}
       </div>
+      {canManage && footballEight && confirmDelete && (
+        <div role="group" aria-label="Confirmar eliminación de la llave"
+          className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4">
+          <p className="min-w-0 flex-1 text-sm text-slate-200">
+            Se eliminarán todos los cruces y partidos de la llave. Después podrás generar una nueva con cruces sorteados al azar.
+          </p>
+          <button type="button" onClick={() => setConfirmDelete(false)} disabled={deleting}
+            className="rounded-lg border border-[#31556b] px-4 py-2 font-bold text-white disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" onClick={() => void deleteBracket()} disabled={deleting}
+            className="rounded-lg bg-[#ff7d88] px-4 py-2 font-bold text-[#07131e] disabled:opacity-50">
+            {deleting ? 'Eliminando…' : 'Sí, eliminar llave'}
+          </button>
+        </div>
+      )}
       <div className="mt-5 flex flex-wrap gap-2">
         {divisions.map(([id, name]) => (
           <button key={id} type="button" onClick={() => setSelectedDivision(id)}

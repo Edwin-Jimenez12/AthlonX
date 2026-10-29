@@ -5,6 +5,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-29 · `edwin` · nube → Eliminar llave de fútbol 8 y sortear cruces al regenerar
+
+**Cambios**:
+- Botón "Eliminar llave" en la llave de fútbol 8, visible solo con permisos y en modo edición, con confirmación inline. Tras eliminar, la página recarga y vuelve a aparecer "Generar llave automática".
+- Nueva migración `supabase/football-eight-delete-bracket-migration.sql`: función `delete_football_eight_bracket(p_tournament_id)` (solo el creador; borra cruces, etapas, partidos y jornadas) y nueva versión de `generate_football_eight_bracket` que sortea los equipos con `order by random()`. Antes ordenaba por `id` y regenerar daba los mismos cruces.
+- La eliminación se rechaza si ya hay partidos en juego o finalizados, para no perder resultados.
+
+**Archivos**: `Components/tournament-knockout-bracket.tsx`, `supabase/football-eight-delete-bracket-migration.sql`.
+
+**Verificación**: `npm run build` OK. No probado en navegador ni contra la base de datos.
+
+**Pendiente**: ejecutar la migración en Supabase y probar con "Futbol Prueba": eliminar y regenerar debe dar cruces distintos.
+
 ## 2026-10-29 · `edwin` · nube → Fútbol 8 eliminación directa: sin Tablas, llave sin botón repetido, edición solo en modo edición
 
 **Cambios**:
