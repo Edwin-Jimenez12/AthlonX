@@ -12,7 +12,7 @@ type Division = { id: string; name: string }
 type Team = { id: string; name: string; division_id: string }
 type LeagueMatch = { id: string; fixture_id: string; date_number: number; division_id: string | null; local_team_id: string; visitor_team_id: string; local_score: number; visitor_score: number; status: string }
 export type LeagueSettings = { format: LeagueFormat; legs: number; playoffTeams: number; courts: number; halfMinutes: number; halftimeMinutes: number; intervalMinutes: number }
-export type ScheduleDate = { calendarDate: string | null; stage: 'league' | 'semifinal' | 'final'; recesses: { time: string; minutes: number }[]; matches: (LeaguePairing & { time: string; court: number })[] }
+export type ScheduleDate = { calendarDate: string | null; stage: 'league' | 'quarterfinal' | 'semifinal' | 'final'; recesses: { time: string; minutes: number }[]; matches: (LeaguePairing & { time: string; court: number })[] }
 type Mode = 'automatic' | 'manual'
 
 function addDays(date: string, days: number) {
