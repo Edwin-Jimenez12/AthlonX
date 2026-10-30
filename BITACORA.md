@@ -5,6 +5,28 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-30 · `edwin` · nube → Reloj y fases de partido comunes a todos los deportes
+
+**Pedido**: que la barra de fases, el reloj, el descanso y el aviso de cierre anticipado de fútbol 8 sean generales, y rugby (y baloncesto) los usen. Lo específico de cada deporte (try, gol, canasta, tarjetas) queda en su módulo.
+
+**Cambios**:
+- `lib/match-clock.ts` (nuevo): fases por deporte en `sportClocks` (fútbol 8: 1.º, 2.º, tiempo extra, penales; rugby: 1.º, 2.º, prórroga; baloncesto: periodo, prórroga), estado del descanso, etiqueta del botón de periodo, aviso de cierre anticipado y etiqueta del reloj. Funciones puras con pruebas en `tests/match-clock.test.mjs`.
+- `Components/match-clock-ui.tsx` (nuevo): `PhaseBar` y `EarlyFinishNotice`, usados por `MatchHighlight` y por baloncesto.
+- `MatchHighlight`: rugby ahora muestra la barra de fases y el descanso con cuenta regresiva (duración de `tournament_competition_settings`, con respaldo si la modalidad no tiene reglas). Al cortar un tiempo antes de que termine, rugby avisa cuánto falta, igual que fútbol 8. El descanso de rugby arranca con `started_at = ahora` para que el reloj cuente. En rugby un empate al terminar el 2.º tiempo ya no abre tiempo extra: el partido finaliza y el desempate es la prórroga de muerte súbita.
+- Baloncesto: `BasketballGame` muestra la misma barra de fases y el mismo formato de reloj. Su lógica sigue en las funciones del servidor.
+- `supabase/rugby-match-rules-migration.sql` (nuevo): trigger `validate_rugby_match` equivalente al de fútbol 8. Exige cumplir el tiempo o confirmar el cierre anticipado para pasar a descanso y para finalizar, reinicia el reloj al reanudar y bloquea editar un resultado final. No aplica a cambios directos por SQL (sin usuario de sesión) ni a la prórroga de muerte súbita. Tolerancia de 2 s entre reloj del navegador y del servidor.
+
+**Decisiones y límites**:
+- Baloncesto no tiene aviso de cierre anticipado: sus reglas del servidor no permiten finalizar antes de tiempo, así que no se inventó esa regla.
+- Rugby no tiene "Tiempo extra" ni "Penales"; la barra solo muestra la prórroga.
+- El trigger de rugby no recalcula el marcador desde los eventos, a diferencia del de fútbol 8, para no alterar el orden en que la app registra y corrige anotaciones.
+
+**Archivos**: `lib/match-clock.ts`, `Components/match-clock-ui.tsx`, `tests/match-clock.test.mjs`, `app/(panel)/torneos/ver/[id]/page.tsx`, `Components/basketball-tournament-panels.tsx`, `supabase/rugby-match-rules-migration.sql`, `CLAUDE.md`.
+
+**Verificación**: `npm run build` OK y `node --test tests/*.mjs` 33/33. No se probó en navegador (requiere sesión y datos) ni se ejecutó la migración contra Supabase.
+
+**Pendiente**: ejecutar `supabase/rugby-match-rules-migration.sql`; probar en una liga de rugby el flujo completo (iniciar, cortar el 1.er tiempo con aviso, descanso con reloj, 2.º tiempo, finalizar, prórroga) y revisar que fútbol 8 se vea igual que antes.
+
 ## 2026-10-29 · `edwin` · nube → Eliminar llave de fútbol 8 y sortear cruces al regenerar
 
 **Cambios**:

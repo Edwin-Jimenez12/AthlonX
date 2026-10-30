@@ -25,7 +25,7 @@ npm install
 npm run dev        # http://localhost:3000
 npm run build
 npm run lint
-node --test tests/*.mjs # pruebas de reglas (basketball, football-eight, regresión de torneos)
+node --test tests/*.mjs # pruebas de reglas (basketball, football-eight, match-clock, regresión de torneos)
 npm run preview    # build de OpenNext y preview de Cloudflare
 npm run deploy     # despliega a Cloudflare: solo si se pide explícitamente
 ```
@@ -38,6 +38,7 @@ Las variables van en `.env.local` (no se sube a git); toma `.env.example` como b
 - `app/(panel)/`: panel autenticado (`busqueda`, `equipos`, `torneos`, `eventos`, `partidos`, `estadisticas`, `calendario`, `configuracion`, etc.). `/dashboard` redirige a `/busqueda`.
 - `Components/`: componentes compartidos. **La C es mayúscula.**
 - `lib/`: lógica de dominio. Las reglas de cada deporte van separadas: `basketball.ts`, `football-eight.ts`.
+  - `lib/match-clock.ts` y `Components/match-clock-ui.tsx`: fases, reloj, descanso y aviso de cierre anticipado, comunes a todos los deportes. Un deporte nuevo declara sus fases en `sportClocks`; sus acciones de marcador (try, gol, canasta) y reglas propias siguen en su módulo.
 - `supabase/`: migraciones SQL sueltas, idempotentes, que se ejecutan a mano en orden. No se ejecuta SQL contra el proyecto real sin pedirlo.
   - Proyecto de AthlonX en Supabase: `mlvtsgseneqzihwkiatg` (organización AthlonX). Hay otros proyectos en la misma cuenta (Panama viajero): confirma siempre el ref antes de ejecutar algo.
   - En la nube, el entorno "AthlonX Nube" tiene un secreto de red Bearer para `api.supabase.com/v1/` (token personal de Supabase con Database en escritura). Las migraciones se aplican con `POST https://api.supabase.com/v1/projects/mlvtsgseneqzihwkiatg/database/query` y el cuerpo `{"query": "..."}`; para consultas de solo lectura, agrega `"read_only": true`. El token nunca se escribe en el repo ni en el chat.

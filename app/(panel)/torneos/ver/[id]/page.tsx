@@ -33,6 +33,8 @@ import { TournamentFixtureGenerator } from '../../../../../Components/tournament
 import { TournamentKnockoutBracket } from '../../../../../Components/tournament-knockout-bracket'
 import { BasketballTournamentPanels } from '../../../../../Components/basketball-tournament-panels'
 import { RugbyOvertimePanel } from '../../../../../Components/rugby-overtime-panel'
+import { EarlyFinishNotice, PhaseBar } from '../../../../../Components/match-clock-ui'
+import { earlyFinishRemaining, isHalftime as isHalftimeState, matchClockLabel, periodActionLabel, phaseSteps, sportClocks } from '../../../../../lib/match-clock'
 import { basketball } from '../../../../../lib/basketball'
 import { DateField } from '../../../../../Components/mi-perfil/ui'
 import { Badge, Button, buttonClass, Card, initialsOf, CardHeader, cx, EmptyState, FieldLabel, inputClass, Notice, Select } from '../../../../../Components/mi-equipo/ui'
@@ -2511,12 +2513,16 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
   const [loadedRules, setLoadedRules] = useState<MatchRules | null>(rules)
   const [isFootball, setIsFootball] = useState(false)
   const [isFootball8, setIsFootball8] = useState(false)
+  const [disciplineCode, setDisciplineCode] = useState('')
+  // Duraciones de la configuración del torneo, por si la modalidad no trae reglas propias.
+  const [competitionTimes, setCompetitionTimes] = useState<{ half?: number | null; halftime?: number | null }>({})
   const [matchPhase, setMatchPhase] = useState('regular')
   const [shootoutScore, setShootoutScore] = useState<string | null>(null)
   // Controla la tanda visual y sus tiros registrados en Supabase.
   const [shootoutKicks, setShootoutKicks] = useState<ShootoutKick[]>([])
   const [showShootout, setShowShootout] = useState(false)
-  const regularPeriodLimit = (loadedRules?.half_duration_minutes || 7) * 60
+  const isRugbyDiscipline = disciplineCode === 'rugby'
+  const regularPeriodLimit = (loadedRules?.half_duration_minutes || competitionTimes.half || 7) * 60
   const extraPeriodLimit = isFootball8 ? 600 : (loadedRules?.extra_time_half_minutes || 5) * 60
   const periodLimit = String(match.period).startsWith('extra_') ? extraPeriodLimit : regularPeriodLimit
   const [saving, setSaving] = useState(false)
@@ -2570,6 +2576,8 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     void (async () => {
       setLoadedRules(null)
       setIsFootball8(false)
+      setDisciplineCode('')
+      setCompetitionTimes({})
       setMatchPhase('regular')
       setShootoutScore(null)
       setShootoutKicks([])
@@ -2600,7 +2608,10 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       if (tournament?.discipline_id) {
         const { data: discipline } = await supabase.from('disciplines')
           .select('code').eq('id', tournament.discipline_id).maybeSingle()
-        if (active) setIsFootball(discipline?.code === 'futbol')
+        if (active) {
+          setIsFootball(discipline?.code === 'futbol')
+          setDisciplineCode(discipline?.code || '')
+        }
       }
       if (!tournament?.modality_id) return
       const [{ data: modalityRules }, { data: modality }, { data: settings }] = await Promise.all([supabase
@@ -2618,6 +2629,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         const football8 = modality?.code === 'futbol-8'
         setIsFootball8(football8)
         setModalityCode(modality?.code || '')
+        setCompetitionTimes({ half: settings?.half_duration_minutes, halftime: settings?.halftime_duration_minutes })
         setLoadedRules(modalityRules ? {
           ...modalityRules,
           half_duration_minutes: settings?.half_duration_minutes
@@ -2650,11 +2662,11 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     const timer = window.setInterval(updateClock, 1000)
     return () => window.clearInterval(timer)
   }, [match.id, match.status, match.is_paused, match.started_at, match.elapsed_seconds, match.match_phase, match.overtime_started_at])
-  const halftimeSeconds = (loadedRules?.halftime_duration_minutes || 5) * 60
-  const isHalftime = isFootball8
-    && match.status === 'live'
-    && match.is_paused
-    && match.period === 'second_half'
+  const halftimeSeconds = (loadedRules?.halftime_duration_minutes || competitionTimes.halftime || 5) * 60
+  // Fútbol 8 y rugby comparten barra de fases y descanso con reloj.
+  const clockPhases = isFootball8 ? sportClocks.football8 : isRugbyDiscipline ? sportClocks.rugby : null
+  const isHalftime = Boolean(clockPhases)
+    && isHalftimeState({ status: match.status, period: match.period, isPaused: match.is_paused })
   // Actualiza el reloj del descanso usando la hora en que terminó el primer tiempo.
   useEffect(() => {
     if (!isHalftime || !match.started_at) {
@@ -2799,21 +2811,32 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       return score
     }, { local: 0, visitor: 0 })
     const isTied = scoredEvents.local === scoredEvents.visitor
+    // Rugby avisa antes de cortar un tiempo que aún no termina, igual que fútbol 8.
+    const rugbyRemaining = isRugbyDiscipline
+      ? earlyFinishRemaining(currentPeriod, match.is_paused, secondsRef.current, periodLimit)
+      : null
+    if (rugbyRemaining !== null && !earlyFinishApproved) {
+      setConfirmEarlyFinish(formatSeconds(rugbyRemaining))
+      return
+    }
+    const rugbyFlag = isRugbyDiscipline ? { early_finish_confirmed: rugbyRemaining !== null && earlyFinishApproved } : {}
     const next = isStartingSecond
-        ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, second_half_seconds: 0, period: 'second_half' }
+        ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, second_half_seconds: 0, period: 'second_half', ...rugbyFlag }
       : isStartingExtra
         ? { is_paused: false, started_at: new Date().toISOString(), elapsed_seconds: 0, period: isExtraFirstHalf ? 'extra_first_half' : 'extra_second_half' }
       : currentPeriod === 'first_half'
-        ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, first_half_seconds: secondsRef.current, period: 'second_half' }
+        // En rugby el descanso empieza ahora: el reloj del descanso cuenta desde started_at.
+        ? { is_paused: true, started_at: isRugbyDiscipline ? new Date().toISOString() : match.started_at, elapsed_seconds: isRugbyDiscipline ? 0 : secondsRef.current, first_half_seconds: secondsRef.current, period: 'second_half', ...rugbyFlag }
       : isExtraFirstHalf
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half' }
       : isExtraSecondHalf
         ? { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, period: 'extra_second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
       // Las ligas permiten empates; la prórroga solo aplica cuando el empate
       // no está permitido, como ocurre en una fase eliminatoria.
-      : isTied && loadedRules?.extra_time_allowed && !loadedRules.draws_allowed
+      // En rugby el desempate es la prórroga de muerte súbita, que se inicia desde el partido finalizado.
+      : isTied && loadedRules?.extra_time_allowed && !loadedRules.draws_allowed && !isRugbyDiscipline
         ? { is_paused: true, started_at: match.started_at, elapsed_seconds: 0, period: 'extra_first_half' }
-        : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor }
+        : { status: 'finished', is_paused: true, started_at: match.started_at, elapsed_seconds: secondsRef.current, second_half_seconds: secondsRef.current, period: 'second_half', local_score: scoredEvents.local, visitor_score: scoredEvents.visitor, ...rugbyFlag }
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
@@ -3072,19 +3095,17 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     : activeEvents.some((event) => event.player_id === playerId && event.event_type === 'red_card')
   const yellowCount = (playerId: string) => activeEvents.filter((event) => event.player_id === playerId && event.event_type === 'yellow_card').length
   const minuteOf = (second?: number | null) => `${Math.floor((second ?? 0) / 60)}'`
-  const clockLabel = match.status === 'scheduled'
-    ? `Programado${match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}`
-    : match.match_phase === 'overtime'
-      ? `Prórroga · ${timer}`
-    : match.status === 'finished'
-      ? 'Final'
-      : inShootout
-        ? 'Tanda de penales'
-        : isHalftime
-          ? `Descanso · ${breakTimer}`
-          : match.is_paused
-            ? `Pausado · ${periodLabel}`
-            : `${periodLabel[0].toUpperCase()}${periodLabel.slice(1)} · ${timer}`
+  const clockLabel = matchClockLabel({
+    status: match.status,
+    scheduledTime: match.scheduled_time,
+    matchPhase: match.match_phase,
+    isPaused: match.is_paused,
+    inShootout,
+    isHalftime,
+    breakTimer,
+    periodLabel,
+    timer,
+  })
   const scoreButtons = isFootball
     ? [{ label: 'Gol', eventType: 'goal' as const, points: 1 }, { label: 'Gol de penal', eventType: 'penalty_kick' as const, points: 1 }]
     : [{ label: 'Try', eventType: 'try' as const, points: 5 }, { label: 'Conversión', eventType: 'conversion' as const, points: 2 }]
@@ -3107,21 +3128,17 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       return { event, score: `${local} – ${visitor}` }
     }).reverse()
   })()
-  const phaseSteps = [
-    { label: '1.º tiempo', done: match.period !== 'first_half' || match.status === 'finished', current: live && match.period === 'first_half' },
-    { label: '2.º tiempo', done: String(match.period).startsWith('extra_') || matchPhase !== 'regular' || match.status === 'finished', current: live && match.period === 'second_half' && matchPhase === 'regular' },
-    { label: 'Tiempo extra', done: matchPhase === 'penalty_shootout', current: live && String(match.period).startsWith('extra_') && matchPhase === 'extra_time' },
-    { label: 'Penales', done: Boolean(shootoutScore) && match.status === 'finished', current: inShootout && live },
-  ]
-  const periodActionLabel = isFootball8 && String(match.period).startsWith('extra_')
-    ? (match.is_paused ? 'Iniciar tiempo extra' : 'Terminar tiempo extra')
-    : isHalftime
-      ? 'Iniciar 2.º tiempo'
-      : match.period === 'second_half'
-        ? (match.is_paused ? 'Iniciar 2.º tiempo' : 'Terminar 2.º tiempo')
-        : String(match.period).startsWith('extra_')
-          ? (match.is_paused ? 'Iniciar tiempo extra' : 'Terminar tiempo extra')
-          : 'Terminar 1.er tiempo'
+  const steps = clockPhases
+    ? phaseSteps(clockPhases, {
+      status: match.status,
+      period: match.period,
+      // El estado de fase se lee de la base de datos; el de la fila llega con el partido.
+      matchPhase: match.match_phase && match.match_phase !== 'regular' ? match.match_phase : matchPhase,
+      isPaused: match.is_paused,
+      hasShootoutScore: Boolean(shootoutScore),
+    })
+    : null
+  const periodActionText = periodActionLabel(match.period, match.is_paused)
 
   function openCard(teamId: string, type: NonNullable<typeof cardDraft>['type']) {
     setPendingScoreAction(null)
@@ -3287,9 +3304,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
         <span>Fecha {match.date_number}{match.division_name ? ` · ${match.division_name}` : ''}{match.scheduled_time ? ` · ${match.scheduled_time.slice(0, 5)}` : ''}{match.court_number ? ` · Cancha ${match.court_number}` : ''}</span>
         <Badge tone={live ? 'success' : match.status === 'finished' ? 'neutral' : 'warning'}>{status}</Badge>
       </div>
-      {isFootball8 && <ol className="ax-scroll-x mt-4 flex justify-center gap-1.5 overflow-x-auto">
-        {phaseSteps.map((step) => <li key={step.label} className={cx('shrink-0 rounded-full px-3 py-1 text-xs font-semibold', step.current ? 'border border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : step.done ? 'bg-[var(--ax-surface-raised)] text-[var(--ax-text-secondary)]' : 'text-[var(--ax-muted)]')}>{step.label}</li>)}
-      </ol>}
+      {steps && <PhaseBar steps={steps} />}
       <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
         {sides.map((side, index) => <div key={side.id} className={cx('flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:gap-4', index === 0 ? 'sm:flex-row-reverse sm:text-right' : 'sm:text-left', index === 1 && 'order-3')}>
           <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-sm font-bold text-[var(--ax-text)] sm:h-16 sm:w-16">{side.logo ? <img src={side.logo} alt="" className="h-full w-full object-cover" /> : initialsOf(side.name || 'Equipo')}</span>
@@ -3315,14 +3330,10 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       </ul>}
       {canManage && (match.status === 'scheduled' || (live && !inShootout)) && <div className="mt-5 flex flex-wrap justify-center gap-2">
         {match.status === 'scheduled' && <Button variant="primary" icon={Play} disabled={saving} onClick={() => void changeStatus('live')}>Iniciar primer tiempo</Button>}
-        {live && !inShootout && match.match_phase !== 'overtime' && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionLabel}</Button>}
+        {live && !inShootout && match.match_phase !== 'overtime' && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionText}</Button>}
         {live && <Button variant="ghost" icon={Pencil} onClick={() => { setCorrectionEvent(null); setCorrectionMode((current) => !current) }}>{correctionMode ? 'Cerrar corrección' : 'Corregir marcador'}</Button>}
       </div>}
-      {confirmEarlyFinish && <div role="group" aria-label="Confirmar fin del tiempo" className="ax-drop-in mx-auto mt-4 flex max-w-lg flex-wrap items-center gap-2 rounded-[12px] border border-[var(--ax-card-yellow-line)] bg-[var(--ax-warning-soft)] p-3">
-        <p className="min-w-0 flex-1 text-[13px] text-[var(--ax-text)]">Este tiempo aún no termina: faltan <span className="font-semibold tabular-nums">{confirmEarlyFinish}</span>. ¿Terminarlo ahora?</p>
-        <Button size="sm" variant="ghost" onClick={() => setConfirmEarlyFinish(null)}>Seguir jugando</Button>
-        <Button size="sm" variant="primary" onClick={() => { setConfirmEarlyFinish(null); void transitionPeriod(true) }}>Terminar ahora</Button>
-      </div>}
+      {confirmEarlyFinish && <EarlyFinishNotice remaining={confirmEarlyFinish} onKeepPlaying={() => setConfirmEarlyFinish(null)} onFinishNow={() => { setConfirmEarlyFinish(null); void transitionPeriod(true) }} />}
       {correctionMode && canManage && <p className="mx-auto mt-4 max-w-lg rounded-[12px] bg-[var(--ax-surface-sunken)] px-3 py-2.5 text-center text-[13px] text-[var(--ax-text-secondary)]">Elige en la cronología la anotación que quieres anular. Queda registrada con su motivo.</p>}
       {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && isFootball8 && inShootout && live && <div className="mt-4 flex justify-center"><Button variant="accent" onClick={() => setShowShootout((current) => !current)}>{showShootout ? 'Ocultar tanda de penales' : 'Registrar tanda de penales'}</Button></div>}
       {canManage && loadedRules?.penalty_shootout_allowed && match.is_paused && !isFootball8 && (String(match.period) === 'second_half' || String(match.period) === 'extra_second_half') && <div className="mx-auto mt-4 max-w-lg">

@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { basketball, BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, basketballStandings, validateBasketballSettings } from '../lib/basketball'
+import { clockText, phaseSteps, sportClocks } from '../lib/match-clock'
 import { supabase } from '../lib/supabase'
+import { PhaseBar } from './match-clock-ui'
 
 type Player = { player_id: string; full_name: string; is_substitute: boolean }
 type Team = BasketballTeam & { roster: Player[] }
@@ -127,7 +129,8 @@ function BasketballGame({ match: m, data, owner, pending, run }: { match: Game; 
   const live = m.status === 'live' && !m.is_paused && (extra || elapsed < limit), finished = m.status === 'finished'
   const events = data.events.filter(e => e.match_id === m.id)
   const action = (p_action: string, args = {}) => run('basketball_match_action', { p_match_id: m.id, p_version: m.basketball_version, p_action, ...args })
-  return <article className={panel}><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-widest text-[#b4ff45]">{m.scheduled_time?.slice(0, 5)} · {finished ? 'Resultado bloqueado' : extra ? `Prórroga · Bloque ${block}` : 'Periodo único'}</p><p className="font-mono text-3xl">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')} <span className="text-xs text-slate-400">{finished ? 'Final' : live ? 'En juego' : 'Detenido'}</span></p></div>
+  return <article className={panel}><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-widest text-[#b4ff45]">{m.scheduled_time?.slice(0, 5)} · {finished ? 'Resultado bloqueado' : extra ? `Prórroga · Bloque ${block}` : 'Periodo único'}</p><p className="font-mono text-3xl">{clockText(seconds)} <span className="text-xs text-slate-400">{finished ? 'Final' : live ? 'En juego' : 'Detenido'}</span></p></div>
+    <PhaseBar steps={phaseSteps(sportClocks.basketball, { status: m.status, period: extra ? 'extra_first_half' : 'first_half', matchPhase: extra ? 'extra_time' : 'regular', isPaused: m.is_paused })} />
     <div className="mt-5 grid gap-4 sm:grid-cols-2">{[m.local_team_id, m.visitor_team_id].map((id, index) => {
       const t = data.teams.find(t => t.id === id), lineup = data.lineups.filter(p => p.fixture_id === m.fixture_id && p.team_id === id)
       const starters = t?.roster.filter(p => lineup.some(l => l.player_id === p.player_id && !l.is_substitute)) || [], bench = t?.roster.filter(p => lineup.some(l => l.player_id === p.player_id && l.is_substitute)) || []
