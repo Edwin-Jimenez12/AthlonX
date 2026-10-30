@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-30 · `edwin` · nube → Corrección: la página de baloncesto no cargaba
+
+**Problema**: al abrir un torneo de baloncesto la página fallaba con `Cannot read properties of undefined (reading 'slice')`.
+
+**Causa**: la tabla `tournament_basketball_settings` de la base real no tiene `closes_at` ni `venue`; la migración `supabase/basketball-01-settings.sql` del repo sí los define, así que la base no coincide con el repo. El resumen (y la pestaña Fixtures, que ya lo hacía antes) llamaba `.slice` sobre esos campos.
+
+**Cambio**: `Components/basketball-tournament-panels.tsx` usa un helper `clock()` que tolera valores vacíos y muestra "Sede por definir" cuando falta la sede.
+
+**Verificación**: `node --test tests/*.mjs` 38/38 y `npm run build` OK. Consulta de solo lectura confirmó las columnas reales.
+
+**Pendiente**: decidir si se agregan `closes_at` y `venue` a la tabla en Supabase (ALTER TABLE). Sin eso, guardar la configuración de baloncesto también fallará. No se ejecutó SQL de esquema sin confirmación.
+
 ## 2026-10-30 · `edwin` · nube → Resumen de baloncesto 3x3 con datos reales
 
 **Cambio**: el resumen de baloncesto mostraba solo texto fijo. Ahora muestra lo mismo que rugby y fútbol, con datos del torneo:
