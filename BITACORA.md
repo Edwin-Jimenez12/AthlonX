@@ -5,6 +5,23 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-30 · `edwin` · nube → Resumen de baloncesto 3x3 con datos reales
+
+**Cambio**: el resumen de baloncesto mostraba solo texto fijo. Ahora muestra lo mismo que rugby y fútbol, con datos del torneo:
+- Campeón (banner) cuando la final está resuelta; si no, el partido en juego o el próximo con su barra de fases.
+- Próximos partidos (5) y últimos resultados (5), con hora, equipos y marcador.
+- Datos del torneo: tipo, organiza, disciplina, sede y horario, periodo y prórroga, participación.
+
+**Archivos**:
+- `lib/basketball.ts`: funciones puras para unir partidos de la llave con ronda, hora y equipos, y para elegir próximos, recientes, destacado y campeón.
+- `Components/basketball-tournament-panels.tsx`: componente `BasketballSummary`; nuevas props opcionales `organizerName` e `isQuick`.
+- `app/(panel)/torneos/ver/[id]/page.tsx`: pasa el organizador y si es torneo rápido.
+- `tests/basketball-summary.test.mjs` (nuevo): 5 pruebas de esas funciones.
+
+**Verificación**: `node --test tests/*.mjs` 38/38 y `npm run build` OK. No probado en navegador.
+
+**Pendiente**: revisar en navegador con "Basket Prueba" antes y después de publicar el cuadro. La llave se sigue generando desde la pestaña Llaves.
+
 ## 2026-10-30 · `edwin` · nube → Reloj y fases de partido comunes a todos los deportes
 
 **Pedido**: que la barra de fases, el reloj, el descanso y el aviso de cierre anticipado de fútbol 8 sean generales, y rugby (y baloncesto) los usen. Lo específico de cada deporte (try, gol, canasta, tarjetas) queda en su módulo.

@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { basketball, BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, basketballStandings, validateBasketballSettings } from '../lib/basketball'
+import { basketball, BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballSummaryGame, BasketballTeam, basketballCanFinish, basketballChampionId, basketballElapsed, basketballFeatured, basketballRecent, basketballSchedule, basketballShuffle, basketballStandings, basketballSummaryGames, basketballUpcoming, validateBasketballSettings } from '../lib/basketball'
 import { clockText, phaseSteps, sportClocks } from '../lib/match-clock'
 import { supabase } from '../lib/supabase'
 import { PhaseBar } from './match-clock-ui'
@@ -39,7 +39,7 @@ function printReport(data: Data, name: string) {
   return true
 }
 
-export function BasketballTournamentPanels({ tournamentId, tournamentName, section, canManage, drawMode }: { tournamentId: string; tournamentName: string; section: Section; canManage: boolean; drawMode?: 'automatic' | 'manual' }) {
+export function BasketballTournamentPanels({ tournamentId, tournamentName, section, canManage, drawMode, organizerName, isQuick }: { tournamentId: string; tournamentName: string; section: Section; canManage: boolean; drawMode?: 'automatic' | 'manual'; organizerName?: string; isQuick?: boolean }) {
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -81,7 +81,7 @@ export function BasketballTournamentPanels({ tournamentId, tournamentName, secti
     <div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => void load()} disabled={pending} className={secondary}>Actualizar</button><button onClick={() => { if (!printReport(data, tournamentName)) setMessage('Permite las ventanas emergentes para imprimir el reporte.') }} className={secondary}>Imprimir / guardar PDF</button></div>
     {error && <p role="alert" className="rounded-lg border border-red-400/30 p-4 text-sm text-red-200">{error} Los datos visibles pueden estar desactualizados.</p>}
     {message && <p role="status" aria-live="polite" className="rounded-lg border border-[#b4ff45]/30 p-4 text-sm text-slate-200">{message}</p>}
-    {section === 'resumen' && <section className={panel}><h2 className="font-heading text-3xl font-bold">Baloncesto 3x3</h2><p className="mt-3 text-slate-300">16 equipos · una cancha · octavos, cuartos, semifinales y final · 15 partidos.</p><p className="mt-3 text-sm leading-6 text-slate-400">Periodo de {data.settings.period_minutes} minutos, intervalo de {data.settings.interval_minutes} y bloques de prórroga de {data.settings.overtime_minutes}. Las prórrogas continúan hasta una ventaja de 2 puntos. Pausas y faltas bajo control manual del anotador.</p><p className="mt-3 text-sm text-slate-400">Plantillas de 3 a 6 jugadores, 3 en cancha y sustituciones ilimitadas durante las pausas. Colores distintivos obligatorios.</p><p className="mt-5 font-bold text-[#b4ff45]">{data.teams.length}/16 equipos · {data.matches.filter(m => m.status === 'finished').length}/15 partidos finalizados</p></section>}
+    {section === 'resumen' && <BasketballSummary data={data} organizerName={organizerName} isQuick={isQuick} />}
     {section === 'general' && <SettingsEditor settings={data.settings} locked={data.stages.length > 0} canManage={owner} pending={pending} run={run} tournamentId={tournamentId} />}
     {section === 'equipos' && <section className={panel}><h2 className="font-heading text-2xl font-bold">Colores y límites de plantilla 3x3</h2><p className="mt-2 text-sm leading-6 text-slate-400">Gestiona los equipos y jugadores con los controles habituales de esta pestaña. Antes de publicar el cuadro, cada equipo necesita de 3 a 6 jugadores y colores distintivos.</p><div className="mt-5 grid gap-4 md:grid-cols-2">{data.teams.map(t => <TeamColors key={`${t.id}:${t.colors}`} team={t} owner={owner} pending={pending} run={run} tournamentId={tournamentId} />)}</div></section>}
     {section === 'llaves' && <BasketballDraw data={data} owner={owner} pending={pending || Boolean(error)} run={run} tournamentId={tournamentId} mode={drawMode} />}
@@ -94,7 +94,58 @@ export function BasketballTournamentPanels({ tournamentId, tournamentName, secti
   </div>
 }
 
-function TeamColors({ team, owner, pending, run, tournamentId }: { team: Team; owner: boolean; pending: boolean; run: Run; tournamentId: string }) {
+function BasketballSummary({ data, organizerName, isQuick }: { data: Data; organizerName?: string; isQuick?: boolean }) {
+  let slots: ReturnType<typeof basketballSchedule> = []
+  try { slots = basketballSchedule(data.settings) } catch { /* Configuración inválida visible en Información general. */ }
+  const name = (id: string | null) => data.teams.find(t => t.id === id)?.name || 'Por definir'
+  const games = basketballSummaryGames(slots, data.stages, data.bracket, data.matches)
+  const championId = basketballChampionId(data.stages, data.bracket)
+  const featured = basketballFeatured(games)
+  const upcoming = basketballUpcoming(games)
+  const recent = basketballRecent(games)
+  const finishedCount = data.matches.filter(m => m.status === 'finished').length
+  const score = (g: BasketballSummaryGame, side: 'local' | 'visitor') => g.match.status === 'scheduled' ? '–' : String(side === 'local' ? g.match.local_score : g.match.visitor_score)
+  const facts: [string, string][] = [
+    ['Tipo', isQuick ? 'Torneo rápido · equipos creados aquí' : 'Oficial · solo por invitación'],
+    ['Organiza', organizerName || 'Torneo independiente'],
+    ['Disciplina', 'Baloncesto · 3x3'],
+    ['Sede y horario', `${data.settings.venue} · ${data.settings.opens_at.slice(0, 5)}–${data.settings.closes_at.slice(0, 5)}`],
+    ['Periodo', `${data.settings.period_minutes} min · intervalo ${data.settings.interval_minutes} min · prórroga de ${data.settings.overtime_minutes} min`],
+    ['Participación', `${data.teams.length}/16 equipos · ${finishedCount}/15 partidos`],
+  ]
+  const GameList = ({ title, rows, empty }: { title: string; rows: BasketballSummaryGame[]; empty: string }) => <section className={panel}>
+    <h2 className="font-heading text-2xl font-bold">{title}</h2>
+    {rows.length ? <ul className="mt-3 divide-y divide-white/10">{rows.map(g => <li key={`${g.round}:${g.position}`} className="flex items-center gap-3 py-2.5 text-sm">
+      <span className="w-14 shrink-0 text-slate-400">{g.time || '—'}</span>
+      <span className="min-w-0 flex-1 truncate text-right font-semibold">{name(g.localId)}</span>
+      <span className="w-14 shrink-0 text-center font-bold text-[#b4ff45]">{g.match.status === 'scheduled' ? 'vs' : `${g.match.local_score} – ${g.match.visitor_score}`}</span>
+      <span className="min-w-0 flex-1 truncate font-semibold">{name(g.visitorId)}</span>
+    </li>)}</ul> : <p className="mt-3 text-sm text-slate-400">{empty}</p>}
+  </section>
+  return <div className="space-y-5">
+    {championId
+      ? <section className="rounded-xl border border-[#b4ff45]/40 bg-[#0b1d2c] p-5 sm:p-6"><p className="text-xs font-bold uppercase tracking-widest text-[#b4ff45]">Campeón</p><p className="mt-2 font-heading text-4xl font-bold">{name(championId)}</p></section>
+      : featured
+        ? <section className={panel}>
+          <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-widest text-[#b4ff45]">{featured.stageName} · {featured.time || 'Hora por definir'}</p><span className="text-xs text-slate-400">{featured.match.status === 'live' ? 'En juego' : featured.match.status === 'finished' ? 'Final' : 'Programado'}</span></div>
+          {[{ id: featured.localId, side: 'local' as const }, { id: featured.visitorId, side: 'visitor' as const }].map(row => <div key={row.side} className="mt-4 flex items-center justify-between gap-3"><span className="font-heading text-2xl font-bold">{name(row.id)}</span><strong className="font-display text-4xl text-[#b4ff45]">{score(featured, row.side)}</strong></div>)}
+          <PhaseBar steps={phaseSteps(sportClocks.basketball, { status: featured.match.status, period: featured.match.match_phase === 'extra_time' ? 'extra_first_half' : 'first_half', matchPhase: featured.match.match_phase === 'extra_time' ? 'extra_time' : 'regular', isPaused: featured.match.is_paused })} />
+        </section>
+        : <section className={panel}><h2 className="font-heading text-2xl font-bold">Aún no hay partidos</h2><p className="mt-3 text-sm text-slate-400">Publica el cuadro desde la pestaña Llaves para crear los partidos.</p></section>}
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+      <div className="space-y-5">
+        <GameList title="Próximos partidos" rows={upcoming} empty="No hay partidos programados." />
+        <GameList title="Últimos resultados" rows={recent} empty="Todavía no hay resultados." />
+      </div>
+      <section className={panel}>
+        <h2 className="font-heading text-2xl font-bold">Datos del torneo</h2>
+        <dl className="mt-3 divide-y divide-white/10">{facts.map(([label, value]) => <div key={label} className="py-2.5"><dt className="text-xs text-slate-400">{label}</dt><dd className="mt-0.5 text-sm font-medium">{value}</dd></div>)}</dl>
+      </section>
+    </div>
+  </div>
+}
+
+function TeamColors({ team, owner, pending, run, tournamentId }:{ team: Team; owner: boolean; pending: boolean; run: Run; tournamentId: string }) {
   const [colors, setColors] = useState(team.colors || '')
   return <form onSubmit={e => { e.preventDefault(); void run('set_basketball_team_colors', { p_tournament_id: tournamentId, p_team_id: team.id, p_colors: colors }) }} className="rounded-lg border border-[#31556b] p-4"><h3 className="font-bold">{team.name}</h3><p className={`mt-2 text-sm ${team.roster.length >= 3 && team.roster.length <= 6 ? 'text-[#b4ff45]' : 'text-orange-200'}`}>{team.roster.length}/6 jugadores · mínimo 3</p>{owner ? <><label className="mt-3 block text-sm">Colores distintivos<input required maxLength={80} value={colors} onChange={e => setColors(e.target.value)} className={input} /></label><button disabled={pending || !colors.trim()} className={`${secondary} mt-3`}>Guardar colores</button></> : <p className="mt-3 text-sm text-slate-400">{team.colors || 'Colores pendientes'}</p>}</form>
 }

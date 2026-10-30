@@ -639,7 +639,7 @@ export default function PublicTournamentPage() {
   const showKnockout = competitionFormat !== 'quick_league'
   const showFixtureSections = !isFootballEightKnockout
   const canManage = Boolean(currentUserId && currentUserId === ownerId)
-  const basketballPanel = (value: 'resumen' | 'tablas' | 'fixtures' | 'partidos' | 'equipos' | 'general') => <BasketballTournamentPanels tournamentId={tournament.id} tournamentName={tournament.name} section={value} canManage={canManage && (value !== 'partidos' || editMode)} />
+  const basketballPanel = (value: 'resumen' | 'tablas' | 'fixtures' | 'partidos' | 'equipos' | 'general') => <BasketballTournamentPanels tournamentId={tournament.id} tournamentName={tournament.name} section={value} canManage={canManage && (value !== 'partidos' || editMode)} organizerName={tournament.organization?.name || tournament.organizer_team?.name} isQuick={tournament.is_quick} />
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
 

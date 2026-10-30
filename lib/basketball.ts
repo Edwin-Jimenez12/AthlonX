@@ -65,6 +65,42 @@ export function basketballStandings(teams: BasketballTeam[], stages: BasketballS
     return { ...team, rank, label: champion ? 'Campeón' : round === 4 ? 'Finalista' : round ? `Eliminado en ${basketball.rounds[round - 1].toLowerCase()}` : 'En competencia' }
   }).sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99) || a.name.localeCompare(b.name, 'es'))
 }
+export type BasketballSummaryGame = {
+  round: number; position: number; stageName: string; time: string
+  localId: string | null; visitorId: string | null; match: BasketballMatch
+}
+// Partidos de la llave ya programados, ordenados por ronda y posición. Sin partido creado no aparecen.
+export function basketballSummaryGames(
+  slots: { round: number; position: number; time: string }[],
+  stages: BasketballStage[],
+  bracket: BasketballBracketMatch[],
+  matches: BasketballMatch[],
+): BasketballSummaryGame[] {
+  return bracket.flatMap((b) => {
+    const stage = stages.find((s) => s.id === b.stage_id)
+    const match = matches.find((m) => m.id === b.source_match_id)
+    if (!stage || !match) return []
+    const slot = slots.find((s) => s.round === stage.round_number && s.position === b.position)
+    return [{
+      round: stage.round_number, position: b.position, stageName: stage.name,
+      time: match.scheduled_time?.slice(0, 5) || slot?.time || '',
+      localId: b.local_team_id, visitorId: b.visitor_team_id, match,
+    }]
+  }).sort((a, b) => a.round - b.round || a.position - b.position)
+}
+export function basketballChampionId(stages: BasketballStage[], bracket: BasketballBracketMatch[]) {
+  const final = stages.find((s) => s.round_number === 4)
+  return final ? bracket.find((b) => b.stage_id === final.id)?.winner_team_id ?? null : null
+}
+export function basketballUpcoming(games: BasketballSummaryGame[], limit = 5) {
+  return games.filter((g) => g.match.status !== 'finished').slice(0, limit)
+}
+export function basketballRecent(games: BasketballSummaryGame[], limit = 5) {
+  return games.filter((g) => g.match.status === 'finished').sort((a, b) => b.round - a.round || b.position - a.position).slice(0, limit)
+}
+export function basketballFeatured(games: BasketballSummaryGame[]) {
+  return games.find((g) => g.match.status === 'live') ?? basketballUpcoming(games, 1)[0] ?? null
+}
 export function basketballShuffle(ids: string[]) {
   const result = [...ids]
   for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]] }
