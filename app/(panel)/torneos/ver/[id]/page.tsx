@@ -1309,8 +1309,6 @@ export default function PublicTournamentPage() {
     </div>
 
     {isBasketball && section === 'partidos' && <div className={legacyPanel}>{basketballPanel('partidos')}</div>}
-    {isBasketball && section === 'equipos' && <div className={legacyPanel}>{basketballPanel('equipos')}</div>}
-    {isBasketball && section === 'general' && <div className={legacyPanel}>{basketballPanel('general')}</div>}
 
     {section === 'resumen' && <SummarySection
       tournament={tournament}

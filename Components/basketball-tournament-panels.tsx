@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, validateBasketballSettings } from '../lib/basketball'
+import { BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle } from '../lib/basketball'
 import { clockText, phaseSteps, sportClocks } from '../lib/match-clock'
 import { supabase } from '../lib/supabase'
 import { PhaseBar } from './match-clock-ui'
@@ -63,17 +63,9 @@ export function BasketballTournamentPanels({ tournamentId, tournamentName, secti
   return <div className="space-y-5">
     {error && <p role="alert" className="rounded-lg border border-red-400/30 p-4 text-sm text-red-200">{error} Los datos visibles pueden estar desactualizados.</p>}
     {message && <p role="status" aria-live="polite" className="rounded-lg border border-[#b4ff45]/30 p-4 text-sm text-slate-200">{message}</p>}
-    {section === 'general' && <SettingsEditor settings={data.settings} locked={data.stages.length > 0} canManage={owner} pending={pending} run={run} tournamentId={tournamentId} />}
     {section === 'llaves' && <BasketballDraw data={data} owner={owner} pending={pending || Boolean(error)} run={run} tournamentId={tournamentId} mode={drawMode} />}
     {section === 'partidos' && <div className="space-y-5"><p className="text-sm leading-6 text-slate-400">Arco: línea de dos puntos que separa la zona interior de la exterior. Dentro del arco: 1 punto. Fuera del arco: 2 puntos. Tiro libre: 1 punto. Las faltas se registran manualmente y no generan sanciones automáticas.</p>{data.matches.map(m => <BasketballGame key={m.id} match={m} data={data} owner={owner} pending={pending || Boolean(error)} run={run} />)}{!data.matches.length && <p className="py-6 text-slate-400">Publica el cuadro desde Llaves para crear los partidos.</p>}</div>}
   </div>
-}
-
-function SettingsEditor({ settings, locked, canManage, pending, run, tournamentId }: { settings: BasketballSettings; locked: boolean; canManage: boolean; pending: boolean; run: Run; tournamentId: string }) {
-  const [s, set] = useState(settings)
-  const [error, setError] = useState('')
-  async function save(e: FormEvent) { e.preventDefault(); const issue = validateBasketballSettings(s); setError(issue); if (!issue) await run('save_basketball_settings', { p_tournament_id: tournamentId, p_settings: s }) }
-  return <form onSubmit={save} className={panel}><h2 className="font-heading text-2xl font-bold">Configuración deportiva 3x3</h2><p className="mt-3 text-sm text-slate-400">{locked ? 'Los tiempos quedaron bloqueados al publicar el cuadro.' : 'El fixture y el reloj usan estos valores del torneo.'}</p><fieldset disabled={!canManage || locked || pending} className="mt-5 grid gap-4 sm:grid-cols-2">{[['period_minutes', 'Minutos del periodo', 1], ['interval_minutes', 'Intervalo entre partidos', 0], ['overtime_minutes', 'Minutos por bloque de prórroga', 1]].map(([key, label, min]) => <label key={key} className="text-sm font-semibold">{label}<input type="number" required min={min} max="120" value={s[key as keyof BasketballSettings] ?? ''} onChange={e => set({ ...s, [key]: Number(e.target.value) })} className={input} /></label>)}<label className="text-sm font-semibold">Sede<input required value={s.venue} onChange={e => set({ ...s, venue: e.target.value })} className={input} /></label>{[['opens_at', 'Inicio de la jornada'], ['closes_at', 'Cierre de la jornada']].map(([key, label]) => <label key={key} className="text-sm font-semibold">{label}<input required type="time" value={s[key].slice(0, 5)} onChange={e => set({ ...s, [key]: e.target.value })} className={input} /></label>)}<p className="text-xs leading-5 text-slate-400 sm:col-span-2">Si se agota una prórroga sin dos puntos de ventaja, continúa otro bloque de igual duración. No hay tandas de penales ni sanciones automáticas.</p>{canManage && <button disabled={locked || pending} className={button}>Guardar configuración 3x3</button>}</fieldset>{error && <p role="alert" className="mt-4 text-sm text-red-200">{error}</p>}</form>
 }
 
 function BasketballDraw({ data, owner, pending, run, tournamentId, mode }: { data: Data; owner: boolean; pending: boolean; run: Run; tournamentId: string; mode?: 'automatic' | 'manual' }) {

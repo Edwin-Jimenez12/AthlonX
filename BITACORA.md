@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Quitar contenedor vacío de Equipos y la configuración 3x3 en Información
+
+**Cambios**:
+- Pestaña Equipos y plantillas de básquet: ya no se monta el contenedor vacío del panel propio; queda la sección general, igual que fútbol 8.
+- Pestaña Información de básquet: se quita el editor "Configuración deportiva 3x3" (periodo, intervalo, prórroga, sede, horario). Información vuelve a ser la general, como en fútbol 8.
+- Se elimina el componente `SettingsEditor` del panel, que ya no tenía uso.
+
+**Pendiente**: el periodo, el intervalo, la prórroga y el horario de básquet ya no se pueden editar en ningún lado. Hay que decidir cómo se configuran en la sección general (como la configuración de competencia de fútbol 8). La función `save_basketball_settings` queda sin uso desde la interfaz.
+
+**Verificación**: `npm run build` OK. Pruebas no cambiadas. No probado en navegador.
+
 ## 2026-10-31 · `edwin` · nube → Quitar Clasificación y Cronograma en básquet
 
 **Motivo**: la llave ya muestra la posición por ronda y los horarios, así que las pestañas Clasificación y Cronograma sobraban en básquet.
