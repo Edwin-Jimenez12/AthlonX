@@ -5,6 +5,14 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → "Finalizar tiempo" también en la prórroga de básquet
+
+**Cambio**: durante la prórroga, con el reloj corriendo, aparece "Finalizar tiempo". Termina el bloque actual: el reloj vuelve a 00:00 y queda detenido; al reanudar empieza el siguiente bloque. El partido solo termina cuando hay 2 puntos de ventaja, como antes.
+
+**Servidor** (aplicado en Supabase con `supabase/basketball-end-block-migration.sql`): nueva acción `end_block` en `basketball_match_action`. Verificado con consulta de solo lectura que la acción existe en la función.
+
+**Verificación**: `npm run build` OK. No probado en navegador.
+
 ## 2026-10-31 · `edwin` · nube → Botón "Finalizar tiempo" en básquet
 
 **Cambio**: en el periodo reglamentario de básquet aparece "Finalizar tiempo". Si el partido está empatado pasa a la prórroga; si no, finaliza el partido. Funciona en cualquier momento del periodo, no solo al cumplir 10 minutos.
