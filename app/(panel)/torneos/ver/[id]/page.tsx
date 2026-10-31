@@ -639,7 +639,7 @@ export default function PublicTournamentPage() {
   const showKnockout = competitionFormat !== 'quick_league'
   const showFixtureSections = !isFootballEightKnockout
   const canManage = Boolean(currentUserId && currentUserId === ownerId)
-  const basketballPanel = (value: 'resumen' | 'tablas' | 'fixtures' | 'partidos' | 'equipos' | 'general') => <BasketballTournamentPanels tournamentId={tournament.id} tournamentName={tournament.name} section={value} canManage={canManage && (value !== 'partidos' || editMode)} organizerName={tournament.organization?.name || tournament.organizer_team?.name} isQuick={tournament.is_quick} />
+  const basketballPanel = (value: 'resumen' | 'tablas' | 'fixtures' | 'partidos' | 'equipos' | 'general') => <BasketballTournamentPanels tournamentId={tournament.id} tournamentName={tournament.name} section={value} canManage={canManage && (value !== 'partidos' || editMode)} />
   const disciplines = availableDisciplines.length ? availableDisciplines : tournament.discipline ? [tournament.discipline] : []
   const modalities = availableModalities.length ? availableModalities : tournament.modality ? [{ ...tournament.modality, discipline_id: tournament.discipline?.id }] : []
 
@@ -1261,7 +1261,7 @@ export default function PublicTournamentPage() {
   ] as const)
     .filter(([value]) => (
       (value !== 'generador' || (canManage && editMode))
-      && (value !== 'tablas' || !isFootballEightKnockout || isBasketball)
+      && (value !== 'tablas' || !isFootballEightKnockout)
       && (value !== 'llaves' || showBracketTab)
       && (value !== 'convocatorias' || !tournament.is_quick)
       && (value !== 'fixtures' || showFixtureSections)
@@ -1308,7 +1308,7 @@ export default function PublicTournamentPage() {
       {message && !pendingChanges && !showOperationSave && <Notice tone={/no se|no es|no puede|no hay|error|debe|necesita|máximo|completa|selecciona|guarda o descarta/i.test(message) ? 'warning' : 'success'} icon={/no se|no es|no puede|error/i.test(message) ? CircleAlert : Check}>{message}</Notice>}
     </div>
 
-    {isBasketball && (section === 'resumen' || section === 'tablas' || section === 'fixtures' || section === 'partidos') && <div className={legacyPanel}>{basketballPanel(section)}</div>}
+    {isBasketball && section === 'partidos' && <div className={legacyPanel}>{basketballPanel('partidos')}</div>}
     {isBasketball && section === 'equipos' && <div className={legacyPanel}>{basketballPanel('equipos')}</div>}
     {isBasketball && section === 'general' && <div className={legacyPanel}>{basketballPanel('general')}</div>}
 

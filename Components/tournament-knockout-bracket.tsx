@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { BasketballTournamentPanels } from './basketball-tournament-panels'
 
 type Team = { id: string; name: string; division_id: string; division_name: string }
 type Match = {
@@ -74,7 +73,6 @@ function createManualPairings(): ManualPairing[] {
 }
 
 export function TournamentKnockoutBracket(props: Parameters<typeof LegacyTournamentKnockoutBracket>[0] & { discipline?: string; tournamentName?: string }) {
-  if (props.discipline === 'baloncesto') return <BasketballTournamentPanels tournamentId={props.tournamentId} tournamentName={props.tournamentName || 'Torneo 3x3'} section="llaves" canManage={props.canManage} />
   return <LegacyTournamentKnockoutBracket {...props} />
 }
 
@@ -85,6 +83,7 @@ function LegacyTournamentKnockoutBracket({
   events,
   canManage,
   footballEight = false,
+  discipline,
   generationMode: forcedMode,
 }: {
   tournamentId: string
@@ -93,6 +92,7 @@ function LegacyTournamentKnockoutBracket({
   events: MatchEvent[]
   canManage: boolean
   footballEight?: boolean
+  discipline?: string
   // Lo fija el Generador; sin este valor la llave muestra su propio selector.
   generationMode?: 'automatic' | 'manual'
 }) {
@@ -103,6 +103,7 @@ function LegacyTournamentKnockoutBracket({
   const [message, setMessage] = useState('')
   const [internalMode, setGenerationMode] = useState<'automatic' | 'manual'>('automatic')
   const generationMode = forcedMode ?? internalMode
+  const isBasketball = discipline === 'baloncesto'
   const [manualPairings, setManualPairings] = useState<ManualPairing[]>(
     createManualPairings,
   )
@@ -222,7 +223,7 @@ function LegacyTournamentKnockoutBracket({
     if (!supabase || !canManage || !footballEight) return
     setDeleting(true)
     setMessage('')
-    const { error } = await supabase.rpc('delete_football_eight_bracket', { p_tournament_id: tournamentId })
+    const { error } = await supabase.rpc(isBasketball ? 'delete_basketball_bracket' : 'delete_football_eight_bracket', { p_tournament_id: tournamentId })
     setDeleting(false)
     if (error) {
       setConfirmDelete(false)
@@ -238,7 +239,7 @@ function LegacyTournamentKnockoutBracket({
     if (footballEight) {
       if (ranked.length !== 16) return setMessage('Se necesitan exactamente 16 equipos en la división para generar los octavos de final.')
       if (stages.length) return setMessage('La llave ya está generada. Los ganadores avanzan al finalizar cada partido.')
-      const { error } = await supabase.rpc('generate_football_eight_bracket', { p_tournament_id: tournamentId, p_division_id: selectedDivision })
+      const { error } = await supabase.rpc(isBasketball ? 'generate_basketball_bracket' : 'generate_football_eight_bracket', { p_tournament_id: tournamentId, p_division_id: selectedDivision })
       if (error) return setMessage(error.message)
       window.location.reload()
       return
@@ -356,7 +357,7 @@ function LegacyTournamentKnockoutBracket({
     }
 
     setMessage('')
-    const { error } = await supabase.rpc('generate_football_eight_manual_bracket', {
+    const { error } = await supabase.rpc(isBasketball ? 'generate_basketball_manual_bracket' : 'generate_football_eight_manual_bracket', {
       p_tournament_id: tournamentId,
       p_division_id: selectedDivision,
       p_pairings: pairings.map((pairing) => ({

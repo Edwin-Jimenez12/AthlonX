@@ -2,7 +2,6 @@
 
 import { Shuffle, Wand2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { BasketballTournamentPanels } from './basketball-tournament-panels'
 import { Card, CardHeader, cx } from './mi-equipo/ui'
 import { TournamentKnockoutBracket } from './tournament-knockout-bracket'
 import { LeagueGenerator, type LeagueSettings, type ScheduleDate } from './torneo/league-generator'
@@ -65,9 +64,7 @@ export function TournamentFixtureGenerator({ tournamentId, tournamentName, tourn
       <div className="mt-5">{modePicker}</div>
     </Card></div>
     <div>
-      {basketball
-        ? <BasketballTournamentPanels tournamentId={tournamentId} tournamentName={tournamentName} section="llaves" canManage={canManage} drawMode={mode} />
-        : <TournamentKnockoutBracket tournamentId={tournamentId} teams={teams} matches={matches} events={events} canManage={canManage} footballEight discipline={discipline} tournamentName={tournamentName} generationMode={mode} />}
+      <TournamentKnockoutBracket tournamentId={tournamentId} teams={teams} matches={matches} events={events} canManage={canManage} footballEight discipline={discipline} tournamentName={tournamentName} generationMode={mode} />
     </div>
   </div>
 

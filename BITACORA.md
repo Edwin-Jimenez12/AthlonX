@@ -5,6 +5,31 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Baloncesto 3x3 empieza a usar las secciones de fútbol 8 (parcial)
+
+**Pedido**: básquet con las mismas secciones que fútbol 8 (resumen, llave, equipos, fixture, generador, partidos), cambiando solo las reglas de básquet. Decisiones confirmadas: quitar Clasificación y Cronograma; trigger de marcador; migrar los torneos existentes; falta manual sin puntos; horario y sede en Información.
+
+**Base de datos (aplicado en Supabase `mlvtsgseneqzihwkiatg` y verificado con consultas de solo lectura)** — `supabase/basketball-unify-migration.sql`:
+- `tournament_basketball_settings`: agrega `closes_at` (22:00 por defecto) y `venue`, que la base real no tenía.
+- Funciones nuevas: `generate_basketball_bracket`, `generate_basketball_manual_bracket` y `delete_basketball_bracket`. Como las de fútbol, pero con horarios de periodo + intervalo y chequeo de disciplina baloncesto.
+- `sync_match_score_from_events`: se deja con la versión que ya estaba en producción (básquet usa `sync_basketball_score`). La migración de aislamiento de eventos del repo es anterior y, si se vuelve a ejecutar, dejaría fuera a básquet; esta migración lo corrige.
+- Torneos existentes: "basket no oficial" y "bas" reciben `tournament_competition_settings` (knockout, 16 equipos, periodo y intervalo). Así fútbol 8 y básquet comparten la misma base de configuración.
+
+**Interfaz (parcial)**:
+- `TournamentKnockoutBracket` ya no redirige a `BasketballTournamentPanels`; llama las funciones de básquet cuando la disciplina es `baloncesto`. El Generador usa el mismo componente.
+- Página: Resumen de básquet usa el resumen general; Clasificación y Cronograma quedan ocultos (como en fútbol 8).
+- Quitado el resumen propio de básquet (componente, funciones de `lib/basketball.ts` y su prueba).
+
+**Pendiente (no hecho en esta entrega)**:
+1. Partidos: sigue en `BasketballTournamentPanels`. Falta adaptar `MatchHighlight` para básquet: botones de canasta (dentro +1, fuera +2, tiro libre +1, falta manual), reloj de periodo y prórroga por bloques, y que las acciones pasen por `basketball_match_action`, que es quien aplica las reglas.
+2. Equipos y plantillas: falta el flujo general con colores obligatorios y plantilla de 3 a 6 jugadores.
+3. Información: el editor de configuración de básquet sigue en el panel propio.
+4. Limpieza: al terminar, quitar `BasketballDraw` y `publish_basketball_bracket` si ya nada los usa.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador. El Generador y la llave de básquet pasan ahora por funciones nuevas que no se han ejecutado todavía.
+
+**Riesgos**: los torneos de básquet ya publicados ("basket no oficial") tienen su llave creada con el flujo anterior; hay que comprobar que la llave general los muestre bien y que el avance de ganadores siga funcionando.
+
 ## 2026-10-30 · `edwin` · nube → Corrección: la página de baloncesto no cargaba
 
 **Problema**: al abrir un torneo de baloncesto la página fallaba con `Cannot read properties of undefined (reading 'slice')`.
