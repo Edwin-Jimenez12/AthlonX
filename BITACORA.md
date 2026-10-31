@@ -5,6 +5,16 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Resultados de prueba de "bas" hasta la primera semifinal
+
+**Qué se hizo** (aplicado en Supabase, proyecto `mlvtsgseneqzihwkiatg`, con script `supabase/seed-basketball-resultados-bas.sql`):
+- Octavos (8) y cuartos (4) finalizados; la primera semifinal (Halcones 10 – Dragones 17) también. Los ganadores avanzaron hasta la final, que queda pendiente. La semifinal 2 quedó programada, sin jugar.
+- Las canastas se registraron como el organizador (`request.jwt.claims`), con puntuación 1/2/1 y ganador sin empate. Cada partido simula 10 minutos.
+
+**Decisión**: el torneo "bas" sigue en borrador. El script no lo publica ni usa la acción de iniciar del panel, que lo bloquea en borrador. Si quieres que la app lo trate como publicado, hay que publicarlo aparte.
+
+**Verificación**: consulta de solo lectura de la llave: 15 partidos, 8 + 4 + 1 finalizados.
+
 ## 2026-10-31 · `edwin` · nube → Quitar contenedor vacío de Equipos y la configuración 3x3 en Información
 
 **Cambios**:
