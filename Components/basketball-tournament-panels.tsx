@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { basketball, BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, basketballStandings, validateBasketballSettings } from '../lib/basketball'
+import { BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, basketballStandings, validateBasketballSettings } from '../lib/basketball'
 import { clockText, phaseSteps, sportClocks } from '../lib/match-clock'
 import { supabase } from '../lib/supabase'
 import { PhaseBar } from './match-clock-ui'
@@ -21,25 +21,6 @@ const secondary = 'cursor-pointer rounded-lg border border-[#31556b] px-4 py-3 t
 const eventLabels: Record<BasketballEventType, string> = { basket_inside: 'Dentro del arco · +1', basket_outside: 'Fuera del arco · +2', basket_free_throw: 'Tiro libre · +1', basket_foul: 'Falta manual' }
 // La base puede no tener closes_at o venue si la migración de configuración no está completa.
 const clock = (value?: string | null) => (value ?? '').slice(0, 5)
-const escape = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-
-function printReport(data: Data, name: string) {
-  const target = window.open('', '_blank', 'width=1100,height=850')
-  if (!target) return false
-  const team = (id: string | null) => data.teams.find(t => t.id === id)?.name || 'Por definir'
-  const rows = basketballSchedule(data.settings).map(slot => {
-    const stage = data.stages.find(s => s.round_number === slot.round)
-    const b = data.bracket.find(b => b.stage_id === stage?.id && b.position === slot.position)
-    const m = data.matches.find(m => m.id === b?.source_match_id)
-    return `<tr><td>${escape(slot.name)}</td><td>${escape(slot.time)}</td><td>${escape(team(b?.local_team_id))}</td><td>${m && m.status !== 'scheduled' ? `${m.local_score} – ${m.visitor_score}` : '—'}</td><td>${escape(team(b?.visitor_team_id))}</td></tr>`
-  }).join('')
-  const standings = basketballStandings(data.teams, data.stages, data.bracket).map(t => `<tr><td>${t.rank ?? '—'}</td><td>${escape(t.name)}</td><td>${escape(t.label)}</td></tr>`).join('')
-  const rosters = data.teams.map(t => `<tr><td>${escape(t.name)}</td><td>${escape(t.colors)}</td><td>${escape(t.roster.map(p => p.full_name).join(', '))}</td></tr>`).join('')
-  const events = data.events.filter(e => !e.is_corrected)
-  target.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escape(name)} · Reporte 3x3</title><style>@page{size:A4 landscape;margin:15mm}body{font:12px Arial;color:#102030}h1{font-size:26px}table{width:100%;border-collapse:collapse;margin:16px 0 24px}th,td{border:1px solid #aabbcc;padding:8px;text-align:left}thead{display:table-header-group}tr{break-inside:avoid}h2{break-after:avoid}.note{color:#506070}</style></head><body><h1>${escape(name)}</h1><p>AthlonX · Baloncesto 3x3 · ${escape(data.settings.venue)}</p><p>Periodo: ${data.settings.period_minutes} min · Intervalo: ${data.settings.interval_minutes} min · Bloque de prórroga: ${data.settings.overtime_minutes} min · Una cancha</p><p class="note">Prórrogas hasta una ventaja de 2 puntos. Los horarios son estimados. Sin partido por el tercer lugar.</p><h2>Equipos y plantillas</h2><table><thead><tr><th>Equipo</th><th>Colores</th><th>Jugadores</th></tr></thead><tbody>${rosters}</tbody></table><h2>Fixture y resultados</h2><table><thead><tr><th>Ronda</th><th>Hora</th><th>Local</th><th>Marcador</th><th>Visitante</th></tr></thead><tbody>${rows}</tbody></table><h2>Clasificación por ronda alcanzada</h2><p>Las posiciones compartidas se muestran sin desempate adicional.</p><table><thead><tr><th>Posición</th><th>Equipo</th><th>Estado</th></tr></thead><tbody>${standings}</tbody></table><h2>Actividad registrada</h2><p>Canastas interiores: ${events.filter(e => e.event_type === 'basket_inside').length} · Exteriores: ${events.filter(e => e.event_type === 'basket_outside').length} · Tiros libres: ${events.filter(e => e.event_type === 'basket_free_throw').length} · Faltas manuales: ${events.filter(e => e.event_type === 'basket_foul').length}</p><script>window.onload=()=>window.print()</script></body></html>`)
-  target.document.close()
-  return true
-}
 
 export function BasketballTournamentPanels({ tournamentId, tournamentName, section, canManage, drawMode }: { tournamentId: string; tournamentName: string; section: Section; canManage: boolean; drawMode?: 'automatic' | 'manual' }) {
   const [data, setData] = useState<Data | null>(null)
@@ -80,7 +61,6 @@ export function BasketballTournamentPanels({ tournamentId, tournamentName, secti
   let slots: ReturnType<typeof basketballSchedule> = []
   try { slots = basketballSchedule(data.settings) } catch { /* Configuración inválida visible en Información general. */ }
   return <div className="space-y-5">
-    <div className="mt-5 flex flex-wrap justify-end gap-3"><button onClick={() => void load()} disabled={pending} className={secondary}>Actualizar</button><button onClick={() => { if (!printReport(data, tournamentName)) setMessage('Permite las ventanas emergentes para imprimir el reporte.') }} className={secondary}>Imprimir / guardar PDF</button></div>
     {error && <p role="alert" className="rounded-lg border border-red-400/30 p-4 text-sm text-red-200">{error} Los datos visibles pueden estar desactualizados.</p>}
     {message && <p role="status" aria-live="polite" className="rounded-lg border border-[#b4ff45]/30 p-4 text-sm text-slate-200">{message}</p>}
     {section === 'general' && <SettingsEditor settings={data.settings} locked={data.stages.length > 0} canManage={owner} pending={pending} run={run} tournamentId={tournamentId} />}

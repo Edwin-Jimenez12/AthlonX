@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Resumen de básquet vacío y botones de cabecera quitados
+
+**Problema**: en básquet el Resumen no mostraba nada y no se podía hacer scroll. La condición del resumen general excluía `isBasketball`, así que al quitar el resumen propio la sección quedó sin renderizar.
+
+**Cambios**:
+- `app/(panel)/torneos/ver/[id]/page.tsx`: el resumen general se muestra también en básquet. El partido destacado no se muestra en básquet, porque `MatchHighlight` todavía tiene botones de rugby (try, conversión) que no sirven para canasta; se mostrará cuando se adapte la pestaña Partidos.
+- `Components/basketball-tournament-panels.tsx`: se quitan los botones "Actualizar" e "Imprimir / guardar PDF" de la cabecera, la función `printReport` que solo usaban y el helper `escape`. Se mantiene la carga periódica de datos.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador.
+
+**Pendiente**: adaptar `MatchHighlight` a canasta para que básquet pueda mostrar el partido destacado y registrar puntos.
+
 ## 2026-10-31 · `edwin` · nube → Quitar el bloque "Colores y límites de plantilla 3x3" de básquet
 
 **Cambio**: se elimina la sección propia de colores y plantillas de básquet en "Equipos y plantillas" y el componente `TeamColors` que solo usaba. Queda solo la sección general de equipos.

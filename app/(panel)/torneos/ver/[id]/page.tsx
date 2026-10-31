@@ -1312,7 +1312,7 @@ export default function PublicTournamentPage() {
     {isBasketball && section === 'equipos' && <div className={legacyPanel}>{basketballPanel('equipos')}</div>}
     {isBasketball && section === 'general' && <div className={legacyPanel}>{basketballPanel('general')}</div>}
 
-    {section === 'resumen' && !isBasketball && <SummarySection
+    {section === 'resumen' && <SummarySection
       tournament={tournament}
       divisions={data.divisions ?? []}
       teams={teams}
@@ -1481,6 +1481,8 @@ export default function PublicTournamentPage() {
 
 function SummarySection({ tournament, divisions, teams, matches, events, corrections, rosters, onOpenFixtures, directKnockout, canManage }: { tournament: Tournament; divisions: Division[]; teams: TournamentTeam[]; matches: Match[]; events: MatchEvent[]; corrections: MatchEventCorrection[]; rosters: RosterEntry[]; onOpenFixtures: () => void; directKnockout: boolean; canManage: boolean }) {
   const featuredMatch = getFeaturedMatch(matches)
+  // El partido destacado de básquet aún no tiene controles propios; se muestra en la pestaña Partidos.
+  const isBasketballTournament = tournament.discipline?.code === 'baloncesto'
   const uniqueTeamCount = new Set(teams.map((team) => team.id)).size
   const upcoming = matches.filter((match) => match.status === 'scheduled' && match.id !== featuredMatch?.id)
     .sort((left, right) => left.date_number - right.date_number || (left.scheduled_time || '').localeCompare(right.scheduled_time || '')).slice(0, 5)
@@ -1500,7 +1502,7 @@ function SummarySection({ tournament, divisions, teams, matches, events, correct
   return <div className="ax-v2 space-y-5">
     <DivisionWinners tournament={tournament} teams={teams} matches={matches} />
     {featuredMatch
-      ? <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} rosters={rosters} />
+      ? isBasketballTournament ? null : <MatchHighlight match={featuredMatch} events={events.filter((event) => event.match_id === featuredMatch.id)} corrections={corrections.filter((correction) => correction.match_id === featuredMatch.id)} rosters={rosters} />
       : <Card><EmptyState icon={CalendarDays} title="Aún no hay partidos" description={directKnockout ? 'La llave todavía no se ha generado.' : 'Todavía no se ha generado el fixture.'} action={canManage ? <Button variant="primary" onClick={onOpenFixtures}>{directKnockout ? 'Generar llave' : 'Generar fixture'}</Button> : undefined} /></Card>}
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
       <div className="space-y-5">
