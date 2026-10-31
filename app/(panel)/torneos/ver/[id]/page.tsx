@@ -1261,10 +1261,10 @@ export default function PublicTournamentPage() {
   ] as const)
     .filter(([value]) => (
       (value !== 'generador' || (canManage && editMode))
-      && (value !== 'tablas' || !isFootballEightKnockout)
+      && (value !== 'tablas' || (!isBasketball && !isFootballEightKnockout))
       && (value !== 'llaves' || showBracketTab)
       && (value !== 'convocatorias' || !tournament.is_quick)
-      && (value !== 'fixtures' || showFixtureSections)
+      && (value !== 'fixtures' || (!isBasketball && showFixtureSections))
     ))
     .map(([value, label]) => ({ value, label }))
   const operationItems: SaveBarItem[] = pendingOperations.map((operation) => ({

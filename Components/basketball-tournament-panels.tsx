@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
-import { BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, basketballStandings, validateBasketballSettings } from '../lib/basketball'
+import { BasketballBracketMatch, BasketballEventType, BasketballMatch, BasketballSettings, BasketballStage, BasketballTeam, basketballCanFinish, basketballElapsed, basketballSchedule, basketballShuffle, validateBasketballSettings } from '../lib/basketball'
 import { clockText, phaseSteps, sportClocks } from '../lib/match-clock'
 import { supabase } from '../lib/supabase'
 import { PhaseBar } from './match-clock-ui'
@@ -65,11 +65,6 @@ export function BasketballTournamentPanels({ tournamentId, tournamentName, secti
     {message && <p role="status" aria-live="polite" className="rounded-lg border border-[#b4ff45]/30 p-4 text-sm text-slate-200">{message}</p>}
     {section === 'general' && <SettingsEditor settings={data.settings} locked={data.stages.length > 0} canManage={owner} pending={pending} run={run} tournamentId={tournamentId} />}
     {section === 'llaves' && <BasketballDraw data={data} owner={owner} pending={pending || Boolean(error)} run={run} tournamentId={tournamentId} mode={drawMode} />}
-    {section === 'tablas' && <section className={panel}><h2 className="font-heading text-3xl font-bold">Clasificación por ronda alcanzada</h2><p className="mt-3 text-sm text-slate-400">Sin tercer lugar ni desempates entre eliminados en una misma ronda. El orden alfabético solo facilita la lectura de las posiciones compartidas.</p><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs uppercase text-slate-400"><tr><th className="p-3">Posición</th><th>Equipo</th><th>Estado</th></tr></thead><tbody>{basketballStandings(data.teams, data.stages, data.bracket).map(t => <tr key={t.id} className="border-t border-white/10"><td className="p-3 font-bold text-[#b4ff45]">{t.rank ? `${t.rank}.º` : '—'}</td><td>{t.name}</td><td>{t.label}</td></tr>)}</tbody></table></div></section>}
-    {section === 'fixtures' && <section className={panel}><h2 className="font-heading text-3xl font-bold">Fixture de la jornada</h2><p className="mt-3 text-sm text-slate-400">{clock(data.settings.opens_at)}–{clock(data.settings.closes_at)} · {data.settings.venue || 'Sede por definir'}. Los horarios estimados pueden desplazarse por pausas y prórrogas.</p><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead className="text-xs uppercase text-slate-400"><tr><th className="p-3">Ronda</th><th>Hora</th><th>Local</th><th>Resultado</th><th>Visitante</th></tr></thead><tbody>{slots.map(slot => {
-      const st = data.stages.find(s => s.round_number === slot.round), b = data.bracket.find(b => b.stage_id === st?.id && b.position === slot.position), m = data.matches.find(m => m.id === b?.source_match_id)
-      return <tr key={`${slot.round}:${slot.position}`} className="border-t border-white/10"><td className="p-3">{slot.name} · {slot.position}</td><td>{slot.time}</td><td>{team(b?.local_team_id)}</td><td className="font-bold text-[#b4ff45]">{m && m.status !== 'scheduled' ? `${m.local_score} – ${m.visitor_score}` : '—'}</td><td>{team(b?.visitor_team_id)}</td></tr>
-    })}</tbody></table></div></section>}
     {section === 'partidos' && <div className="space-y-5"><p className="text-sm leading-6 text-slate-400">Arco: línea de dos puntos que separa la zona interior de la exterior. Dentro del arco: 1 punto. Fuera del arco: 2 puntos. Tiro libre: 1 punto. Las faltas se registran manualmente y no generan sanciones automáticas.</p>{data.matches.map(m => <BasketballGame key={m.id} match={m} data={data} owner={owner} pending={pending || Boolean(error)} run={run} />)}{!data.matches.length && <p className="py-6 text-slate-400">Publica el cuadro desde Llaves para crear los partidos.</p>}</div>}
   </div>
 }

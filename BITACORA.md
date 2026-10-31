@@ -5,6 +5,16 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Quitar Clasificación y Cronograma en básquet
+
+**Motivo**: la llave ya muestra la posición por ronda y los horarios, así que las pestañas Clasificación y Cronograma sobraban en básquet.
+
+**Cambios**:
+- `app/(panel)/torneos/ver/[id]/page.tsx`: las pestañas Tablas y Fixtures se ocultan también cuando la disciplina es básquet, sin depender de la configuración de competencia.
+- `Components/basketball-tournament-panels.tsx`: se quitan las secciones "tablas" y "fixtures" del panel y el import que ya no se usaba.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador. En la captura de "BAS" seguían apareciendo; con la configuración de competencia ya en la base debería ocultarse tras recargar.
+
 ## 2026-10-31 · `edwin` · nube → Resumen de básquet vacío y botones de cabecera quitados
 
 **Problema**: en básquet el Resumen no mostraba nada y no se podía hacer scroll. La condición del resumen general excluía `isBasketball`, así que al quitar el resumen propio la sección quedó sin renderizar.
