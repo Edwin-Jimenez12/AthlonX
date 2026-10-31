@@ -5,6 +5,14 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Iniciar un partido de básquet sin alineación
+
+**Problema**: el partido no arrancaba con "Cada equipo necesita 3 jugadores en cancha y hasta 3 suplentes", porque la acción `start` de `basketball_match_action` exigía alineación. El método de cambios aún no está definido.
+
+**Cambio**: aplicado en Supabase `mlvtsgseneqzihwkiatg` con `supabase/basketball-start-without-lineup-migration.sql`, que vuelve a crear la función sin esa validación. Verificado con consulta de solo lectura: el texto del error ya no está en la función.
+
+**Pendiente**: el método de cambios y la alineación se definirán cuando esté decidido. Mientras tanto, el partido empieza sin jugadores en cancha.
+
 ## 2026-10-31 · `edwin` · nube → Partidos de básquet con el mismo diseño que rugby y fútbol
 
 **Cambio**: la pestaña Partidos de básquet usa `MatchHighlight` y `MatchesSection`, igual que fútbol y rugby. Ya no se usa el panel propio de básquet.
