@@ -5,6 +5,18 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → La prórroga de básquet no finaliza sola
+
+**Problema**: en la prórroga, al llegar a 2 puntos de diferencia el partido finalizaba automáticamente. Debe ser muerte súbita: el organizador decide cuándo finalizar.
+
+**Cambios**:
+- Servidor (aplicado en Supabase con `supabase/basketball-no-auto-finish-migration.sql`): la acción `event` ya no finaliza el partido al llegar a 2 puntos. Verificado con consulta de solo lectura que el cierre automático ya no está en la función.
+- Interfaz: en la prórroga, con 2 o más puntos de diferencia, aparece el aviso "Hay 2 puntos de diferencia. En prórroga (muerte súbita) se recomienda finalizar el partido." y el botón "Finalizar partido" (acción `finish`).
+
+**Pendiente**: el partido Falcones – Gladiadores de "BAS" quedó finalizado con el cierre automático (3–0). Para reanudarlo habría que revertir su estado; no se hizo.
+
+**Verificación**: `npm run build` OK. No probado en navegador.
+
 ## 2026-10-31 · `edwin` · nube → "Finalizar tiempo" también en la prórroga de básquet
 
 **Cambio**: durante la prórroga, con el reloj corriendo, aparece "Finalizar tiempo". Termina el bloque actual: el reloj vuelve a 00:00 y queda detenido; al reanudar empieza el siguiente bloque. El partido solo termina cuando hay 2 puntos de ventaja, como antes.
