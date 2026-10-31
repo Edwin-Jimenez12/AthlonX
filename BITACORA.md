@@ -5,6 +5,24 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Partidos de básquet con el mismo diseño que rugby y fútbol
+
+**Cambio**: la pestaña Partidos de básquet usa `MatchHighlight` y `MatchesSection`, igual que fútbol y rugby. Ya no se usa el panel propio de básquet.
+- Marcador y tiempo: periodo (10 min) y prórroga por bloques, con la duración de la configuración del torneo.
+- Botones de anotación: dentro del arco (+1), fuera del arco (+2), tiro libre (+1) y falta (sin puntos). Cada anotación se registra con `basketball_match_action` (acción `event`), que valida el reloj y el ganador en el servidor.
+- Botones de reloj: Iniciar (`start`), Pausar (`pause`), Preparar prórroga (`overtime`), Finalizar (`finish`) y Reanudar (`start`), según el estado del partido.
+- Corregir una anotación usa la acción `correct`.
+- Estadísticas: dentro del arco, fuera del arco, tiros libres y faltas.
+- Las tarjetas (amarilla, roja, lesión) no aplican a básquet y se ocultan.
+
+**Archivos**: `app/(panel)/torneos/ver/[id]/page.tsx` (23 cambios, cada uno verificado contra el texto exacto).
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador.
+
+**Pendiente**:
+- Corregir una anotación de un partido ya finalizado: la acción `correct` de básquet lo rechaza ("El partido está cerrado"). Hay que permitirlo en la función de servidor.
+- El panel propio de básquet (`BasketballGame`, `BasketballDraw`, `publish_basketball_bracket`) ya no se usa. Hay que eliminarlo.
+
 ## 2026-10-31 · `edwin` · nube → Resultados de prueba de "bas" hasta la primera semifinal
 
 **Qué se hizo** (aplicado en Supabase, proyecto `mlvtsgseneqzihwkiatg`, con script `supabase/seed-basketball-resultados-bas.sql`):
