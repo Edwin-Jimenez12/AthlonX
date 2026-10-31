@@ -3372,6 +3372,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       {canManage && (match.status === 'scheduled' || (live && !inShootout)) && <div className="mt-5 flex flex-wrap justify-center gap-2">
         {match.status === 'scheduled' && <Button variant="primary" icon={Play} disabled={saving} onClick={() => void changeStatus('live')}>Iniciar primer tiempo</Button>}
         {live && !inShootout && match.match_phase !== 'overtime' && <Button variant={match.is_paused ? 'primary' : 'secondary'} icon={Clock3} disabled={saving} onClick={() => void transitionPeriod()}>{periodActionText}</Button>}
+        {isBasketball && live && match.match_phase === 'regular' && <Button variant='ghost' icon={Clock3} disabled={saving} onClick={() => void basketballAction('end_period')}>Finalizar tiempo</Button>}
         {live && <Button variant="ghost" icon={Pencil} onClick={() => { setCorrectionEvent(null); setCorrectionMode((current) => !current) }}>{correctionMode ? 'Cerrar corrección' : 'Corregir marcador'}</Button>}
       </div>}
       {confirmEarlyFinish && <EarlyFinishNotice remaining={confirmEarlyFinish} onKeepPlaying={() => setConfirmEarlyFinish(null)} onFinishNow={() => { setConfirmEarlyFinish(null); void transitionPeriod(true) }} />}

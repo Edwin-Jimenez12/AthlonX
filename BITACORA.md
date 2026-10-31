@@ -5,6 +5,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Botón "Finalizar tiempo" en básquet
+
+**Cambio**: en el periodo reglamentario de básquet aparece "Finalizar tiempo". Si el partido está empatado pasa a la prórroga; si no, finaliza el partido. Funciona en cualquier momento del periodo, no solo al cumplir 10 minutos.
+
+**Servidor** (aplicado en Supabase `mlvtsgseneqzihwkiatg` con `supabase/basketball-end-period-migration.sql`):
+- Nueva acción `end_period` en `basketball_match_action`. Marca `early_finish_confirmed` para que la validación acepte el cierre antes de tiempo.
+- `validate_basketball_match` solo acepta un cierre anticipado con esa marca; la prórroga sigue exigiendo empate y la finalización sigue exigiendo ventaja. La marca se limpia después de cada cambio.
+- Prueba del servidor dentro de una transacción revertida: `end_period` sobre el partido en vivo se ejecuta sin error.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador.
+
+**Pendiente**: el reloj sigue sin detenerse a los 10 minutos (propuesta pendiente de confirmación). Además, la pausa desde la interfaz no se refleja (ver el error de consola pedido).
+
 ## 2026-10-31 · `edwin` · nube → Iniciar un partido de básquet sin alineación
 
 **Problema**: el partido no arrancaba con "Cada equipo necesita 3 jugadores en cancha y hasta 3 suplentes", porque la acción `start` de `basketball_match_action` exigía alineación. El método de cambios aún no está definido.
