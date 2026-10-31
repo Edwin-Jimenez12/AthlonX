@@ -5,6 +5,14 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-10-31 · `edwin` · nube → Quitar el bloque "Colores y límites de plantilla 3x3" de básquet
+
+**Cambio**: se elimina la sección propia de colores y plantillas de básquet en "Equipos y plantillas" y el componente `TeamColors` que solo usaba. Queda solo la sección general de equipos.
+
+**Pendiente**: la llave de básquet (`BasketballDraw`) todavía exige colores distintivos y plantillas de 3 a 6 jugadores antes de publicar. Sin esta sección no hay dónde editar los colores. Hay que llevar esa regla al flujo general de equipos antes de usar el sorteo de básquet.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 33/33. No probado en navegador.
+
 ## 2026-10-31 · `edwin` · nube → Baloncesto 3x3 empieza a usar las secciones de fútbol 8 (parcial)
 
 **Pedido**: básquet con las mismas secciones que fútbol 8 (resumen, llave, equipos, fixture, generador, partidos), cambiando solo las reglas de básquet. Decisiones confirmadas: quitar Clasificación y Cronograma; trigger de marcador; migrar los torneos existentes; falta manual sin puntos; horario y sede en Información.
