@@ -25,3 +25,30 @@ test('los destinos de avatar y banner tienen tamaños y límites definidos', () 
   assert.ok(imageTargets.avatar.maxBytes <= 2 * 1024 * 1024)
   assert.ok(imageTargets.banner.maxBytes <= 2 * 1024 * 1024)
 })
+
+const { sourceCropFromFrame, clampFrameOffset } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+
+const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.01, `${actual} != ${expected}`)
+
+test('el encuadre centrado con zoom 1 coincide con el recorte automático', () => {
+  const crop = sourceCropFromFrame(4000, 1000, 480, 144, 1, -48, 0)
+  near(crop.sx, 333.33)
+  near(crop.sy, 0)
+  near(crop.sw, 3333.33)
+  near(crop.sh, 1000)
+})
+
+test('el arrastre no puede dejar un hueco dentro del marco', () => {
+  const clamped = clampFrameOffset(100, 50, 4000, 1000, 480, 144, 0.144)
+  assert.deepEqual(clamped, { x: 0, y: 0 })
+  const far = clampFrameOffset(-9999, 0, 4000, 1000, 480, 144, 0.144)
+  near(far.x, 480 - 4000 * 0.144)
+})
+
+test('el zoom acerca la zona visible y mantiene el centro', () => {
+  const crop = sourceCropFromFrame(4000, 1000, 480, 144, 2, -336, -72)
+  near(crop.sx, 1166.67)
+  near(crop.sy, 250)
+  near(crop.sw, 1666.67)
+  near(crop.sh, 500)
+})

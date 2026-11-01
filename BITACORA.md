@@ -25,6 +25,20 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 **Verificación**: `npm run build` OK. No probado en navegador.
 
+## 2026-11-01 · `edwin` · nube → Recorte manual de imágenes antes de subirlas
+
+**Cambio**: al elegir una imagen se abre un panel inline con el marco del destino (cuadrado para perfiles, horizontal para banners). El usuario arrastra la imagen y ajusta el zoom (1× a 3×). Hay una vista previa del resultado y solo al pulsar "Guardar imagen" se comprime y sube la zona elegida.
+
+**Archivos**:
+- `lib/image-compress.ts`: `frameScale`, `clampFrameOffset` y `sourceCropFromFrame` (matemática del encuadre), y `compressImage` acepta un recorte opcional.
+- `lib/image-upload.ts`: `uploadProfileImage` recibe el recorte.
+- `Components/image-upload-field.tsx`: panel de encuadre con arrastre, zoom y vista previa.
+- `tests/image-compress.test.mjs`: 3 pruebas nuevas del encuadre (centrado, límites del arrastre y zoom).
+
+**Verificación**: `npm run build` OK y `node --test tests/*.mjs` 40/40. No probado en navegador.
+
+**Pendiente**: probar la subida real (la prueba la hará el usuario).
+
 ## 2026-11-01 · `edwin` · nube → Subida de imágenes de perfil y banners con compresión en el navegador
 
 **Qué se hizo**:
