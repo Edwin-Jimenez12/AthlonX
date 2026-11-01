@@ -1,5 +1,7 @@
 'use client'
 
+import { ImageUploadField } from '../image-upload-field'
+import { imageFolders } from '../../lib/image-upload'
 import { Building2, CalendarDays, ExternalLink, Lock, ShieldCheck, SlidersHorizontal, Trophy, UserCog, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -138,7 +140,7 @@ export function OrganizationProfileView({
   }
 
   // La RPC reescribe todos los campos: se envían también logo, redes y modalidades con su valor actual.
-  async function writeOrganization(values: OrganizationValues): Promise<string> {
+  async function writeOrganization(values: OrganizationValues, logoUrl: string | null = organization.logoUrl): Promise<string> {
     if (!supabase) return 'Supabase no está configurado.'
     const { error } = await supabase.rpc('update_organization_public_profile', {
       p_organization_id: organization.id,
@@ -149,7 +151,7 @@ export function OrganizationProfileView({
         country: values.country.trim() || 'Panamá',
         city: values.city.trim() || null,
         description: values.description.trim() || null,
-        logo_url: organization.logoUrl || null,
+        logo_url: logoUrl || null,
         contact_email: values.contactEmail.trim() || null,
         contact_phone: values.contactPhone.trim() || null,
         website_url: values.websiteUrl.trim() || null,
@@ -183,6 +185,15 @@ export function OrganizationProfileView({
     setNotice({ type: 'ok', text: 'Perfil de la organización actualizado.' })
     onSaved()
     return ''
+  }
+
+  // Logo: se guarda al subirlo, con los datos ya guardados de la organización.
+  async function changeLogo(url: string | null) {
+    const saved = organization
+    const failure = await visibilityStatus.run(() => writeOrganization({ name: saved.name, type: saved.type, handle: saved.handle, country: saved.country, city: saved.city, description: saved.description, contactEmail: saved.contactEmail, contactPhone: saved.contactPhone, websiteUrl: saved.websiteUrl, socialLinks: saved.socialLinks, isPublic: saved.isPublic, disciplineIds: saved.disciplineIds }, url))
+    if (!failure) setNotice({ type: 'ok', text: 'Logotipo actualizado.' })
+    else setNotice({ type: 'error', text: failure })
+    if (!failure) onSaved()
   }
 
   // Visibilidad al momento: se envían los datos ya guardados con el nuevo valor.
@@ -240,8 +251,7 @@ export function OrganizationProfileView({
             <div className="flex items-center gap-4 border-t border-[var(--ax-line)] pt-4">
               <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{initialsOf(name) || 'AX'}</span>
               <div className="min-w-0 space-y-2">
-                <p className="text-sm font-semibold text-[var(--ax-text)]">Logotipo: PNG o SVG cuadrado de hasta 2 MB</p>
-                <Badge>Próximamente</Badge>
+                <ImageUploadField label="Logotipo" value={organization.logoUrl} kind="avatar" folder={imageFolders.organizacion(organization.id)} slot="logo" disabled={!canEdit} hint="Cuadrado. Se comprime en tu navegador antes de subirlo." onChange={(url) => void changeLogo(url)} />
               </div>
             </div>
           </Card>

@@ -25,6 +25,27 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 **Verificación**: `npm run build` OK. No probado en navegador.
 
+## 2026-11-01 · `edwin` · nube → Subida de imágenes de perfil y banners con compresión en el navegador
+
+**Qué se hizo**:
+- **Compresión en el navegador** (`lib/image-compress.ts`): acepta archivos de hasta 25 MB, recorta al centro al tamaño del destino (avatar 512×512, banner 1600×480), convierte a webp y baja calidad o tamaño hasta quedar bajo 150 KB (avatar) o 300 KB (banner). Si no hay webp, usa JPEG.
+- **Subida** (`lib/image-upload.ts`): ruta fija por entidad (`persona/{uid}`, `jugador/{id}`, `equipo/{id}`, `organizacion/{id}`, `torneo/{id}`) con `upsert`, así la nueva imagen reemplaza la anterior y no quedan archivos huérfanos.
+- **Componente** `Components/image-upload-field.tsx`: botón de subir/cambiar/quitar, vista previa y mensajes de error.
+- **Permisos en el almacenamiento** (`supabase/image-uploads-migration.sql`, aplicado): función `can_upload_profile_image` y políticas de subida en el bucket `avatars`. Persona: su propio usuario. Jugador: la cuenta vinculada. Equipo: su creador o un gestor de su organización. Organización: gestores. Torneo: su creador.
+- **Columna nueva** `tournaments.logo_url` (imagen cuadrada) y función pública del torneo actualizada (`supabase/tournament-logo-profile-migration.sql`, aplicado). `cover_url` queda como banner.
+- **Pantallas conectadas**:
+  - Perfil personal: foto que reemplaza la tarjeta "Próximamente" y se muestra en el avatar.
+  - Equipo: "Logo del equipo" en configuración, que antes era un campo de URL.
+  - Organización: logotipo, guardado con la misma función de perfil.
+  - Torneo: imagen de perfil y banner en "Información general" (solo en modo edición).
+
+**Límites conocidos**:
+- Los jugadores sin cuenta (temporales) no tienen editor de foto todavía.
+- El recorte es centrado, sin ajuste manual.
+- La subida de jugadores con cuenta usa su foto personal.
+
+**Verificación**: `npm run build` OK, `node --test tests/*.mjs` 37/37 (incluye la prueba del recorte). Consultas de solo lectura confirmaron políticas, columna y función. No probado en navegador ni con una subida real.
+
 ## 2026-10-31 · `edwin` · nube → Botón "Finalizar tiempo" en básquet
 
 **Cambio**: en el periodo reglamentario de básquet aparece "Finalizar tiempo". Si el partido está empatado pasa a la prórroga; si no, finaliza el partido. Funciona en cualquier momento del periodo, no solo al cumplir 10 minutos.

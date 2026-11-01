@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { ImageUploadField } from '../../../../../Components/image-upload-field'
+import { imageFolders } from '../../../../../lib/image-upload'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
@@ -55,7 +57,7 @@ type Modality = { id: string; code: string; name: string; discipline_id?: string
 type OrganizationSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null }
 type TeamSummary = { id: string; name: string; athlonx_code: string | null; handle: string | null; organization_id?: string | null; discipline_id?: string | null; created_by?: string | null; divisionNames?: string[] }
 type PlayerSummary = { id: string; full_name: string; shirt_number: number | null; position: string | null; user_id: string | null }
-type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; is_quick: boolean; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null; fixtureMatches?: Match[] }
+type Tournament = { id: string; name: string; slug: string; season: string | null; status: string; is_quick: boolean; start_date: string | null; end_date: string | null; location: string | null; country: string | null; cover_url: string | null; logo_url: string | null; athlonx_code: string | null; discipline: Discipline | null; modality: Modality | null; organization: OrganizationSummary | null; organizer_team: TeamSummary | null; fixtureMatches?: Match[] }
 type Division = { id: string; name: string; sort_order: number }
 type TournamentTeam = { id: string; name: string; logo_url: string | null; city: string | null; division_id: string; division_name: string; athlonx_code: string | null; handle: string | null; is_official: boolean; contact_phone: string | null }
 type ManualPairing = { divisionId: string; localTeamId: string; visitorTeamId: string }
@@ -1290,7 +1292,8 @@ export default function PublicTournamentPage() {
       <TournamentHero
         name={tournament.name}
         sport={sport}
-        photoUrl={tournament.cover_url}
+        bannerUrl={tournament.cover_url}
+        photoUrl={tournament.logo_url}
         code={tournament.athlonx_code}
         badges={<>
           <StatusBadge status={tournament.status} />
@@ -3572,6 +3575,23 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   </div>
 }
 
+// Imagen de perfil y banner del torneo: se comprimen en el navegador y se guardan en la fila del torneo.
+function TournamentImagesPanel({ tournamentId, logoUrl, coverUrl }: { tournamentId: string; logoUrl: string | null; coverUrl: string | null }) {
+  const [error, setError] = useState('')
+  async function save(column: 'logo_url' | 'cover_url', url: string | null) {
+    if (!supabase) return
+    const { error: updateError } = await supabase.from('tournaments').update({ [column]: url }).eq('id', tournamentId)
+    if (updateError) return setError(updateError.message)
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
+    window.location.reload()
+  }
+  return <div className="mt-5 grid gap-6 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-5 md:grid-cols-2">
+    <ImageUploadField label="Imagen de perfil del torneo" value={logoUrl} kind="avatar" folder={imageFolders.torneo(tournamentId)} slot="logo" hint="Cuadrada. Se muestra junto al nombre del torneo." onChange={(url) => void save('logo_url', url)} />
+    <ImageUploadField label="Banner del torneo" value={coverUrl} kind="banner" folder={imageFolders.torneo(tournamentId)} slot="banner" hint="Horizontal. Se comprime en tu navegador antes de subirlo." onChange={(url) => void save('cover_url', url)} />
+    {error && <p role="alert" className="text-xs text-red-200 md:col-span-2">{error}</p>}
+  </div>
+}
+
 function GeneralInfoSection({ tournament, divisions, disciplines, modalities, competition, playersOnField, pointRules, canManage, editMode, onRequestSave, onDirtyChange, onCancel, onEdit }: { tournament: Tournament; divisions: Division[]; disciplines: Discipline[]; modalities: Modality[]; competition: { courts: number; intervalMinutes: number; format: string; legs: number; playoffTeams: number; maxTeams: number | null; maxRoster: number | null }; playersOnField: number | null; pointRules: PointRules | null; canManage: boolean; editMode: boolean; onRequestSave: (values: EditValues, divisionNames: string[], rules: PointRules) => void; onDirtyChange: (dirty: boolean) => void; onCancel: () => void; onEdit: () => void }) {
   const legsLabel = competition.legs === 2 ? 'Ida y vuelta' : `${competition.legs} vuelta${competition.legs === 1 ? '' : 's'}`
   const formatLabel = (leagueFormats as Record<string, string>)[competition.format] ?? 'Sin formato'
@@ -3584,6 +3604,7 @@ function GeneralInfoSection({ tournament, divisions, disciplines, modalities, co
       </div>
       {canManage && !editMode && <button type="button" onClick={onEdit} className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-4 text-[13px] font-bold text-[var(--ax-on-accent)] transition hover:opacity-90"><Cog size={16} />Editar torneo</button>}
     </div>
+    {canManage && editMode && <TournamentImagesPanel tournamentId={tournament.id} logoUrl={tournament.logo_url} coverUrl={tournament.cover_url} />}
     {editMode && canManage ? <EditTournamentForm tournament={tournament} divisions={divisions} disciplines={disciplines} modalities={modalities} pointRules={pointRules} onRequestSave={onRequestSave} onDirtyChange={onDirtyChange} onCancel={onCancel} /> : <>
       <InfoCard title="Datos del torneo">
         <InfoTile label="Nombre del torneo" value={tournament.name} />

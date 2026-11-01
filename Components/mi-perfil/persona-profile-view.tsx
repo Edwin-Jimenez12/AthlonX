@@ -3,6 +3,8 @@
 import { Globe2, Lock, Moon, ShieldCheck, SlidersHorizontal, Sun, UserCog, UserRound, Users } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { ImageUploadField } from '../image-upload-field'
+import { imageFolders } from '../../lib/image-upload'
 import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, phoneError } from '../../lib/mi-perfil'
 import type { PersonaProfile, PrivacyField, Theme, Visibility } from '../../lib/mi-perfil'
@@ -73,6 +75,16 @@ export function PersonaProfileView({
   onNotices: (value: boolean) => void
   onProfileSaved: () => void
 }) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl)
+  const [photoError, setPhotoError] = useState('')
+  async function saveAvatar(url: string | null) {
+    if (!supabase) return
+    const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.userId)
+    if (error) return setPhotoError(error.message)
+    setPhotoError('')
+    setAvatarUrl(url)
+    onProfileSaved()
+  }
   const meta = useAccountMeta()
   const countries = useCountries()
   const [editing, setEditing] = useState(false)
@@ -224,14 +236,12 @@ export function PersonaProfileView({
             </FieldGrid>
             <Hint icon={Lock}>{editing ? 'La edad se calcula desde tu fecha de nacimiento, que siempre es privada.' : 'Tu fecha de nacimiento siempre es privada. Decide quién ve tu teléfono y tu edad en Configuración.'}</Hint>
           </Card>
-          <Card title="Foto de perfil" description="Opcional. Sin foto se muestran tus iniciales.">
+          <Card title="Foto de perfil" description="Se comprime en tu navegador antes de subirla. Sin foto se muestran tus iniciales.">
             <div className="flex items-center gap-4">
-              <Avatar initials={initialsOf(displayName)} size={64} />
-              <div className="min-w-0 space-y-2">
-                <p className="text-sm font-semibold text-[var(--ax-text)]">JPG o PNG de hasta 2 MB</p>
-                <Badge>Próximamente</Badge>
-              </div>
+              <Avatar initials={initialsOf(displayName)} size={64} src={avatarUrl} />
+              <ImageUploadField label="Foto" value={avatarUrl} kind="avatar" folder={imageFolders.persona(profile.userId)} slot="avatar" onChange={(url) => void saveAvatar(url)} />
             </div>
+            {photoError && <p role="alert" className="mt-2 text-xs text-red-200">{photoError}</p>}
           </Card>
         </>
       )}

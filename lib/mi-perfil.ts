@@ -16,6 +16,7 @@ export type PersonaProfile = {
   birthDate: string | null
   athlonxCode: string
   allowInvitations: boolean
+  avatarUrl: string | null
   privacy: Record<PrivacyField, Visibility>
   roles: string[]
   staffPositionName: string | null
@@ -93,7 +94,7 @@ export function completenessOf(checks: boolean[]) {
 export async function loadPersonaProfile(userId: string, email: string, emailVerified: boolean): Promise<PersonaProfile | null> {
   if (!supabase) return null
   const [profileRes, privacyRes, roleRes, contextRes, staffRes, membershipRes, memberRes, visibilityRes, createdTournamentsRes] = await Promise.all([
-    supabase.from('profiles').select('first_name, last_name, full_name, phone, blood_type, birth_date, athlonx_code, allow_athlete_invitations').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('first_name, last_name, full_name, phone, blood_type, birth_date, athlonx_code, allow_athlete_invitations, avatar_url').eq('id', userId).maybeSingle(),
     supabase.from('profile_privacy_settings').select('field_key, visibility').eq('user_id', userId),
     supabase.from('user_roles').select('role').eq('user_id', userId),
     supabase.from('user_contexts').select('role').eq('user_id', userId).eq('context_type', 'personal').eq('status', 'active'),
@@ -146,6 +147,7 @@ export async function loadPersonaProfile(userId: string, email: string, emailVer
     birthDate: profile?.birth_date ?? null,
     athlonxCode: profile?.athlonx_code ?? '',
     allowInvitations: profile?.allow_athlete_invitations ?? true,
+    avatarUrl: profile?.avatar_url ?? null,
     privacy,
     roles,
     staffPositionName: staffNameRes.data?.name ?? null,

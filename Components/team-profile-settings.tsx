@@ -1,6 +1,8 @@
 'use client'
 
 import { Save, Settings2 } from 'lucide-react'
+import { ImageUploadField } from './image-upload-field'
+import { imageFolders } from '../lib/image-upload'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { StyledSelect } from './styled-select'
@@ -174,7 +176,7 @@ export function TeamProfileSettings({ teamId }: { teamId?: string }) {
         <div className="mt-7 space-y-6">
           <div className="grid gap-5 md:grid-cols-2">
             <Field label="Nombre del equipo" value={form.name} onChange={(value) => updateField('name', value)} required />
-            <Field label="Logo del equipo" value={form.logo_url} onChange={(value) => updateField('logo_url', value)} placeholder="URL de imagen" />
+            <ImageUploadField label="Logo del equipo" value={form.logo_url || null} kind="avatar" folder={imageFolders.equipo(teamId ?? '')} slot="logo" disabled={!teamId} hint="Se comprime en tu navegador antes de subirlo." onChange={(url) => updateField('logo_url', url ?? '')} />
           </div>
 
           <label className="block text-sm font-semibold text-slate-200">

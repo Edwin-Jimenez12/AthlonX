@@ -713,8 +713,10 @@ export function useSaveStatus() {
   return { state, run }
 }
 
-export function Avatar({ initials, size = 56 }: { initials: string; size?: 40 | 56 | 64 }) {
-  return <span aria-hidden="true" className={cx('flex shrink-0 items-center justify-center rounded-full bg-[var(--ax-accent)] font-display text-[var(--ax-on-accent)]', size === 40 ? 'h-10 w-10 text-lg' : size === 64 ? 'h-16 w-16 text-[28px]' : 'h-14 w-14 text-2xl')}>{initials || 'AX'}</span>
+export function Avatar({ initials, size = 56, src = null }: { initials: string; size?: 40 | 56 | 64; src?: string | null }) {
+  const frame = cx('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ax-accent)] font-display text-[var(--ax-on-accent)]', size === 40 ? 'h-10 w-10 text-lg' : size === 64 ? 'h-16 w-16 text-[28px]' : 'h-14 w-14 text-2xl')
+  if (src) return <span aria-hidden="true" className={frame}><img src={src} alt="" className="h-full w-full object-cover" /></span>
+  return <span aria-hidden="true" className={frame}>{initials || 'AX'}</span>
 }
 
 export function initialsOf(text: string) {
