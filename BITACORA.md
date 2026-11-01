@@ -25,6 +25,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 **Verificación**: `npm run build` OK. No probado en navegador.
 
+## 2026-11-01 · `edwin` · nube → Propuesta de planes, funcionalidades y precios
+
+**Qué se hizo**: análisis del proyecto (README, pantallas y las 62 tablas de Supabase con su uso actual) y documento `documentos/athlonx-planes-y-precios.docx` (9 páginas) con:
+- Planes individuales: Libre ($0), Pro ($4.99/mes) y Élite ($9.99/mes). Anual con 20 % de descuento.
+- Planes de grupo **AX Club** (Club Pro $14.99 y Club Élite $29.99, 6 cuentas, 50 % menos por persona), paquetes de +5 cuentas y reglas de cupos.
+- Matriz de funcionalidades por plan, marcando qué existe hoy y qué hay que construir.
+- Otras fuentes de ingreso (comisión por inscripciones, pase de torneo único, patrocinios).
+- Hoja de ruta en 4 fases y resumen técnico (`plans`, `plan_features`, `subscriptions`, `club_seats`, `payments`, validación en servidor).
+
+**Verificación**: documento convertido a PDF y revisado página por página. Cálculos de precios anuales, por persona y ahorros revisados.
+
+**Pendiente**: decisiones del usuario (sección 10 del documento): nombres, precios, tamaño del Club, límites, pasarela de pago y fase por la que empezar. No se implementó código.
+
 ## 2026-11-01 · `edwin` · nube → Recorte manual de imágenes antes de subirlas
 
 **Cambio**: al elegir una imagen se abre un panel inline con el marco del destino (cuadrado para perfiles, horizontal para banners). El usuario arrastra la imagen y ajusta el zoom (1× a 3×). Hay una vista previa del resultado y solo al pulsar "Guardar imagen" se comprime y sube la zona elegida.
