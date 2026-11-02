@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import "./site-transitions.css";
 
 // Páginas públicas con menú y fondo compartidos. El orden define hacia qué lado se desplaza el contenido.
-const PUBLIC_ORDER = ["/", "/nosotros", "/novedades", "/contactanos"];
+const PUBLIC_ORDER = ["/", "/nosotros", "/planes", "/contactanos"];
 const EXIT_MS = 380;
 const ENTER_MS = 520;
 const GLASS = "blur(14px) saturate(120%)";

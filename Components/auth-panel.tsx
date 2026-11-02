@@ -216,7 +216,11 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       }
       // Cierra el modal de acceso: el usuario ya entró y no debe quedar sobre el panel.
       window.dispatchEvent(new Event('athlonx-auth-done'))
-      router.push('/busqueda')
+      // Los roles del panel administrativo entran directo a su panel; el resto sigue en la plataforma.
+      const { data: platformAccess } = supabase
+        ? await supabase.rpc('platform_my_access')
+        : { data: null }
+      router.push(platformAccess ? '/panel-admin' : '/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
     } finally {

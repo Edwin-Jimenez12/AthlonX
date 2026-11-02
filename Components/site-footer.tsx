@@ -10,7 +10,7 @@ export const ATHLONX_INSTAGRAM_URL = "https://www.instagram.com/athlonx.pa";
 const navLinks = [
   { label: "Inicio", href: "/" },
   { label: "Nosotros", href: "/nosotros" },
-  { label: "Novedades", href: "/novedades" },
+  { label: "Planes", href: "/planes" },
   { label: "Contáctanos", href: "/contactanos" },
 ];
 

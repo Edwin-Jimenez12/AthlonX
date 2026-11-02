@@ -5,6 +5,42 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-02 · `claude/great-ritchie-2n8uq9` · nube → Panel administrativo de la plataforma
+
+**Qué se hizo**:
+- **Roles del panel**: propietario (una sola cuenta, sembrada para ed.jimenez0012@gmail.com), administrador y colaborador. El administrador crea colaboradores; el propietario crea administradores y colaboradores; nadie crea otro propietario. El colaborador solo ve las secciones que el propietario o un administrador le asignen.
+- **Inicio de sesión**: si la cuenta tiene rol en el panel, entra a `/panel-admin`; si no, a `/busqueda`.
+- **Secciones del panel** (`/panel-admin`): Ingresos, Cuentas (personas, equipos, organizaciones y planes, sin datos personales), Planes (editar precios, anual, cupos, límite de actividades personales y funciones), Novedades (versión, código y secciones con título y párrafo), Promociones (porcentaje o monto fijo, planes, usos, vencimiento y pausa), Sugerencias (solo visualización) y Equipo y roles (altas, activar o desactivar, permisos del colaborador).
+- **Público**: se eliminó Novedades (página, componente, menú y pie). Se agregó **Planes** junto a Nosotros, con los planes leídos de la base de datos.
+- **Eliminado**: la tabla `platform_updates` y `platform_update_admins` (0 filas verificadas antes).
+- **Precios**: se sembraron los del documento de planes (Libre $0, Pro $4.99 / anual $47.90, Élite $9.99 / anual $95.90, Club Pro $14.99, Club Élite $29.99). Los planes de grupo no tienen pago anual.
+
+**Migraciones aplicadas** en `mlvtsgseneqzihwkiatg` (en orden, vía API de Management):
+- `supabase/admin-panel-roles-migration.sql`: `platform_staff`, `platform_staff_permissions`, funciones de rol, permiso y gestión del equipo.
+- `supabase/plans-catalog-migration.sql`: `plans` (con 5 planes sembrados), `account_plans`, y funciones de catálogo, estadísticas e ingresos.
+- `supabase/promo-codes-migration.sql`: `promo_codes` y funciones de alta y lista.
+- `supabase/release-notes-suggestions-migration.sql`: `release_notes`, `release_note_sections`, `suggestions` y funciones de novedades, envío y bandeja de sugerencias.
+- `supabase/remove-novedades-legacy-migration.sql`: elimina las tablas viejas de novedades.
+
+**Archivos clave**: `lib/admin.ts` (reglas y validaciones), `Components/admin/admin-shell.tsx` (guardia y menú), `app/(admin)/panel-admin/*`, `app/planes/page.tsx`, `Components/auth-panel.tsx` (redirección por rol), `Components/menu.tsx`, `Components/site-footer.tsx`, `Components/site-chrome.tsx`.
+
+**Verificación**:
+- `node --test tests/*.mjs`: 46 pruebas pasan (incluye 6 nuevas de `tests/admin-panel.test.mjs`).
+- `npm run build`: compila y pasa el chequeo de tipos. Se borró `.next/dev` generado, que tenía tipos de rutas eliminadas (no estaba versionada).
+- Base de datos (solo lectura): tablas con RLS activo, 5 planes con los precios esperados, propietario sembrado, 17 funciones `platform_*`, tablas viejas eliminadas.
+- **No verificado**: las reglas por sesión (qué ve cada rol) no se pudieron probar en la base de datos, porque el rol de la API no puede simular usuarios. No se probó en navegador con cuentas reales.
+
+**Pendiente**:
+- Probar con cuentas reales: propietario, administrador, colaborador con y sin permisos, y una cuenta sin rol.
+- Formulario de **Sugerencias** para los usuarios (la función `platform_submit_suggestion` ya existe).
+- Sección de **Planes en la página de inicio**. Por ahora solo está en el menú.
+- Novedades públicas: la sección pública se eliminó; el panel ya las administra. Falta decidir dónde se muestran.
+- Ingresos sin histórico mensual: no hay datos de suscripciones todavía; las bajas no se registran.
+- Versión móvil del panel.
+- Precios del documento: se siembran como propuesta; confirmar antes de publicar.
+
+---
+
 ## 2026-10-31 · `edwin` · nube → La prórroga de básquet no finaliza sola
 
 **Problema**: en la prórroga, al llegar a 2 puntos de diferencia el partido finalizaba automáticamente. Debe ser muerte súbita: el organizador decide cuándo finalizar.
