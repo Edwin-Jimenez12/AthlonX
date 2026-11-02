@@ -25,6 +25,16 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 **Verificación**: `npm run build` OK. No probado en navegador.
 
+## 2026-11-02 · `edwin` · nube → Esqueleto del documento PERSONA (Atleta)
+
+**Qué se hizo**: `documentos/persona-atleta.docx` con el título PERSONA, el subtítulo (Atleta) y las secciones "Permitido" y "No permitido", sin contenido todavía. El usuario va a definir los puntos.
+
+**Contexto**: el documento de planes se divide por tipo de cuenta. Primero la cuenta PERSONA (una persona puede ser atleta, entrenador, staff o directivo); por ahora solo el perfil de atleta. Después vendrán el plan gratuito de equipos y el de organizaciones.
+
+**Verificación**: convertido a PDF y revisado la página.
+
+**Pendiente**: el usuario completa las secciones Permitido y No permitido.
+
 ## 2026-11-01 · `edwin` · nube → Propuesta de planes, funcionalidades y precios
 
 **Qué se hizo**: análisis del proyecto (README, pantallas y las 62 tablas de Supabase con su uso actual) y documento `documentos/athlonx-planes-y-precios.docx` (9 páginas) con:
