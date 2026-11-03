@@ -34,7 +34,18 @@ const responses = [
   { id: 'no_voy', label: 'No voy' },
 ] as const
 
+type ManagedTeam = { id: string; name: string; role: string }
+
+const teamEventTypes = [
+  { id: 'training', label: 'Entrenamiento' },
+  { id: 'match', label: 'Partido' },
+  { id: 'meeting', label: 'Reunión' },
+  { id: 'other', label: 'Otra actividad' },
+] as const
+
 type Editor = {
+  scope: string
+  eventType: string
   id: string | null
   title: string
   description: string
@@ -73,12 +84,47 @@ function monthLabel(date: Date) {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${date.getFullYear()}`
 }
 
+// Lista de asistencia por jugador, para el cuerpo técnico (entrenador, directivo y dueño).
+function TeamAttendance({ eventId }: { eventId: string }) {
+  const [rows, setRows] = useState<Array<{ user_id: string; name: string; response: string }> | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!supabase) return
+    supabase.rpc('calendar_team_attendance', { p_event_id: eventId }).then(({ data, error: rpcError }) => {
+      if (rpcError) return setError(rpcError.message)
+      setRows((data ?? []) as Array<{ user_id: string; name: string; response: string }>)
+    })
+  }, [eventId])
+
+  const labels: Record<string, string> = { voy: 'Voy', tal_vez: 'Tal vez', no_voy: 'No voy' }
+  return (
+    <div className="mt-5">
+      <FieldLabel>Asistencia por jugador</FieldLabel>
+      {error && <p className="text-sm text-[var(--ax-muted)]">{error}</p>}
+      {rows && rows.length === 0 && <p className="text-sm text-[var(--ax-muted)]">Todavía no hay respuestas.</p>}
+      {rows && rows.length > 0 && (
+        <ul className="flex flex-col gap-1.5 text-sm">
+          {rows.map((row) => (
+            <li key={row.user_id} className="flex items-center justify-between">
+              <span className="text-[var(--ax-text)]">{row.name}</span>
+              <span className="text-[var(--ax-muted)]">{labels[row.response] ?? row.response}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function toEditor(item: FeedItem | null, anchor: Date): Editor {
   const start = item ? new Date(item.starts_at) : new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 18, 0)
   const end = item ? new Date(item.ends_at) : new Date(start.getTime() + 60 * 60 * 1000)
   const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   return {
-    id: item?.source === 'personal' ? item.id : null,
+    scope: item?.source === 'team' ? (item.owner_id ?? 'personal') : 'personal',
+    eventType: item?.source === 'team' ? item.event_type : 'training',
+    id: item?.source === 'personal' || item?.source === 'team' ? item.id : null,
     title: item?.title ?? '',
     description: item?.description ?? '',
     location: item?.location ?? '',
@@ -105,6 +151,7 @@ export default function AthleteCalendar() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
   const [upcoming, setUpcoming] = useState<FeedItem[]>([])
+  const [managedTeams, setManagedTeams] = useState<ManagedTeam[]>([])
 
   const unlimited = plan?.personal_activity_monthly_limit === null && plan !== null
   const limit = plan?.personal_activity_monthly_limit ?? null
@@ -115,6 +162,17 @@ export default function AthleteCalendar() {
     if (!data.user) return
     setUserId(data.user.id)
     setPlan(await loadAccountPlan('persona', data.user.id))
+    const { data: memberships } = await supabase
+      .from('team_user_memberships')
+      .select('team_id, role, teams(name)')
+      .eq('user_id', data.user.id)
+      .eq('status', 'active')
+      .in('role', ['owner', 'directivo', 'entrenador', 'staff'])
+    setManagedTeams(((memberships ?? []) as unknown as Array<{ team_id: string; role: string; teams: { name: string } | Array<{ name: string }> | null }>).map((m) => ({
+      id: m.team_id,
+      role: m.role,
+      name: (Array.isArray(m.teams) ? m.teams[0]?.name : m.teams?.name) ?? 'Equipo',
+    })))
     const { data: count } = await supabase.rpc('calendar_personal_usage')
     setUsage(typeof count === 'number' ? count : 0)
   }
@@ -178,7 +236,9 @@ export default function AthleteCalendar() {
 
   async function removeActivity(item: FeedItem) {
     if (!supabase) return
-    const { error } = await supabase.rpc('calendar_delete_personal_activity', { p_id: item.id })
+    const { error } = item.source === 'team'
+      ? await supabase.rpc('calendar_delete_team_event', { p_id: item.id })
+      : await supabase.rpc('calendar_delete_personal_activity', { p_id: item.id })
     if (error) return setMessage({ tone: 'danger', text: error.message })
     setSelected(null)
     setMessage({ tone: 'success', text: 'Actividad eliminada.' })
@@ -196,6 +256,26 @@ export default function AthleteCalendar() {
     }
     setSaving(true)
     setMessage(null)
+    if (editor.scope !== 'personal') {
+      const { error: teamError } = await supabase.rpc('calendar_save_team_event', {
+        p_id: editor.id,
+        p_team: editor.scope,
+        p_title: editor.title.trim(),
+        p_description: editor.description,
+        p_location: editor.location,
+        p_event_type: editor.eventType,
+        p_starts: starts.toISOString(),
+        p_ends: ends.toISOString(),
+        p_all_day: false,
+      })
+      setSaving(false)
+      if (teamError) return setMessage({ tone: 'danger', text: teamError.message })
+      setEditor(null)
+      setMessage({ tone: 'success', text: editor.id ? 'Evento del equipo actualizado.' : 'Evento creado en el calendario del equipo.' })
+      await loadFeed()
+      await loadUpcoming()
+      return
+    }
     const repeat = unlimited ? editor.repeat : 'none'
     const { error } = await supabase.rpc('calendar_save_personal_activity', {
       p_id: editor.id,
@@ -443,7 +523,10 @@ export default function AthleteCalendar() {
               </div>
             </div>
           )}
-          {selected.source === 'personal' && (
+          {selected.source === 'team' && managedTeams.some((t) => t.id === selected.owner_id && t.role !== 'staff') && (
+            <TeamAttendance eventId={selected.id} />
+          )}
+          {(selected.source === 'personal' || (selected.source === 'team' && selected.can_edit)) && (
             <div className="mt-5 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => { setEditor(toEditor(selected, anchor)); setSelected(null) }}>Editar</Button>
               <Button variant="secondary" onClick={() => void removeActivity(selected)}>Eliminar</Button>
@@ -456,6 +539,27 @@ export default function AthleteCalendar() {
         <Card>
           <CardHeader id="actividad-editor" title={editor.id ? 'Editar actividad' : 'Nueva actividad'} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
           <div className="mt-6 grid gap-5 md:grid-cols-2">
+            {managedTeams.length > 0 && (
+              <div className="md:col-span-2">
+                <FieldLabel>Calendario</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  <Segment active={editor.scope === 'personal'} label="Personal" onClick={() => setEditor({ ...editor, scope: 'personal' })} />
+                  {managedTeams.map((team) => (
+                    <Segment key={team.id} active={editor.scope === team.id} label={team.name} onClick={() => setEditor({ ...editor, scope: team.id })} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {editor.scope !== 'personal' && (
+              <div className="md:col-span-2">
+                <FieldLabel>Tipo de evento</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  {teamEventTypes.map((t) => (
+                    <Segment key={t.id} active={editor.eventType === t.id} label={t.label} onClick={() => setEditor({ ...editor, eventType: t.id })} />
+                  ))}
+                </div>
+              </div>
+            )}
             <label className="block md:col-span-2">
               <FieldLabel>Título</FieldLabel>
               <input className={inputClass} value={editor.title} onChange={(e) => setEditor({ ...editor, title: e.target.value })} />
@@ -483,6 +587,8 @@ export default function AthleteCalendar() {
               <textarea className={`${inputClass} min-h-24 py-3`} value={editor.description} onChange={(e) => setEditor({ ...editor, description: e.target.value })} />
             </label>
 
+            {editor.scope === 'personal' && (
+              <>
             <div className="md:col-span-2">
               <FieldLabel>Repetir</FieldLabel>
               {unlimited ? (
@@ -515,6 +621,8 @@ export default function AthleteCalendar() {
               )}
             </div>
 
+              </>
+            )}
             <div className="flex justify-end gap-3 md:col-span-2">
               <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : 'Guardar actividad'}</Button>
             </div>

@@ -3,6 +3,49 @@
 Registro de trabajo, en nube y en local. La entrada más reciente va arriba.
 Formato: fecha · rama · entorno → qué se hizo · archivos · verificación · pendiente.
 
+
+## Pendientes
+
+Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y se anota la entrada de bitácora donde se cerró.
+
+**Monetización y planes**
+- [ ] Descuento por tener los cuatro perfiles (atleta, coach, staff, directivo) en vez de pagar cada plan completo. Decidido: planes individuales por ahora.
+- [ ] Plan Free completo del atleta: definición final (lo aprobado está en el calendario).
+- [ ] Pasarela de pago para Pro, Élite y planes de grupo (AX Club). Mientras tanto, los códigos al 100% activan el plan.
+- [ ] Prorrateo de cupos de AX Club y precio por cupo.
+- [ ] Planes de grupo (Club Pro y Club Élite): cupos, invitaciones y panel de miembros.
+
+**Calendario**
+- [ ] Sincronización con Google Calendar y Outlook (Pro): requiere crear las credenciales de Google y de Microsoft.
+- [ ] Lista de preparación en el detalle del evento (diseño de Figma; no hay datos todavía).
+- [ ] Recordatorios personalizados para eventos de equipo y organización en Pro (hoy todos reciben 4 horas antes).
+- [ ] Exportar a ICS: postergado.
+- [ ] Reporte de asistencia por jugador (Pro): base de datos lista, falta la pantalla.
+- [ ] Vista de todos los equipos de la organización y choques de cancha/horario (Pro, directivo): base de datos lista, falta la pantalla.
+- [ ] Torneos y convocatorias en el calendario: los filtros existen, pero no hay eventos de esos tipos.
+- [ ] Verificar en navegador el calendario de coach, staff y directivo.
+- [ ] Versión móvil y modo claro del calendario, contra Figma.
+
+**Mi perfil**
+- [ ] Modo claro de "Plan actual" y "Mejorar plan" (diseño de Figma).
+- [ ] Probar en navegador la compra con código promocional.
+
+**Panel administrativo**
+- [ ] Probar los roles con cuentas reales: propietario, administrador y colaborador, con y sin permisos.
+- [ ] Probar el flujo de contraseña temporal y el de eliminar cuenta.
+- [ ] Versión móvil del panel.
+- [ ] Revisar el contenido publicado en Novedades (hoy aparece "ñaohf", que parece texto de prueba).
+
+**Sitio público**
+- [ ] Sección de Planes en la página de inicio (hoy solo está en el menú).
+- [ ] Formulario de Sugerencias para los usuarios (la función de base de datos ya existe).
+
+**Otros**
+- [ ] Documento PERSONA: definir el contenido de "Permitido" y "No permitido".
+- [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
+- [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
+- [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
 ---
 
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario del atleta con el diseño de Figma
@@ -18,6 +61,26 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 **Pendiente de diseño**: Torneos y Convocatorias no tienen eventos en el calendario todavía, así que esos filtros aparecen vacíos.
 
 **Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
+---
+
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario de gestión para coach, staff y directivo
+
+**Reglas confirmadas**:
+- Coach (entrenador) y directivo: crean y editan eventos de su equipo, y ven la asistencia por jugador.
+- Staff: crea eventos y cambia lugar, hora y datos logísticos solo en eventos donde tenga permiso (creados por él o con permiso otorgado). No ve la asistencia por jugador.
+- Reporte de asistencia por jugador y vista de todos los equipos de la organización: solo Pro o Élite.
+- Planes individuales por ahora (ver Pendientes).
+
+**Migraciones aplicadas** (verificado en solo lectura):
+- `supabase/team-calendar-roles-migration.sql`: tabla `calendar_event_grants` y funciones `calendar_team_role`, `calendar_can_edit_team_event`, `calendar_save_team_event`, `calendar_delete_team_event`, `calendar_grant_event_edit`, `calendar_team_attendance` (sin staff), `calendar_team_attendance_report` y `calendar_org_overview`.
+- `supabase/calendar-feed-can-edit-migration.sql`: `calendar_my_feed` indica `can_edit` en cada evento.
+
+**Pantalla** (`Components/calendario/athlete-calendar.tsx`): quien tiene un rol de gestión en un equipo elige "Calendario" (Personal o su equipo) y "Tipo de evento" al crear. Puede editar y eliminar eventos de equipo cuando tiene permiso. El coach, el directivo y el dueño ven la asistencia por jugador en el detalle del evento.
+
+**Pendiente en pantalla**: reporte de asistencia por jugador (Pro) y vista de la organización (Pro); ambos tienen su base de datos lista.
+
+**Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No probado en navegador.
+
 ---
 
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Título directo en los chips del calendario

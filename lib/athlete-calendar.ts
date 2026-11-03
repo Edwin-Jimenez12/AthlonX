@@ -17,6 +17,7 @@ export type FeedItem = {
   occurrence: number
   repeat_rule: 'none' | 'weekly' | 'monthly'
   my_response: 'voy' | 'tal_vez' | 'no_voy' | null
+  can_edit?: boolean
 }
 
 export type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda' | 'linea'
