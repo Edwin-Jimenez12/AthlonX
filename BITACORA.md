@@ -16,10 +16,12 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Planes de grupo (Club Pro y Club Élite): cupos, invitaciones y panel de miembros.
 - [ ] Cuenta de organización: parte económica (que la organización maneje pagos, cobros y planes de sus miembros). Se incluirá más adelante.
 - [ ] Precios de los planes Pro y Élite para organización y para equipo (hoy "Por definir").
-- [ ] Confirmar en el Excel de organización: reportes PDF y CSV en Pro (en Free se anotó "Plan pro también", pero en Pro quedó aprobado "No incluido").
-- [ ] Confirmar en el Excel de organización: eliminar la cuenta de organización (en Free se rechazó "No incluido" con "Ilimitado"; en Pro y Élite quedó aprobado "No incluido").
-- [ ] Confirmar en el Excel de organización: torneos de liga con fases en Pro ("depende si es oficial o rápido"). En Figma se mostró disponible en torneos rápidos y bloqueado en oficiales (Élite).
+- [x] Reportes PDF y CSV en la cuenta de organización: desde Pro (decidido el 2026-11-03). El logotipo propio en reportes sigue siendo de Élite.
+- [x] Eliminar la cuenta de organización: disponible en Free, Pro y Élite (decidido el 2026-11-03). Los torneos y eventos compartidos con otras instituciones o equipos no se borran y quedan con el organizador "Organización eliminada" (frase propuesta, a confirmar).
+- [x] Formato liga (con fases o final directa) en la cuenta de organización: lo que cambia es cuántas ligas activas hay. Pro: 5 en torneos rápidos y 3 en oficiales; Élite: sin límite; Free: en su único torneo rápido activo (decidido el 2026-11-03).
 - [ ] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado.
+- [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
+- [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
 **Calendario**
 - [ ] Sincronización con Google Calendar y Outlook (Pro): requiere crear las credenciales de Google y de Microsoft.
@@ -67,6 +69,19 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Pendiente de diseño**: Torneos y Convocatorias no tienen eventos en el calendario todavía, así que esos filtros aparecen vacíos.
 
 **Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
+---
+
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Figma: correcciones y modo claro de la cuenta de organización
+
+**Correcciones en las pantallas oscuras**:
+- Reportes PDF y CSV desde Pro: tarjetas de Equipos y Torneos, y botón "Exportar" en Calendario y Equipos de Pro. Logotipo en reportes, solo Élite.
+- Eliminar cuenta en los tres planes, con el aviso: se borran el perfil y los datos; los torneos y eventos compartidos con otras instituciones o equipos quedan con el organizador "Organización eliminada"; 15 días para recuperarla.
+- Formato liga: Free en su torneo rápido activo; Pro con 5 ligas activas en rápidos y 3 en oficiales; Élite sin límite. Listas de Mejorar plan actualizadas.
+
+**Modo claro**: 45 pantallas nuevas debajo de las oscuras ("Org · <plan> · <sección> · Claro"), con la paleta del modo claro aprobado (fondo #f4f6f8, contenedores #e1e8f0, líneas #c5d2de), logo claro y textos de color oscurecidos. Prototipo cableado por nombre: 522 enlaces, ninguno hacia pantallas oscuras.
+
+**Verificación**: comprobado por código el número de pantallas y de enlaces. No se pudo ver el render.
+
 ---
 
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Figma: cuenta de organización por plan (Free, Pro y Élite)
