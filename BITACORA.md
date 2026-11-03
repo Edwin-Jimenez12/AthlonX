@@ -14,6 +14,12 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Pasarela de pago para Pro, Élite y planes de grupo (AX Club). Mientras tanto, los códigos al 100% activan el plan.
 - [ ] Prorrateo de cupos de AX Club y precio por cupo.
 - [ ] Planes de grupo (Club Pro y Club Élite): cupos, invitaciones y panel de miembros.
+- [ ] Cuenta de organización: parte económica (que la organización maneje pagos, cobros y planes de sus miembros). Se incluirá más adelante.
+- [ ] Precios de los planes Pro y Élite para organización y para equipo (hoy "Por definir").
+- [ ] Confirmar en el Excel de organización: reportes PDF y CSV en Pro (en Free se anotó "Plan pro también", pero en Pro quedó aprobado "No incluido").
+- [ ] Confirmar en el Excel de organización: eliminar la cuenta de organización (en Free se rechazó "No incluido" con "Ilimitado"; en Pro y Élite quedó aprobado "No incluido").
+- [ ] Confirmar en el Excel de organización: torneos de liga con fases en Pro ("depende si es oficial o rápido"). En Figma se mostró disponible en torneos rápidos y bloqueado en oficiales (Élite).
+- [ ] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado.
 
 **Calendario**
 - [ ] Sincronización con Google Calendar y Outlook (Pro): requiere crear las credenciales de Google y de Microsoft.
@@ -61,6 +67,20 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Pendiente de diseño**: Torneos y Convocatorias no tienen eventos en el calendario todavía, así que esos filtros aparecen vacíos.
 
 **Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
+---
+
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Figma: cuenta de organización por plan (Free, Pro y Élite)
+
+**Qué se hizo**: en Figma, página REDISEÑO, área "CUENTA DE ORGANIZACIÓN · COMPARACIÓN DE PLANES" (debajo de todo lo existente, desde y = 56000). Tres filas (Free, Pro y Élite) con las mismas 15 pantallas en modo oscuro, escritorio: Búsqueda, Notificaciones, Información general, Equipos y roles, Configuración, Seguridad, Cuenta, Mejorar plan, Mejorar plan con código, Eventos, Calendario, Nuevo evento, Equipos, Torneos y Participantes. Se reutilizaron las pantallas existentes de organización y su menú.
+
+**Contenido según el Excel aprobado** (`PLANES_ORGANIZACION_PROPUESTA - copia.xlsx`): límites de equipos afiliados, directivos y staff, equipos propios, eventos al mes, torneos rápidos y oficiales; estructura de equipos (propios, afiliados directos y de organizaciones vinculadas); funciones bloqueadas con su plan y botón "Mejorar plan".
+
+**Prototipo**: 525 enlaces. Menú lateral principal y de perfil, selector "Vista del plan" (misma pantalla en otro plan), Mejorar plan, Comprar, Aplicar código (lleva a la Cuenta del plan siguiente), Crear, Guardar y Cancelar evento, pestañas Equipos y Torneos, Ver calendario y barra superior.
+
+**Verificación**: estructura revisada por código: 45 pantallas de 1440 px, sin elementos fuera del contenido ni solapes entre filas. No se pudo ver el render (las capturas de Figma están bloqueadas en este entorno).
+
+**Pendiente**: modo claro y responsive después de la revisión; puntos del Excel por confirmar (ver Pendientes).
+
 ---
 
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario de gestión para coach, staff y directivo
