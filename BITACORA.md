@@ -5,6 +5,30 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario del atleta (cuenta personal)
+
+**Qué se hizo**:
+- `/calendario` muestra el calendario del atleta cuando la cuenta activa es personal, y el calendario de gestión de equipo u organización en los demás casos (`app/(panel)/calendario/page.tsx`). El calendario de gestión se movió sin cambios a `Components/calendario/team-calendar-view.tsx`.
+- Vistas Mes, Semana, Día, Agenda y Línea de tiempo; filtros Todos, Partidos, Entrenamientos, Personales y Organización.
+- Detalle de evento. En eventos de equipo y organización: asistencia Voy, Tal vez, No voy. En actividades personales: editar y eliminar.
+- Crear y editar actividades personales. Libre: 5 al mes contadas por mes calendario, sin repetición y con recordatorio de 4 horas. Pro y Élite: ilimitadas, repetición semanal o mensual, y recordatorios entre 15 minutos, 30 minutos, 1 hora, 4 horas y 1 día.
+- Recordatorios automáticos cada 15 minutos: 4 horas antes para eventos de equipo y organización; los minutos elegidos para actividades personales, también en repeticiones.
+- Los cambios en eventos de equipo y organización ya notificaban a los miembros (triggers existentes); no se duplicaron.
+
+**Migración aplicada**: `supabase/athlete-calendar-migration.sql`. Crea `personal_activities`, `calendar_attendance` y `calendar_reminders_sent`, las funciones `calendar_*` y el trabajo de pg_cron `athlonx-calendar-reminders`. Verificado en solo lectura: tablas, funciones y trabajo existen.
+
+**Lógica pura**: `lib/athlete-calendar.ts`, con pruebas en `tests/athlete-calendar.test.mjs` (5 pruebas).
+
+**Verificación**: `npm run build` compila (incluye verificación de tipos); `node --test tests/*.mjs` pasa todas las pruebas. No probado en navegador.
+
+**Pendiente**:
+- Sincronización con Google Calendar y Outlook (Pro): requiere crear las credenciales de Google y Microsoft. Los botones de Conexiones están deshabilitados.
+- Lista de preparación del diseño: no hay datos de preparación todavía.
+- Recordatorios personalizados para eventos de equipo y organización en Pro: hoy todos reciben 4 horas antes.
+- Perfiles coach, staff y directivo: hoy ven la misma vista personal; su calendario de gestión queda para después.
+- Versión móvil y modo claro: verificar contra el diseño.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Código promocional al pulsar Comprar
 
 **Qué se hizo**: la tarjeta de código promocional aparece solo al pulsar Comprar en un plan. Su título dice el plan elegido ("Código promocional para Pro") y la pantalla se desplaza hasta ella. Cancelar la oculta.
