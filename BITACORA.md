@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Lectura del catálogo de planes
+
+**Problema**: al pulsar Mejorar plan aparecía "permission denied for table plans". La tabla `plans` tenía la política RLS de lectura pública, pero ningún permiso de tabla para `anon` ni `authenticated`.
+
+**Migración aplicada**: `supabase/plans-read-grant-migration.sql` da `SELECT` a `anon` y `authenticated`. RLS sigue limitando la lectura a los planes activos. Verificado en solo lectura en `pg_class.relacl`.
+
+**Pendiente**: probar Mejorar plan en el navegador con la cuenta de persona.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Plan actual y Mejorar plan según el diseño aprobado
 
 **Qué se hizo**: `Components/mi-perfil/plan-card.tsx` se reescribió para seguir el diseño aprobado en REDISEÑO. Plan actual: nombre del plan y botón Mejorar plan en una fila, y debajo precio, límite y vencimiento. Mejorar plan: botón "← Volver a cuenta", tres tarjetas independientes (Libre, Pro, Élite) y tarjeta de código promocional a ancho completo, con el botón Aplicar código debajo del campo.
