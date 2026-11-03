@@ -5,6 +5,17 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Plan actual y Mejorar plan según el diseño aprobado
+
+**Qué se hizo**: `Components/mi-perfil/plan-card.tsx` se reescribió para seguir el diseño aprobado en REDISEÑO. Plan actual: nombre del plan y botón Mejorar plan en una fila, y debajo precio, límite y vencimiento. Mejorar plan: botón "← Volver a cuenta", tres tarjetas independientes (Libre, Pro, Élite) y tarjeta de código promocional a ancho completo, con el botón Aplicar código debajo del campo.
+
+**Limitación**: el encabezado de la página (que en Figma dice "Mejorar plan") no se cambia; dentro de la tarjeta aparece el mismo título.
+
+**Verificación**: `npm run build` compila (incluye verificación de tipos); `node --test tests/*.mjs` pasa 46 pruebas. No probado en navegador.
+
+**Pendiente**: versión en modo claro del diseño aprobado.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Plan actual y canje de códigos en Mi perfil
 
 **Qué se hizo**:

@@ -7,7 +7,7 @@ import { loadAccountPlan, loadUpgradePlans, redeemPlanCode, type AccountPlan, ty
 import { Button, Notice, inputClass } from '../mi-equipo/ui'
 import { Card } from './ui'
 
-// Tarjeta de plan de la cuenta. "Mejorar plan" muestra los planes disponibles dentro de la misma tarjeta.
+// Plan actual de la cuenta, según el diseño aprobado en REDISEÑO (Mi perfil · Cuenta).
 export function PlanCard({ accountType, accountId }: { accountType: AccountType; accountId: string }) {
   const [plan, setPlan] = useState<AccountPlan | null>(null)
   const [upgrading, setUpgrading] = useState(false)
@@ -24,7 +24,7 @@ export function PlanCard({ accountType, accountId }: { accountType: AccountType;
 
   useEffect(() => {
     void refresh()
-    // Cambia solo cuando cambia la cuenta mostrada.
+    // Recarga solo cuando cambia la cuenta mostrada.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountType, accountId])
 
@@ -47,27 +47,31 @@ export function PlanCard({ accountType, accountId }: { accountType: AccountType;
     <Card title="Plan actual">
       {error && <Notice tone="danger" icon={Info}>{error}</Notice>}
       {plan && (
-        <div className="flex flex-col gap-5">
+        <>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <p className="font-display text-[44px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</p>
-              <p className="text-sm text-[var(--ax-text)]">{plan.is_free ? 'Gratis' : `${formatUsd(plan.monthly_price)} al mes`}</p>
-            </div>
-            <Button variant="primary" onClick={() => setUpgrading(true)}>Mejorar plan</Button>
+            <p className="font-display text-[44px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</p>
+            <Button variant="primary" className="w-[180px]" onClick={() => setUpgrading(true)}>Mejorar plan</Button>
           </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--ax-muted)]">
-            {plan.personal_activity_monthly_limit !== null
-              ? <span>{plan.personal_activity_monthly_limit} actividades personales al mes</span>
-              : <span>Actividades personales ilimitadas</span>}
-            <span>{plan.ends_at ? `Vence el ${new Date(plan.ends_at).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Sin vencimiento'}</span>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <span className="font-semibold text-[var(--ax-text)]">Precio: {plan.is_free ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`}</span>
+            <span className="text-[var(--ax-muted)]">
+              {plan.personal_activity_monthly_limit !== null
+                ? `${plan.personal_activity_monthly_limit} actividades personales por mes`
+                : 'Actividades personales ilimitadas'}
+            </span>
+            <span className="text-[var(--ax-muted)]">
+              {plan.ends_at
+                ? `Vence el ${new Date(plan.ends_at).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                : 'Sin vencimiento'}
+            </span>
           </div>
-        </div>
+        </>
       )}
     </Card>
   )
 }
 
-// Planes disponibles y campo de código promocional al comprar.
+// Mejorar plan: tres planes, botón Volver a cuenta y tarjeta de código promocional, como en el diseño.
 function PlanUpgrade({
   accountType,
   accountId,
@@ -92,7 +96,10 @@ function PlanUpgrade({
   }, [])
 
   async function apply() {
-    if (!selected) return
+    if (!selected) {
+      setMessage({ tone: 'danger', text: 'Elige un plan con el botón Comprar.' })
+      return
+    }
     setSaving(true)
     setMessage(null)
     try {
@@ -107,40 +114,46 @@ function PlanUpgrade({
   }
 
   return (
-    <Card title="Mejorar plan" action={<Button variant="secondary" onClick={onBack}>Volver</Button>}>
-      {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+    <div className="flex flex-col gap-6">
+      <div>
+        <Button variant="secondary" onClick={onBack}>← Volver a cuenta</Button>
+      </div>
+      <p className="font-display text-[44px] uppercase leading-none text-[var(--ax-accent-text)]">Mejorar plan</p>
+
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => {
           const current = plan.code === currentCode
           return (
-            <div key={plan.code} className={`flex flex-col gap-3 rounded-[14px] border p-5 ${current ? 'border-[var(--ax-accent)]' : 'border-[var(--ax-line)]'}`}>
-              <p className="font-display text-[36px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</p>
-              <p className="text-base font-semibold text-[var(--ax-text)]">{plan.monthly_price === 0 ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`}</p>
+            <article
+              key={plan.code}
+              className={`flex flex-col gap-3 rounded-[20px] border bg-[var(--ax-surface)] p-6 ${current ? 'border-[var(--ax-accent)]' : 'border-[var(--ax-line)]'}`}
+            >
+              <p className="font-display text-[44px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</p>
+              <p className="text-[22px] font-semibold text-[var(--ax-text)]">{plan.monthly_price === 0 ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`}</p>
               {plan.annual_enabled && plan.annual_price !== null && (
-                <p className="text-xs text-[var(--ax-muted)]">o {formatUsd(plan.annual_price)} al año</p>
+                <p className="text-[13px] text-[var(--ax-muted)]">o {formatUsd(plan.annual_price)} al año</p>
               )}
-              <ul className="flex flex-col gap-1.5 text-sm text-[var(--ax-text)]">
+              <ul className="flex flex-col gap-1.5 text-[13px] text-[var(--ax-text)]">
                 {plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}
               </ul>
-              <div className="mt-auto pt-2">
+              <div className="mt-auto pt-3">
                 {current
                   ? <Button variant="secondary" disabled className="w-full">Plan actual</Button>
-                  : <Button variant="primary" className="w-full" onClick={() => setSelected(plan.code)}>Comprar {plan.name}</Button>}
+                  : <Button variant="primary" className="w-full" onClick={() => { setSelected(plan.code); setMessage(null) }}>Comprar {plan.name}</Button>}
               </div>
-            </div>
+            </article>
           )
         })}
       </div>
 
-      {selected && (
-        <div className="flex flex-col gap-3 rounded-[14px] border border-[var(--ax-line)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ax-muted)]">Código promocional</p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input className={inputClass} placeholder="Ingresa tu código" value={code} onChange={(e) => setCode(e.target.value)} />
-            <Button variant="primary" disabled={saving || !code.trim()} onClick={() => void apply()}>Aplicar código</Button>
-          </div>
+      <section className="flex flex-col gap-4 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-6">
+        <p className="font-display text-[30px] uppercase leading-none text-[var(--ax-accent-text)]">Código promocional</p>
+        {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+        <input className={inputClass} placeholder="Ingresa tu código" value={code} onChange={(e) => setCode(e.target.value)} />
+        <div className="flex justify-end">
+          <Button variant="primary" className="w-[200px]" disabled={saving || !code.trim()} onClick={() => void apply()}>Aplicar código</Button>
         </div>
-      )}
-    </Card>
+      </section>
+    </div>
   )
 }
