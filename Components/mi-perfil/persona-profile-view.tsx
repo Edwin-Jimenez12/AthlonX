@@ -13,6 +13,7 @@ import { Avatar, Card, CardRow, Chip, DateField, Field, FieldGrid, FixedChip, He
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
 import { DeleteAccountCard, SessionCard } from './delete-account-card'
+import { PlanCard } from './plan-card'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
 
@@ -313,6 +314,7 @@ export function PersonaProfileView({
 
       {section === 'cuenta' && (
         <>
+          <PlanCard accountType="persona" accountId={profile.userId} />
           <Card title="Datos de la cuenta" description="Información de acceso. Solo tú la ves.">
             <FieldGrid>
               <ReadValue label="Correo de acceso" value={meta.email} />

@@ -14,6 +14,7 @@ import { Card, CardRow, Chip, Field, FieldGrid, Hero, Hint, ListRow, Pending, Ph
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
 import { SessionCard } from './delete-account-card'
+import { PlanCard } from './plan-card'
 import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
@@ -334,6 +335,7 @@ export function OrganizationProfileView({
 
       {section === 'cuenta' && (
         <>
+          <PlanCard accountType="organizacion" accountId={organization.id} />
           <Card title="Datos de la cuenta" description="Información de acceso. Solo el dueño de la cuenta la ve.">
             <FieldGrid>
               <ReadValue label="Correo de acceso" value={meta.email} />

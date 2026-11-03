@@ -5,6 +5,23 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Plan actual y canje de códigos en Mi perfil
+
+**Qué se hizo**:
+- **Plan actual** en la sección Cuenta de persona, equipo y organización. Muestra el plan (Libre si no hay uno), precio, límite de actividades personales y vencimiento.
+- **Mejorar plan**: muestra Libre, Pro y Élite. Al comprar, aparece el campo de código promocional.
+- Sin pasarela: un código solo activa el plan si deja el precio en US$ 0. Si el precio final es mayor, el código se valida pero no activa nada, con el mensaje "El pago aún no está disponible".
+- El límite de Libre (5 actividades personales al mes) está en el plan; su aplicación en el calendario queda para la siguiente etapa.
+
+**Migración aplicada**: `supabase/account-plan-redeem-migration.sql` crea `platform_can_manage_account`, `platform_account_plan` y `platform_redeem_plan_code`. Verificado en solo lectura que las tres existen y son `security definer`. Propiedad de la cuenta: persona = el propio usuario; equipo y organización = quien la creó.
+
+**Figma**: en REDISEÑO, pantalla "Mi perfil · Cuenta · Escritorio · Oscuro" se agregó la tarjeta Plan actual; nueva pantalla "Mi perfil · Cuenta · Mejorar plan · Escritorio · Oscuro" con los tres planes y el campo de código.
+
+**Verificación**: `npm run build` compila; `node --test tests/*.mjs` pasa 46 pruebas. No probado en navegador ni con códigos reales.
+
+**Pendiente**: pantalla en modo claro de Plan actual y Mejorar plan; aplicar el límite de Libre en el calendario; pasarela de pago.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Eliminar la cuenta de AthlonX desde el panel
 
 **Qué se hizo**: en Equipo y roles, el botón "Eliminar cuenta" elimina la cuenta de AthlonX del miembro, no solo su acceso al panel. Pide confirmación con advertencia y exige escribir el correo de la cuenta. La eliminación usa el mecanismo que ya tiene el proyecto: plazo de 15 días, recuperable si la persona inicia sesión antes, y borrado definitivo por el proceso automático cada hora. La cuenta sale del panel de inmediato y sus sesiones se cierran.
