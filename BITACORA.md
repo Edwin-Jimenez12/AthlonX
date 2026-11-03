@@ -5,6 +5,22 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Contraseña temporal y quitar del panel
+
+**Qué se hizo**:
+- **Contraseña temporal**: al agregar una cuenta, o con el botón "Contraseña temporal" de cada fila, el panel genera una contraseña. Se muestra en un campo que se copia con un clic. Al generarla se cierran las sesiones abiertas de esa cuenta.
+- **Cambio obligatorio**: la cuenta con contraseña temporal entra a `/cambiar-contrasena`, define la suya y recién después accede al panel. El panel la redirige ahí mientras la marca siga activa.
+- **Quitar del panel**: borra el rol y los permisos de la cuenta, con confirmación en línea. La cuenta de AthlonX no se borra.
+
+**Migración aplicada**: `supabase/staff-temporary-password-migration.sql`. Agrega `must_change_password` y `temp_password_hash` a `platform_staff`; actualiza `platform_my_access`; crea `platform_reset_staff_password`, `platform_finish_password_change` y `platform_remove_staff`. Verificado en solo lectura: columnas y funciones existen.
+
+**Reglas**: propietario a administradores y colaboradores; administrador solo a colaboradores; nadie al propietario.
+
+**Verificación**: `npm run build` compila; `node --test tests/*.mjs` pasa 46 pruebas. No probado en navegador ni con sesiones reales de cada rol.
+
+**Pendiente**: probar el flujo completo (generar, ingresar con la temporal, cambiarla y entrar); decidir si hace falta borrar la cuenta de AthlonX por completo, que hoy no se hace.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Novedades públicas desde el panel
 
 **Qué se hizo**: la página pública `/novedades` muestra las versiones publicadas desde el panel (código, título, fecha y secciones con título y párrafo). Vuelve a aparecer en el menú y el pie, después de Planes.

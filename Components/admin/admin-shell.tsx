@@ -51,6 +51,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           router.replace('/busqueda')
           return
         }
+        // Con contraseña temporal no se entra al panel hasta cambiarla.
+        if (data.must_change_password) {
+          router.replace('/cambiar-contrasena')
+          return
+        }
         setAccess(data)
         setReady(true)
       } catch {

@@ -3,7 +3,7 @@
 
 export type StaffRole = 'propietario' | 'administrador' | 'colaborador'
 export type Permission = 'estadisticas' | 'ingresos' | 'planes' | 'novedades' | 'promociones' | 'sugerencias'
-export type PlatformAccess = { role: StaffRole; permissions: Permission[] } | null
+export type PlatformAccess = { role: StaffRole; permissions: Permission[]; must_change_password?: boolean } | null
 
 export const roleLabels: Record<StaffRole, string> = {
   propietario: 'Propietario',

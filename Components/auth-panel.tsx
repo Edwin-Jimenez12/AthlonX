@@ -220,7 +220,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       const { data: platformAccess } = supabase
         ? await supabase.rpc('platform_my_access')
         : { data: null }
-      router.push(platformAccess ? '/panel-admin' : '/busqueda')
+      router.push(platformAccess ? (platformAccess.must_change_password ? '/cambiar-contrasena' : '/panel-admin') : '/busqueda')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')
     } finally {
