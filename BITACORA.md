@@ -71,6 +71,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Figma: textos legibles en el modo claro de organización
+
+**Problema**: en las pantallas claras de organización muchos textos no se leían. Venían de componentes cuyos colores están vinculados a variables del tema oscuro: al cambiar el color, el vínculo seguía activo y Figma mostraba el color de la variable.
+
+**Corrección**: en las 45 pantallas "Org · … · Claro" se quitaron 1916 vínculos a variables oscuras y se recolorearon 1161 textos. Revisión posterior: 0 textos claros sobre fondo claro y 0 colores vinculados. Las pantallas claras del calendario, Sugerencias y panel administrativo ya estaban limpias.
+
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Figma: correcciones y modo claro de la cuenta de organización
 
 **Correcciones en las pantallas oscuras**:
