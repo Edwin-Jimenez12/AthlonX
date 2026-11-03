@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
 import {
-  addDays, dayKey, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay,
+  addDays, dayKey, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
   type CalendarFilter, type CalendarView, type FeedItem,
 } from '../../lib/athlete-calendar'
 import { Button, Card, CardHeader, FieldLabel, Notice, PageHeader, Segment, inputClass } from '../mi-equipo/ui'
@@ -22,6 +22,8 @@ const filters: Array<{ id: CalendarFilter; label: string }> = [
   { id: 'todos', label: 'Todos' },
   { id: 'partidos', label: 'Partidos' },
   { id: 'entrenamientos', label: 'Entrenamientos' },
+  { id: 'torneos', label: 'Torneos' },
+  { id: 'convocatorias', label: 'Convocatorias' },
   { id: 'personales', label: 'Personales' },
   { id: 'organizacion', label: 'Organización' },
 ]
@@ -45,12 +47,30 @@ type Editor = {
   reminders: number[]
 }
 
+// Colores de Figma: Partido lima, Entrenamiento azul, Torneo naranja, Convocatoria violeta, Personal gris, Organización blanco.
 const kindColor: Record<string, string> = {
-  partido: 'var(--ax-accent-text)',
-  entrenamiento: 'var(--ax-text-secondary)',
-  personal: 'var(--ax-muted)',
-  organizacion: 'var(--ax-text)',
-  otro: 'var(--ax-muted)',
+  partido: '#b4ff45',
+  entrenamiento: '#7fc8ff',
+  torneo: '#ffb45c',
+  convocatoria: '#c9a7ff',
+  personal: '#91a8ba',
+  organizacion: '#e8eef3',
+  otro: '#91a8ba',
+}
+
+const filterDot: Record<CalendarFilter, string> = {
+  todos: '#e8eef3',
+  partidos: '#b4ff45',
+  entrenamientos: '#7fc8ff',
+  torneos: '#ffb45c',
+  convocatorias: '#c9a7ff',
+  personales: '#91a8ba',
+  organizacion: '#e8eef3',
+}
+
+function monthLabel(date: Date) {
+  const name = date.toLocaleDateString('es-PA', { month: 'long' })
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${date.getFullYear()}`
 }
 
 function toEditor(item: FeedItem | null, anchor: Date): Editor {
@@ -84,6 +104,7 @@ export default function AthleteCalendar() {
   const [showConnections, setShowConnections] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
+  const [upcoming, setUpcoming] = useState<FeedItem[]>([])
 
   const unlimited = plan?.personal_activity_monthly_limit === null && plan !== null
   const limit = plan?.personal_activity_monthly_limit ?? null
@@ -108,6 +129,20 @@ export default function AthleteCalendar() {
 
   useEffect(() => {
     void loadAccount()
+  }, [])
+
+  // Próximos 60 días para el panel derecho (próximo partido y próximas actividades).
+  async function loadUpcoming() {
+    if (!supabase) return
+    const from = startOfDay(new Date())
+    const { data } = await supabase.rpc('calendar_my_feed', { p_from: from.toISOString(), p_to: addDays(from, 60).toISOString() })
+    setUpcoming(((data ?? []) as FeedItem[]).sort((a, b) => a.starts_at.localeCompare(b.starts_at)))
+  }
+
+  useEffect(() => {
+    void loadUpcoming()
+    // Se carga al entrar; las acciones que cambian eventos recargan el calendario visible.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -209,43 +244,64 @@ export default function AthleteCalendar() {
     )
   }
 
-  function renderBody() {
-    if (view === 'mes') {
-      const days = monthGridDays(anchor)
-      return (
-        <div className="grid grid-cols-7 gap-1.5">
-          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
-            <p key={d} className="px-1 text-center text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">{d}</p>
-          ))}
-          {days.map((day) => {
-            const key = dayKey(day)
-            const list = byDay.get(key) ?? []
-            const outside = day.getMonth() !== anchor.getMonth()
-            const isToday = key === dayKey(new Date())
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => { setAnchor(startOfDay(day)); setView('dia') }}
-                className={`flex min-h-[88px] flex-col gap-1 rounded-[10px] border p-1.5 text-left ${isToday ? 'border-[var(--ax-accent)]' : 'border-[var(--ax-line)]'} ${outside ? 'opacity-50' : ''}`}
-              >
-                <span className="text-xs font-semibold text-[var(--ax-text)]">{day.getDate()}</span>
-                {list.slice(0, 2).map((item) => (
-                  <span key={item.id + item.starts_at} className="truncate rounded px-1 text-[11px]" style={{ color: kindColor[itemKind(item)], background: 'var(--ax-accent-soft)' }}>
-                    {formatTime(item.starts_at)} {item.title}
-                  </span>
-                ))}
-                {list.length > 2 && <span className="text-[11px] text-[var(--ax-muted)]">+{list.length - 2} más</span>}
-              </button>
-            )
-          })}
+  // Chip de evento: color del tipo, fondo tintado y hora.
+  function EventChip({ item }: { item: FeedItem }) {
+    const color = kindColor[itemKind(item)]
+    return (
+      <button
+        type="button"
+        onClick={() => { setEditor(null); setSelected(item) }}
+        className="flex h-5 w-full items-center rounded-[6px] px-1.5 text-left text-[11px] font-medium"
+        style={{ color, background: `${color}29` }}
+      >
+        <span className="truncate">{item.all_day ? '' : `${formatTime(item.starts_at)} `}{item.title}</span>
+      </button>
+    )
+  }
+
+  function renderMonth() {
+    const days = monthGridDays(anchor)
+    const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-7">
+            {weekdays.map((d) => (
+              <p key={d} className="px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">{d}</p>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 border-l border-t border-[var(--ax-line)]">
+            {days.map((day) => {
+              const key = dayKey(day)
+              const list = byDay.get(key) ?? []
+              const outside = day.getMonth() !== anchor.getMonth()
+              const isToday = key === dayKey(new Date())
+              return (
+                <div key={key} className={`flex min-h-[112px] flex-col gap-1 border-b border-r border-[var(--ax-line)] bg-[var(--ax-surface)] p-[7px] ${outside ? 'opacity-50' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => { setAnchor(startOfDay(day)); setView('dia') }}
+                    className={`flex h-[26px] w-[26px] items-center justify-center rounded-full text-[13px] font-semibold ${isToday ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'text-[var(--ax-text)]'}`}
+                  >
+                    {day.getDate()}
+                  </button>
+                  {list.slice(0, 2).map((item) => <EventChip key={item.id + item.starts_at} item={item} />)}
+                  {list.length > 2 && <span className="text-[11px] text-[var(--ax-muted)]">+{list.length - 2} más</span>}
+                </div>
+              )
+            })}
+          </div>
         </div>
-      )
-    }
+      </div>
+    )
+  }
+
+  function renderBody() {
+    if (view === 'mes') return renderMonth()
     if (view === 'semana') {
       return (
         <div className="grid gap-3 md:grid-cols-7">
-          {Array.from({ length: 7 }, (_, i) => addDays(startOfDay(anchor), i - ((anchor.getDay() + 6) % 7))).map((day) => {
+          {Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i)).map((day) => {
             const list = byDay.get(dayKey(day)) ?? []
             return (
               <div key={dayKey(day)} className="flex flex-col gap-2">
@@ -278,7 +334,6 @@ export default function AthleteCalendar() {
           </div>
         )
     }
-    // Línea de tiempo
     return visible.length === 0
       ? <p className="text-sm text-[var(--ax-muted)]">No hay actividades en los próximos 60 días.</p>
       : (
@@ -296,42 +351,79 @@ export default function AthleteCalendar() {
       )
   }
 
+  // Panel derecho del diseño: próximo partido y próximas actividades.
+  const now = new Date()
+  const nextMatch = upcoming.find((item) => itemKind(item) === 'partido' && new Date(item.starts_at) >= now) ?? null
+  const daysLeft = nextMatch
+    ? Math.max(0, Math.round((startOfDay(new Date(nextMatch.starts_at)).getTime() - startOfDay(now).getTime()) / 86400000))
+    : 0
+  const nextActivities = upcoming.filter((item) => new Date(item.ends_at) >= now).slice(0, 5)
+
+  const panelClass = 'rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5'
+
   return (
-    <>
-      <PageHeader
-        title="Calendario"
-        actions={(
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
-            <Button variant="primary" onClick={openNew}>+ Crear actividad</Button>
-          </div>
+    <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
+      <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-6 sm:px-8 sm:pt-8 lg:px-10">
+        <PageHeader
+          title="Calendario"
+          actions={(
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
+              <Button variant="primary" onClick={openNew}>+ Crear actividad</Button>
+            </div>
+          )}
+        />
+
+        {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+        {plan && !unlimited && (
+          <Notice tone="neutral" icon={Info}>Plan {plan.name}: {usage} de {limit} actividades personales este mes.</Notice>
         )}
-      />
 
-      {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-1">
+            {views.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                aria-pressed={view === v.id}
+                onClick={() => setView(v.id)}
+                className={`h-9 rounded-[9px] px-4 text-[13px] font-medium transition-colors ${view === v.id ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'text-[var(--ax-text-secondary)] hover:text-[var(--ax-text)]'}`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => moveAnchor(-1)} aria-label="Anterior" className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] text-[var(--ax-text)]">‹</button>
+            <button type="button" onClick={() => setAnchor(startOfDay(new Date()))} className="h-10 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] px-5 text-sm font-semibold text-[var(--ax-text)]">Hoy</button>
+            <button type="button" onClick={() => moveAnchor(1)} aria-label="Siguiente" className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] text-[var(--ax-text)]">›</button>
+            <p className="ml-3 text-lg font-semibold text-[var(--ax-text)]">{view === 'mes' ? monthLabel(anchor) : navLabel()}</p>
+          </div>
+        </div>
 
-      {plan && !unlimited && (
-        <Notice tone="neutral" icon={Info}>Plan {plan.name}: {usage} de {limit} actividades personales este mes.</Notice>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          {views.map((v) => <Segment key={v.id} active={view === v.id} label={v.label} onClick={() => setView(v.id)} />)}
+          {filters.map((f) => {
+            const on = filter === f.id
+            return (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setFilter(f.id)}
+                className={`inline-flex h-[34px] items-center gap-2 rounded-full border px-4 text-[13px] font-medium text-[var(--ax-text)] ${on ? 'border-[var(--ax-accent)] bg-[var(--ax-surface-raised)]' : 'border-[var(--ax-line)] bg-[var(--ax-surface)]'}`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: filterDot[f.id] }} aria-hidden="true" />
+                {f.label}
+              </button>
+            )
+          })}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => moveAnchor(-1)} aria-label="Anterior">‹</Button>
-          <Button variant="secondary" onClick={() => setAnchor(startOfDay(new Date()))}>Hoy</Button>
-          <Button variant="secondary" onClick={() => moveAnchor(1)} aria-label="Siguiente">›</Button>
-          <p className="ml-2 text-sm font-semibold capitalize text-[var(--ax-text)]">{navLabel()}</p>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        {filters.map((f) => <Segment key={f.id} active={filter === f.id} label={f.label} onClick={() => setFilter(f.id)} />)}
-      </div>
-
-      <Card>{renderBody()}</Card>
-
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <div className="rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-0">
+              <div className="p-3">{renderBody()}</div>
+            </div>
       {selected && (
         <Card>
           <CardHeader id="evento-detalle" title={selected.title} actions={<Button variant="secondary" onClick={() => setSelected(null)}>Cerrar</Button>} />
@@ -444,6 +536,47 @@ export default function AthleteCalendar() {
           </div>
         </Card>
       )}
-    </>
+
+          </div>
+
+          <aside className="flex flex-col gap-4">
+            <div className={panelClass}>
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Próximo partido</p>
+              <p className="mt-3 font-display text-[36px] uppercase leading-none text-[var(--ax-text)]">{nextMatch ? nextMatch.title : 'Sin partidos'}</p>
+              {nextMatch && (
+                <>
+                  <p className="mt-3 text-sm text-[var(--ax-muted)]">
+                    {new Date(nextMatch.starts_at).toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'short' })} · {formatTime(nextMatch.starts_at)}
+                    {nextMatch.location ? ` · ${nextMatch.location}` : ''}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--ax-accent-text)]">{daysLeft === 0 ? 'Hoy' : `Faltan ${daysLeft} ${daysLeft === 1 ? 'día' : 'días'}`}</p>
+                </>
+              )}
+            </div>
+
+            <div className={panelClass}>
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Próximas actividades</p>
+              {nextActivities.length === 0 && <p className="mt-3 text-sm text-[var(--ax-muted)]">No tienes actividades próximas.</p>}
+              <ul className="mt-3 flex flex-col gap-3">
+                {nextActivities.map((item) => (
+                  <li key={item.id + item.starts_at}>
+                    <button type="button" onClick={() => { setEditor(null); setSelected(item) }} className="flex w-full gap-3 text-left">
+                      <span className="w-[3px] shrink-0 rounded-full" style={{ background: kindColor[itemKind(item)] }} aria-hidden="true" />
+                      <span className="flex min-w-0 flex-col">
+                        <span className="text-[11px] text-[var(--ax-muted)]">
+                          {new Date(item.starts_at).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' })} · {item.source === 'personal' ? 'Personal' : item.event_type === 'training' ? 'Entrenamiento' : item.event_type === 'match' ? 'Partido' : 'Actividad'}
+                        </span>
+                        <span className="truncate text-sm font-semibold text-[var(--ax-text)]">{item.title}</span>
+                        <span className="text-xs text-[var(--ax-muted)]">{formatTime(item.starts_at)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </main>
   )
 }

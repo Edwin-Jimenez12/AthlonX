@@ -5,6 +5,21 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario del atleta con el diseño de Figma
+
+**Problema**: la pantalla no coincidía con Figma y parte de la cuadrícula quedaba debajo del menú lateral. El calendario no usaba el contenedor que usan las demás páginas (`main.ax-v2 lg:ml-64`, 1184 px).
+
+**Cambios** (`Components/calendario/athlete-calendar.tsx`):
+- Contenedor igual al de las demás páginas del panel.
+- Título blanco; selector de vistas con radio 9 y color lima en la vista activa; navegación con "Noviembre 2026".
+- Chips de filtro en píldora con punto de color por tipo, incluidos Torneos y Convocatorias.
+- Cuadrícula de 115×112 con eventos tintados por tipo, y panel derecho de 300 px con "Próximo partido" y "Próximas actividades".
+
+**Pendiente de diseño**: Torneos y Convocatorias no tienen eventos en el calendario todavía, así que esos filtros aparecen vacíos.
+
+**Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Menú: Calendario habilitado
 
 **Problema**: en el menú lateral, Calendario aparecía deshabilitado con la etiqueta "Pronto", así que no se podía entrar.

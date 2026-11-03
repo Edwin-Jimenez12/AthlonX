@@ -20,8 +20,8 @@ export type FeedItem = {
 }
 
 export type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda' | 'linea'
-export type CalendarFilter = 'todos' | 'partidos' | 'entrenamientos' | 'personales' | 'organizacion'
-export type ItemKind = 'partido' | 'entrenamiento' | 'personal' | 'organizacion' | 'otro'
+export type CalendarFilter = 'todos' | 'partidos' | 'entrenamientos' | 'torneos' | 'convocatorias' | 'personales' | 'organizacion'
+export type ItemKind = 'partido' | 'entrenamiento' | 'torneo' | 'convocatoria' | 'personal' | 'organizacion' | 'otro'
 
 export function startOfDay(date: Date) {
   const copy = new Date(date)
@@ -88,6 +88,8 @@ export function matchesFilter(item: FeedItem, filter: CalendarFilter) {
   const kind = itemKind(item)
   if (filter === 'partidos') return kind === 'partido'
   if (filter === 'entrenamientos') return kind === 'entrenamiento'
+  if (filter === 'torneos') return kind === 'torneo'
+  if (filter === 'convocatorias') return kind === 'convocatoria'
   if (filter === 'personales') return kind === 'personal'
   return kind === 'organizacion'
 }
