@@ -5,6 +5,19 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Eliminar la cuenta de AthlonX desde el panel
+
+**Qué se hizo**: en Equipo y roles, el botón "Eliminar cuenta" elimina la cuenta de AthlonX del miembro, no solo su acceso al panel. Pide confirmación con advertencia y exige escribir el correo de la cuenta. La eliminación usa el mecanismo que ya tiene el proyecto: plazo de 15 días, recuperable si la persona inicia sesión antes, y borrado definitivo por el proceso automático cada hora. La cuenta sale del panel de inmediato y sus sesiones se cierran.
+
+**Reglas**: propietario a administradores y colaboradores; administrador solo a colaboradores; nadie al propietario. Las cuentas de organización no se eliminan.
+
+**Migración aplicada**: `supabase/staff-account-deletion-migration.sql` crea `platform_schedule_staff_account_deletion`. Verificado en solo lectura: la función existe y es `security definer`. Antes se verificó que existen la columna `deletion_scheduled_at`, las tres funciones de eliminación y el trabajo automático `athlonx-purge-expired-account-deletions`.
+
+**Verificación**: `npm run build` compila; `node --test tests/*.mjs` pasa 46 pruebas. No probado en navegador.
+
+**Pendiente**: probar el flujo completo con una cuenta de prueba, incluida la recuperación al iniciar sesión dentro del plazo.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Contraseña temporal y quitar del panel
 
 **Qué se hizo**:

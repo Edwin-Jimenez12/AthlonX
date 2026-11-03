@@ -69,6 +69,7 @@ export default function EquipoPage() {
   const [saving, setSaving] = useState(false)
   const [temp, setTemp] = useState<TempAccount | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [confirmText, setConfirmText] = useState('')
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
 
   const creatableRoles = (['administrador', 'colaborador'] as StaffRole[]).filter((role) => canCreateRole(caller, role))
@@ -147,9 +148,22 @@ export default function EquipoPage() {
     }
   }
 
-  async function removeMember(member: Member) {
-    setConfirmId(null)
-    await run(() => callPanel('platform_remove_staff', { p_user: member.user_id }), 'Cuenta quitada del panel. Su cuenta de AthlonX sigue activa.')
+  // Programa la eliminación de la cuenta de AthlonX con el plazo de 15 días del proyecto y la quita del panel.
+  async function deleteMember(member: Member) {
+    setSaving(true)
+    setMessage(null)
+    try {
+      const date = await callPanel<string>('platform_schedule_staff_account_deletion', { p_user: member.user_id })
+      const when = new Date(date).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })
+      setConfirmId(null)
+      setConfirmText('')
+      setMessage({ tone: 'success', text: `La cuenta de ${member.email} se eliminará el ${when}. Si vuelve a iniciar sesión antes, la recupera.` })
+      await load()
+    } catch (err) {
+      setMessage({ tone: 'danger', text: (err as Error).message })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -207,20 +221,31 @@ export default function EquipoPage() {
                           {member.is_active ? 'Desactivar' : 'Activar'}
                         </Button>
                         {!confirming && (
-                          <Button variant="secondary" disabled={saving} onClick={() => setConfirmId(member.user_id)}>Quitar del panel</Button>
+                          <Button variant="secondary" disabled={saving} onClick={() => { setConfirmId(member.user_id); setConfirmText('') }}>Eliminar cuenta</Button>
                         )}
                       </>
                     )}
                   </div>
                 </div>
                 {confirming && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--ax-line)] p-4">
-                    <p className="text-sm text-[var(--ax-text)]">
-                      ¿Quitar a {member.name} del panel? Perderá el acceso a estas secciones. Su cuenta de AthlonX no se borra.
+                  <div className="mt-4 space-y-4 rounded-[14px] border border-[var(--ax-danger-text)] p-5">
+                    <p className="font-semibold text-[var(--ax-text)]">Eliminar la cuenta de AthlonX de {member.name}</p>
+                    <p className="text-sm leading-6 text-[var(--ax-text)]">
+                      La cuenta sale del panel y se cierran sus sesiones. Se borrará de AthlonX dentro de 15 días. Si la persona vuelve a iniciar sesión antes de esa fecha, la recupera. Pasado el plazo, sus datos personales se borran y no se pueden recuperar.
                     </p>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => setConfirmId(null)}>Cancelar</Button>
-                      <Button variant="primary" disabled={saving} onClick={() => void removeMember(member)}>Sí, quitar</Button>
+                    <label className="block">
+                      <FieldLabel>Escribe el correo de la cuenta para confirmar</FieldLabel>
+                      <input className={inputClass} value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={member.email} />
+                    </label>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="secondary" onClick={() => { setConfirmId(null); setConfirmText('') }}>Cancelar</Button>
+                      <Button
+                        variant="primary"
+                        disabled={saving || confirmText.trim().toLowerCase() !== member.email.toLowerCase()}
+                        onClick={() => void deleteMember(member)}
+                      >
+                        Eliminar cuenta
+                      </Button>
                     </div>
                   </div>
                 )}
