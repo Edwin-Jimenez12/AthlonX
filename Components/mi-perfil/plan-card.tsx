@@ -1,7 +1,7 @@
 'use client'
 
 import { Info } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatUsd } from '../../lib/admin'
 import { loadAccountPlan, loadUpgradePlans, redeemPlanCode, type AccountPlan, type AccountType, type CatalogPlan } from '../../lib/account-plans'
 import { Button, Notice, inputClass } from '../mi-equipo/ui'
@@ -90,10 +90,17 @@ function PlanUpgrade({
   const [code, setCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
+  const promoRef = useRef<HTMLElement>(null)
+  const selectedPlan = plans.find((plan) => plan.code === selected) ?? null
 
   useEffect(() => {
     loadUpgradePlans().then(setPlans).catch((err: Error) => setMessage({ tone: 'danger', text: err.message }))
   }, [])
+
+  // Al pulsar Comprar, el campo del código aparece y se muestra en pantalla.
+  useEffect(() => {
+    if (selected) promoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [selected])
 
   async function apply() {
     if (!selected) {
@@ -146,14 +153,18 @@ function PlanUpgrade({
         })}
       </div>
 
-      <section className="flex flex-col gap-4 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-6">
-        <p className="font-display text-[30px] uppercase leading-none text-[var(--ax-accent-text)]">Código promocional</p>
-        {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
-        <input className={inputClass} placeholder="Ingresa tu código" value={code} onChange={(e) => setCode(e.target.value)} />
-        <div className="flex justify-end">
-          <Button variant="primary" className="w-[200px]" disabled={saving || !code.trim()} onClick={() => void apply()}>Aplicar código</Button>
-        </div>
-      </section>
+      {message && !selectedPlan && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+      {selectedPlan && (
+        <section ref={promoRef} className="flex flex-col gap-4 rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-6">
+          <p className="font-display text-[30px] uppercase leading-none text-[var(--ax-accent-text)]">Código promocional para {selectedPlan.name}</p>
+          {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
+          <input className={inputClass} placeholder="Ingresa tu código" value={code} onChange={(e) => setCode(e.target.value)} />
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setSelected(null); setCode(''); setMessage(null) }}>Cancelar</Button>
+            <Button variant="primary" className="w-[200px]" disabled={saving || !code.trim()} onClick={() => void apply()}>Aplicar código</Button>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

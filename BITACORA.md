@@ -5,6 +5,13 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Código promocional al pulsar Comprar
+
+**Qué se hizo**: la tarjeta de código promocional aparece solo al pulsar Comprar en un plan. Su título dice el plan elegido ("Código promocional para Pro") y la pantalla se desplaza hasta ella. Cancelar la oculta.
+
+**Verificación**: `npm run build` compila (incluye verificación de tipos); `node --test tests/*.mjs` pasa 46 pruebas. No probado en navegador.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Lectura del catálogo de planes
 
 **Problema**: al pulsar Mejorar plan aparecía "permission denied for table plans". La tabla `plans` tenía la política RLS de lectura pública, pero ningún permiso de tabla para `anon` ni `authenticated`.
