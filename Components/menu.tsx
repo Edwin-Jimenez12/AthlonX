@@ -10,6 +10,7 @@ const links = [
   { label: "Inicio", href: "/" },
   { label: "Nosotros", href: "/nosotros" },
   { label: "Planes", href: "/planes" },
+  { label: "Novedades", href: "/novedades" },
   { label: "Contáctanos", href: "/contactanos" },
 ];
 

@@ -5,6 +5,20 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Novedades públicas desde el panel
+
+**Qué se hizo**: la página pública `/novedades` muestra las versiones publicadas desde el panel (código, título, fecha y secciones con título y párrafo). Vuelve a aparecer en el menú y el pie, después de Planes.
+
+**Migración aplicada**: `supabase/public-novedades-migration.sql` crea `platform_public_releases()`, que solo devuelve versiones con estado `publicada`. Las tablas de novedades siguen cerradas al público. Verificado en solo lectura: la función es `security definer` y tiene permiso de ejecución para `anon` y `authenticated`.
+
+**Dato a revisar**: hoy hay una sola versión publicada (`v2.5.0`, título "ñaohf"), que parece texto de prueba.
+
+**Verificación**: `npm run build` compila y genera `/novedades`. No probado en navegador.
+
+**Pendiente**: revisar el contenido publicado; decidir si se suman avisos o filtros por categoría.
+
+---
+
 ## 2026-11-02 · `claude/great-ritchie-2n8uq9` · nube → Panel administrativo de la plataforma
 
 **Qué se hizo**:
