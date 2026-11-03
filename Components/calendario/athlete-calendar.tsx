@@ -254,7 +254,7 @@ export default function AthleteCalendar() {
         className="flex h-5 w-full items-center rounded-[6px] px-1.5 text-left text-[11px] font-medium"
         style={{ color, background: `${color}29` }}
       >
-        <span className="truncate">{item.all_day ? '' : `${formatTime(item.starts_at)} `}{item.title}</span>
+        <span className="truncate" title={item.all_day ? item.title : `${formatTime(item.starts_at)} · ${item.title}`}>{item.title}</span>
       </button>
     )
   }

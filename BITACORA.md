@@ -20,6 +20,13 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 **Verificación**: `npm run build` compila con verificación de tipos; `node --test tests/*.mjs` pasa 51 pruebas. No comparado visualmente con Figma.
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Título directo en los chips del calendario
+
+**Cambio**: en la cuadrícula del mes, cada evento muestra su título; la hora queda en el texto emergente al pasar el cursor.
+
+**Verificación**: `npm run build` compila con verificación de tipos. No probado en navegador.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Menú: Calendario habilitado
 
 **Problema**: en el menú lateral, Calendario aparecía deshabilitado con la etiqueta "Pronto", así que no se podía entrar.
