@@ -5,6 +5,15 @@ Formato: fecha · rama · entorno → qué se hizo · archivos · verificación 
 
 ---
 
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Menú: Calendario habilitado
+
+**Problema**: en el menú lateral, Calendario aparecía deshabilitado con la etiqueta "Pronto", así que no se podía entrar.
+
+**Cambio**: `Components/dashboard-sidebar.tsx` quita la marca de deshabilitado de Calendario en los cinco menús y la condición que lo forzaba a estar deshabilitado.
+
+**Verificación**: `npm run build` compila. No probado en navegador.
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Calendario del atleta (cuenta personal)
 
 **Qué se hizo**:

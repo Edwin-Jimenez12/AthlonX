@@ -26,26 +26,26 @@ const teamNavigation: NavigationItem[] = [
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/equipo' },
   { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
-  { label: 'Calendario', icon: CalendarDays, href: '/calendario', disabled: true, notice: calendarNotice },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
 ]
 
 const trainerNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/entrenador' },
-  { label: 'Calendario', icon: CalendarDays, href: '/calendario', disabled: true, notice: calendarNotice },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
 ]
 
 const staffNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
-  { label: 'Calendario', icon: CalendarDays, href: '/calendario', disabled: true, notice: calendarNotice },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
 ]
 
 const personNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
-  { label: 'Calendario', icon: CalendarDays, href: '/calendario', disabled: true, notice: calendarNotice },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
 ]
 
 const athleteNavigation = personNavigation
@@ -55,7 +55,7 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Organización', icon: Building2, href: '/organizaciones' },
   { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
-  { label: 'Calendario', icon: CalendarDays, href: '/calendario', disabled: true, notice: calendarNotice },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
   { label: 'Equipos', icon: Users, href: '/equipos' },
   { label: 'Participantes', icon: Shield, disabled: true },
 ]
@@ -223,7 +223,7 @@ export function DashboardSidebar() {
           </button>
         })}
         {!settingsSections && navigation.map(({ label, icon: Icon, href, disabled, notice }) => {
-          if (disabled || label === 'Calendario') return <div key={label} aria-disabled="true" title={notice || calendarNotice} className={`relative z-10 flex w-full cursor-default items-center gap-3 rounded-xl px-3 py-2.5 ${muted}`}><Icon size={18} className="shrink-0" /><span className="font-barlow text-[18px] font-semibold leading-none">{label}</span><span className={`ml-auto rounded-full border px-2 py-0.5 font-body text-[9px] font-semibold uppercase tracking-[0.12em] ${pronto}`}>Pronto</span></div>
+          if (disabled) return <div key={label} aria-disabled="true" title={notice || calendarNotice} className={`relative z-10 flex w-full cursor-default items-center gap-3 rounded-xl px-3 py-2.5 ${muted}`}><Icon size={18} className="shrink-0" /><span className="font-barlow text-[18px] font-semibold leading-none">{label}</span><span className={`ml-auto rounded-full border px-2 py-0.5 font-body text-[9px] font-semibold uppercase tracking-[0.12em] ${pronto}`}>Pronto</span></div>
           if (!href) return null
           const isActive = href === activeHref
           return <Link key={href} href={href} onClick={close} ref={(node) => { itemRefs.current[href] = node }} aria-current={isActive ? 'page' : undefined} className={`group relative z-10 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-300 motion-reduce:transition-none ${isActive ? 'font-semibold text-[#07131e]' : idleItem}`}>
