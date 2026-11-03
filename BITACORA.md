@@ -19,7 +19,11 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Reportes PDF y CSV en la cuenta de organización: desde Pro (decidido el 2026-11-03). El logotipo propio en reportes sigue siendo de Élite.
 - [x] Eliminar la cuenta de organización: disponible en Free, Pro y Élite (decidido el 2026-11-03). Los torneos y eventos compartidos con otras instituciones o equipos no se borran y quedan con el organizador "Organización eliminada" (frase propuesta, a confirmar).
 - [x] Formato liga (con fases o final directa) en la cuenta de organización: lo que cambia es cuántas ligas activas hay. Pro: 5 en torneos rápidos y 3 en oficiales; Élite: sin límite; Free: en su único torneo rápido activo (decidido el 2026-11-03).
-- [ ] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado.
+- [x] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado: base de datos, Mi perfil y planes (entrada del 2026-11-03, "Planes de la cuenta de organización en código").
+- [ ] Organización, pantallas que faltan: Participantes, asistencia resumida por equipo, reportes PDF/CSV, patrocinios, avisos y bloqueos dentro del calendario de la organización.
+- [ ] Organización: repetir eventos y sincronización (la tabla de eventos de la organización no tiene campo de repetición).
+- [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
+- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios.
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
 - [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
@@ -53,6 +57,30 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Planes de la cuenta de organización en código
+
+**Qué se hizo**
+- El catálogo de planes ahora distingue tipo de cuenta (`account_type`: persona, equipo, organizacion) y guarda `limits`, `feature_flags` y `price_pending` ("Precio por definir").
+- Nuevos planes `org_free`, `org_pro` y `org_elite` con los límites del Excel aprobado. Free: 3 equipos afiliados, 3 propios, 2 directivos/staff, 5 eventos al mes, 1 torneo rápido, sin oficiales. Pro: 15 / 15 / 10 / 30 / 5 rápidos / 3 oficiales. Élite: sin límite.
+- Los límites se aplican en la base de datos con triggers (`enforce_org_event_limit`, `enforce_org_tournament_limit`, `enforce_org_staff_limit`, `enforce_org_invite_limit`, `enforce_org_team_limit`), así que no se pueden saltar desde la UI. Los equipos temporales no cuentan.
+- `platform_account_plan` y `platform_redeem_plan_code` respetan el tipo de cuenta; un plan con precio por definir solo se activa con un código al 100%.
+- `platform_org_usage(p_org)` devuelve plan, límites y uso actual.
+- Mi perfil de organización: "Plan actual" y "Mejorar plan" muestran los planes de organización; en Equipos aparece la tarjeta "Límites del plan" con medidores de uso.
+- `/planes` agrupa los planes en "Para personas", "Para organizaciones" y "AX Club". El panel admin muestra el tipo de cuenta en Planes, y Promociones permite códigos para `org_pro` y `org_elite`.
+
+**Archivos clave**: `supabase/organization-plans-migration.sql`, `supabase/organization-usage-migration.sql`, `lib/account-plans.ts`, `Components/mi-perfil/plan-card.tsx`, `Components/mi-perfil/org-plan-limits.tsx`, `Components/mi-perfil/organization-profile-view.tsx`, `app/planes/page.tsx`, `app/(admin)/panel-admin/planes/page.tsx`, `app/(admin)/panel-admin/promociones/page.tsx`.
+
+**Verificación**
+- Las dos migraciones se aplicaron al proyecto `mlvtsgseneqzihwkiatg` y se comprobaron con consultas de solo lectura.
+- Prueba de triggers en un bloque DO que se revierte (organización "Liga demo"): se crearon 5 eventos, el 6.º se bloqueó con el mensaje del plan Free, y el torneo oficial también se bloqueó. No quedaron datos de prueba.
+- `npm run build` sin errores; `node --test tests/*.mjs` dio 51 pruebas correctas.
+
+**Nota**: "Liga Panameña de rugby III Fecha" ya tenía 1 torneo oficial activo y 1 rápido estando en Free. Siguen funcionando, pero no puede crear torneos oficiales nuevos hasta subir de plan.
+
+**Pendiente**: ver la sección Pendientes (pantallas de organización que faltan, repetición y sincronización, edición de límites desde el panel, planes de equipo).
 
 ---
 

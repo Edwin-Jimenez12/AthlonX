@@ -9,6 +9,8 @@ type PublicPlan = {
   code: string
   name: string
   kind: 'individual' | 'grupo'
+  account_type: 'persona' | 'equipo' | 'organizacion'
+  price_pending: boolean
   monthly_price: number
   annual_enabled: boolean
   annual_price: number | null
@@ -27,7 +29,7 @@ export default function PlanesPage() {
       if (!supabase) return setLoading(false)
       const { data } = await supabase
         .from('plans')
-        .select('code, name, kind, monthly_price, annual_enabled, annual_price, seats, features')
+        .select('code, name, kind, account_type, price_pending, monthly_price, annual_enabled, annual_price, seats, features')
         .eq('is_active', true)
         .order('sort_order')
       if (!active) return
@@ -40,7 +42,8 @@ export default function PlanesPage() {
     }
   }, [])
 
-  const individuals = plans.filter((plan) => plan.kind === 'individual')
+  const individuals = plans.filter((plan) => plan.kind === 'individual' && plan.account_type === 'persona')
+  const organizations = plans.filter((plan) => plan.kind === 'individual' && plan.account_type === 'organizacion')
   const groups = plans.filter((plan) => plan.kind === 'grupo')
 
   return (
@@ -57,7 +60,8 @@ export default function PlanesPage() {
       <section className="px-6 pb-16 md:px-14 lg:px-24">
         <div className="mx-auto max-w-7xl space-y-14">
           {loading && <p className="text-slate-300">Cargando planes…</p>}
-          <PlanGroup title="Planes individuales" plans={individuals} />
+          <PlanGroup title="Para personas" plans={individuals} />
+          <PlanGroup title="Para organizaciones" plans={organizations} />
           {groups.length > 0 && <PlanGroup title="AX Club · planes de grupo" plans={groups} />}
         </div>
       </section>
@@ -77,8 +81,8 @@ function PlanGroup({ title, plans }: { title: string; plans: PublicPlan[] }) {
           <article key={plan.code} className="flex flex-col rounded-[20px] border border-white/10 bg-white/[0.03] p-7">
             <h3 className="font-display text-4xl uppercase text-white">{plan.name}</h3>
             <p className="mt-4 text-3xl font-semibold text-white">
-              {plan.monthly_price === 0 ? 'Gratis' : formatUsd(plan.monthly_price)}
-              {plan.monthly_price > 0 && <span className="text-base font-normal text-slate-300"> / mes</span>}
+              {plan.price_pending ? 'Precio por definir' : plan.monthly_price === 0 ? 'Gratis' : formatUsd(plan.monthly_price)}
+              {!plan.price_pending && plan.monthly_price > 0 && <span className="text-base font-normal text-slate-300"> / mes</span>}
             </p>
             {plan.annual_enabled && plan.annual_price !== null && (
               <p className="mt-1 text-sm text-slate-300">o {formatUsd(plan.annual_price)} al año</p>

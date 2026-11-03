@@ -17,7 +17,11 @@ type Plan = {
   personal_activity_monthly_limit: number | null
   features: string[]
   is_active: boolean
+  account_type: 'persona' | 'equipo' | 'organizacion'
+  price_pending: boolean
 }
+
+const accountLabels: Record<Plan['account_type'], string> = { persona: 'Persona', equipo: 'Equipo', organizacion: 'Organización' }
 
 type Draft = {
   code: string
@@ -143,7 +147,8 @@ export default function PlanesAdminPage() {
                   }
                 >
                   <span className="block font-display text-[26px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</span>
-                  <span className="mt-2 block text-sm text-[var(--ax-text)]">{formatUsd(plan.monthly_price)} al mes</span>
+                  <span className="mt-2 block text-sm text-[var(--ax-text)]">{plan.price_pending ? 'Precio por definir' : `${formatUsd(plan.monthly_price)} al mes`}</span>
+                  <span className="mt-1 block text-xs font-semibold text-[var(--ax-accent-text)]">{accountLabels[plan.account_type] ?? plan.account_type}</span>
                   <span className="mt-1 block text-xs text-[var(--ax-muted)]">
                     {plan.kind === 'grupo' ? `${plan.seats} cuentas` : plan.annual_enabled ? 'Mensual o anual' : 'Solo individual, sin anual'}
                     {!plan.is_active && ' · Inactivo'}

@@ -15,6 +15,7 @@ import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
 import { SessionCard } from './delete-account-card'
 import { PlanCard } from './plan-card'
+import { OrgPlanLimits } from './org-plan-limits'
 import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
@@ -293,6 +294,7 @@ export function OrganizationProfileView({
         </>
       )}
 
+      {section === 'equipos' && <OrgPlanLimits organizationId={organization.id} />}
       {section === 'equipos' && (
         <CardRow>
           <Card title="Equipos afiliados" description="Equipos oficiales vinculados a esta organización.">

@@ -26,6 +26,8 @@ const planOptions = [
   { code: 'club_pro', name: 'Club Pro' },
   { code: 'club_elite', name: 'Club Élite' },
   { code: 'libre', name: 'Libre' },
+  { code: 'org_pro', name: 'Organización Pro' },
+  { code: 'org_elite', name: 'Organización Élite' },
 ]
 
 // Fechas en hora de Panamá (UTC-5): inicio a las 00:00 y vencimiento al final del día.

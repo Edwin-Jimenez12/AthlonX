@@ -3,9 +3,15 @@ import { supabase } from './supabase'
 
 export type AccountType = 'persona' | 'equipo' | 'organizacion'
 
+export type PlanLimits = Partial<Record<'equipos_afiliados' | 'equipos_propios' | 'directivos_staff' | 'eventos_mes' | 'torneos_rapidos' | 'torneos_oficiales' | 'recordatorios_evento', number | null>>
+
 export type AccountPlan = {
   code: string
   name: string
+  account_type: 'persona' | 'equipo' | 'organizacion'
+  price_pending: boolean
+  limits: PlanLimits
+  feature_flags: Record<string, boolean>
   monthly_price: number
   personal_activity_monthly_limit: number | null
   features: string[]
@@ -16,6 +22,7 @@ export type AccountPlan = {
 export type CatalogPlan = {
   code: string
   name: string
+  price_pending: boolean
   monthly_price: number
   annual_enabled: boolean
   annual_price: number | null
@@ -42,14 +49,17 @@ export function redeemPlanCode(accountType: AccountType, accountId: string, plan
   })
 }
 
-// Planes que se ofrecen a la cuenta (Libre, Pro y Élite). Los de grupo se venden aparte.
-export async function loadUpgradePlans(): Promise<CatalogPlan[]> {
+// Planes que se ofrecen según el tipo de cuenta: persona (Libre, Pro y Élite) u organización (Free, Pro y Élite).
+// Los equipos usan por ahora el catálogo de persona. Los planes de grupo se venden aparte.
+export async function loadUpgradePlans(accountType: AccountType): Promise<CatalogPlan[]> {
   if (!supabase) return []
+  const catalog = accountType === 'organizacion' ? 'organizacion' : 'persona'
   const { data, error } = await supabase
     .from('plans')
-    .select('code, name, monthly_price, annual_enabled, annual_price, features')
+    .select('code, name, monthly_price, price_pending, annual_enabled, annual_price, features')
     .eq('is_active', true)
-    .in('code', ['libre', 'pro', 'elite'])
+    .eq('kind', 'individual')
+    .eq('account_type', catalog)
     .order('sort_order')
   if (error) throw new Error(error.message)
   return (data ?? []) as CatalogPlan[]

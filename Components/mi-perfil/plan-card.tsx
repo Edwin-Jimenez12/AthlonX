@@ -3,6 +3,15 @@
 import { Info } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { formatUsd } from '../../lib/admin'
+
+function priceLabel(plan: { monthly_price: number; price_pending: boolean }) {
+  if (plan.price_pending) return 'Precio por definir'
+  return plan.monthly_price === 0 ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`
+}
+
+function limitLabel(value: number | null | undefined, unit: string) {
+  return value === null || value === undefined ? `${unit} sin límite` : `Hasta ${value} ${unit}`
+}
 import { loadAccountPlan, loadUpgradePlans, redeemPlanCode, type AccountPlan, type AccountType, type CatalogPlan } from '../../lib/account-plans'
 import { Button, Notice, inputClass } from '../mi-equipo/ui'
 import { Card } from './ui'
@@ -53,12 +62,19 @@ export function PlanCard({ accountType, accountId }: { accountType: AccountType;
             <Button variant="primary" className="w-[180px]" onClick={() => setUpgrading(true)}>Mejorar plan</Button>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            <span className="font-semibold text-[var(--ax-text)]">Precio: {plan.is_free ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`}</span>
-            <span className="text-[var(--ax-muted)]">
-              {plan.personal_activity_monthly_limit !== null
-                ? `${plan.personal_activity_monthly_limit} actividades personales por mes`
-                : 'Actividades personales ilimitadas'}
-            </span>
+            <span className="font-semibold text-[var(--ax-text)]">Precio: {plan.is_free ? 'Gratis' : priceLabel(plan)}</span>
+            {accountType === 'organizacion' ? (
+              <>
+                <span className="text-[var(--ax-muted)]">{limitLabel(plan.limits?.equipos_afiliados, 'equipos afiliados')}</span>
+                <span className="text-[var(--ax-muted)]">{plan.limits?.eventos_mes === null || plan.limits?.eventos_mes === undefined ? 'Eventos sin límite' : `${plan.limits.eventos_mes} eventos al mes`}</span>
+              </>
+            ) : (
+              <span className="text-[var(--ax-muted)]">
+                {plan.personal_activity_monthly_limit !== null
+                  ? `${plan.personal_activity_monthly_limit} actividades personales por mes`
+                  : 'Actividades personales ilimitadas'}
+              </span>
+            )}
             <span className="text-[var(--ax-muted)]">
               {plan.ends_at
                 ? `Vence el ${new Date(plan.ends_at).toLocaleDateString('es-PA', { day: 'numeric', month: 'long', year: 'numeric' })}`
@@ -94,8 +110,8 @@ function PlanUpgrade({
   const selectedPlan = plans.find((plan) => plan.code === selected) ?? null
 
   useEffect(() => {
-    loadUpgradePlans().then(setPlans).catch((err: Error) => setMessage({ tone: 'danger', text: err.message }))
-  }, [])
+    loadUpgradePlans(accountType).then(setPlans).catch((err: Error) => setMessage({ tone: 'danger', text: err.message }))
+  }, [accountType])
 
   // Al pulsar Comprar, el campo del código aparece y se muestra en pantalla.
   useEffect(() => {
@@ -136,7 +152,7 @@ function PlanUpgrade({
               className={`flex flex-col gap-3 rounded-[20px] border bg-[var(--ax-surface)] p-6 ${current ? 'border-[var(--ax-accent)]' : 'border-[var(--ax-line)]'}`}
             >
               <p className="font-display text-[44px] uppercase leading-none text-[var(--ax-accent-text)]">{plan.name}</p>
-              <p className="text-[22px] font-semibold text-[var(--ax-text)]">{plan.monthly_price === 0 ? 'Gratis' : `${formatUsd(plan.monthly_price)} / mes`}</p>
+              <p className="text-[22px] font-semibold text-[var(--ax-text)]">{priceLabel(plan)}</p>
               {plan.annual_enabled && plan.annual_price !== null && (
                 <p className="text-[13px] text-[var(--ax-muted)]">o {formatUsd(plan.annual_price)} al año</p>
               )}
