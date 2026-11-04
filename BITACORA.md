@@ -23,6 +23,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Participantes y calendario de la organización (entrada del 2026-11-04, "Calendario y Participantes de la organización").
 - [ ] Organización, pantallas que faltan: asistencia resumida por equipo, reportes PDF/CSV y patrocinios.
 - [ ] Probar en navegador, con una cuenta de organización real, el calendario y Participantes en Free y en Pro.
+- [ ] Pasar a código, según Figma y separado por plan: Organización, Equipos y Torneos (hoy con el diseño anterior). Organización espera aprobación.
 - [ ] Organización: repetir eventos y sincronización (la tabla de eventos de la organización no tiene campo de repetición).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios.
@@ -59,6 +60,22 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Figma: pantalla Organización de la cuenta de organización
+
+**Qué se hizo** (solo Figma, página REDISEÑO; espera aprobación)
+- En el menú del diseño, "Organización" abría "Información general" de Mi perfil: faltaba la pantalla de la sección. Se agregó una columna nueva en x=23100: `Org · Free/Pro/Élite · Organización`, en oscuro y en claro (`… · Claro`).
+- La pantalla tiene dos tarjetas:
+  - **Jerarquía organizacional**: mapa de autoridad por niveles y el panel inline "Invitar organización bajo esta autoridad".
+  - **Personas de la organización**: medidor "Directivos y staff" (Free 2 de 2 con "Llegaste al límite del plan Free" y "Mejorar plan"; Pro 4 de 10; Élite sin límite), buscador, "Enviar invitación" y la lista de vinculaciones directas.
+- Prototipo (74 enlaces): menú, "Vista del plan", "Agregar equipo" lleva a Equipos y "Mejorar plan" a la vista de planes. "Organización" del menú en todas las pantallas de organización abre la nueva pantalla.
+- Se quitó el chip "PRONTO" de Participantes en las pantallas Free. Participantes Free dice "Disponible en Pro", igual que en código.
+
+**Estado del código frente a Figma**: Búsqueda, Eventos, Mi perfil, Calendario y Participantes ya usan el rediseño (`.ax-v2`). Organización, Equipos y Torneos siguen con el diseño anterior.
+
+**Pendiente**: aprobación de Edwin; luego pasar a código Organización, Equipos y Torneos según Figma, separados por plan.
 
 ---
 
