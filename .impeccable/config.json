@@ -8,6 +8,11 @@
         "value": "arial",
         "createdAt": "2026-10-31T02:28:40.215Z",
         "reason": "Agent decision: documento de impresión (PDF) en ventana emergente; Arial es fuente de sistema para que la impresión sea idéntica en cualquier equipo. Línea anterior a esta sesión (commit f47d5cf). Usuario no confirmó explícitamente."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-04T01:30:18.445Z"
       }
     ]
   }
