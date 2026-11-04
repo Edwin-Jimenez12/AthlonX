@@ -60,6 +60,15 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Participantes de organización: función de base de datos
+
+**Qué se hizo**: nueva función `platform_org_participants(p_org)`. Devuelve nombre, rol, equipo, organización afiliada ("vía …") y estado de las personas de la organización y de sus equipos, sin datos de contacto. Solo responde a quien gestiona la organización y solo si el plan incluye `participantes` (Pro y Élite).
+**Archivos**: `supabase/organization-participants-migration.sql` (aplicada en `mlvtsgseneqzihwkiatg`).
+**Verificación**: existían las funciones de las que depende; la función quedó creada con permiso para authenticated y sin permiso para anon; la consulta interna se probó en solo lectura.
+**Pendiente**: la pantalla `/participantes` (Free: tarjeta bloqueada con "Mejorar plan"; Pro y Élite: lista con filtros por rol) y quitar "Pronto" del menú de organización.
+
+---
+
 ## 2026-11-03 · `claude/great-ritchie-2n8uq9` · nube → Planes de la cuenta de organización en código
 
 **Qué se hizo**
