@@ -31,6 +31,15 @@ export function PlanCard({ accountType, accountId }: { accountType: AccountType;
     }
   }
 
+  // Los enlaces "Mejorar plan" de otras pantallas llegan con ?mejorar=1 y abren la vista de planes.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('mejorar') !== '1') return
+    setUpgrading(true)
+    url.searchParams.delete('mejorar')
+    window.history.replaceState(null, '', url.toString())
+  }, [])
+
   useEffect(() => {
     void refresh()
     // Recarga solo cuando cambia la cuenta mostrada.

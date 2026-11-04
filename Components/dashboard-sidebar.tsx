@@ -57,7 +57,7 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
   { label: 'Equipos', icon: Users, href: '/equipos' },
-  { label: 'Participantes', icon: Shield, disabled: true },
+  { label: 'Participantes', icon: Shield, href: '/participantes' },
 ]
 
 export function DashboardSidebar() {

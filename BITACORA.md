@@ -20,7 +20,9 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Eliminar la cuenta de organización: disponible en Free, Pro y Élite (decidido el 2026-11-03). Los torneos y eventos compartidos con otras instituciones o equipos no se borran y quedan con el organizador "Organización eliminada" (frase propuesta, a confirmar).
 - [x] Formato liga (con fases o final directa) en la cuenta de organización: lo que cambia es cuántas ligas activas hay. Pro: 5 en torneos rápidos y 3 en oficiales; Élite: sin límite; Free: en su único torneo rápido activo (decidido el 2026-11-03).
 - [x] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado: base de datos, Mi perfil y planes (entrada del 2026-11-03, "Planes de la cuenta de organización en código").
-- [ ] Organización, pantallas que faltan: Participantes, asistencia resumida por equipo, reportes PDF/CSV, patrocinios, avisos y bloqueos dentro del calendario de la organización.
+- [x] Participantes y calendario de la organización (entrada del 2026-11-04, "Calendario y Participantes de la organización").
+- [ ] Organización, pantallas que faltan: asistencia resumida por equipo, reportes PDF/CSV y patrocinios.
+- [ ] Probar en navegador, con una cuenta de organización real, el calendario y Participantes en Free y en Pro.
 - [ ] Organización: repetir eventos y sincronización (la tabla de eventos de la organización no tiene campo de repetición).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios.
@@ -57,6 +59,32 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Calendario y Participantes de la organización
+
+**Qué se hizo**
+- Calendario: en la cuenta de organización salía "Próximamente" porque `TeamCalendarView` era solo un aviso; nunca se conectó. Ahora la organización usa el mismo calendario del rediseño (`AthleteCalendar` con la prop `organization`):
+  - Crea, edita y elimina eventos en `organization_calendar_events`. El límite de eventos al mes lo sigue aplicando el trigger.
+  - Muestra el aviso "Plan X: N de M eventos de la organización este mes" con "Mejorar plan".
+  - Sin asistencia propia ni filtro Personales.
+  - Repetir y sincronizar aparecen como "parte del plan Pro" (o "llegará pronto" en Pro).
+  - Las cuentas de equipo también pasan al calendario nuevo.
+- Nueva función `calendar_org_feed(p_org, p_from, p_to)`: eventos de la organización y, si el plan tiene `vista_equipos` (Pro y Élite), los de sus equipos en solo lectura.
+- Participantes: el menú ya no dice "Pronto".
+  - Free: tarjeta "Disponible en Pro" con "Mejorar plan".
+  - Pro y Élite: filtros por rol y tabla Nombre, Rol, Equipo y Estado, a partir de `platform_org_participants`.
+- "Mejorar plan" ahora abre directamente la vista de planes en Mi perfil → Cuenta (`?mejorar=1`, que se quita de la URL al usarse).
+
+**Archivos clave**: `supabase/organization-calendar-feed-migration.sql` (aplicada), `Components/calendario/athlete-calendar.tsx`, `app/(panel)/calendario/page.tsx`, `app/(panel)/participantes/page.tsx`, `Components/dashboard-sidebar.tsx`, `Components/mi-perfil/plan-card.tsx`, `Components/mi-perfil/org-plan-limits.tsx`.
+
+**Verificación**
+- La migración se aplicó; authenticated tiene permiso y anon no. La consulta interna se probó en solo lectura.
+- `npm run build` sin errores; 51 pruebas correctas.
+- No se probó en navegador: hace falta iniciar sesión con una cuenta de organización.
+
+**Pendiente**: asistencia resumida por equipo, reportes, patrocinios, y repetir/sincronizar eventos de organización.
 
 ---
 

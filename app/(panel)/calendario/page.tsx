@@ -6,9 +6,10 @@ import { supabase } from '../../../lib/supabase'
 import AthleteCalendar from '../../../Components/calendario/athlete-calendar'
 import TeamCalendarView from '../../../Components/calendario/team-calendar-view'
 
-// Cuenta personal (atleta): calendario de atleta. Equipo y organización: calendario de gestión.
+// Organización: calendario de la organización según su plan. Cuenta personal y equipo: calendario con sus equipos.
 export default function CalendarioPage() {
   const [mode, setMode] = useState<'cargando' | 'atleta' | 'gestion'>('cargando')
+  const [organization, setOrganization] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -19,7 +20,12 @@ export default function CalendarioPage() {
       const contexts = await loadAccountContexts(data.user.id)
       const stored = window.localStorage.getItem('athlonx-active-context-id')
       const active_ = contexts.find((context) => context.id === stored) ?? contexts[0]
-      if (active) setMode(active_?.contextType === 'personal' ? 'atleta' : 'gestion')
+      if (!active) return
+      if (active_?.contextType === 'organization' && active_.organizationId) {
+        setOrganization({ id: active_.organizationId, name: active_.name })
+        return setMode('atleta')
+      }
+      setMode(active_ ? 'atleta' : 'gestion')
     }
     void resolve()
     return () => {
@@ -28,5 +34,5 @@ export default function CalendarioPage() {
   }, [])
 
   if (mode === 'cargando') return <p className="p-6 text-sm text-[var(--ax-muted)]">Cargando calendario…</p>
-  return mode === 'atleta' ? <AthleteCalendar /> : <TeamCalendarView />
+  return mode === 'atleta' ? <AthleteCalendar organization={organization} /> : <TeamCalendarView />
 }

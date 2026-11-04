@@ -32,7 +32,7 @@ export function OrgPlanLimits({ organizationId }: { organizationId: string }) {
   return (
     <Card
       title="Límites del plan"
-      action={<Link href="/mi-perfil?seccion=cuenta" className="text-sm font-semibold text-[var(--ax-accent-text)] hover:underline">Mejorar plan</Link>}
+      action={<Link href="/mi-perfil?seccion=cuenta&mejorar=1" className="text-sm font-semibold text-[var(--ax-accent-text)] hover:underline">Mejorar plan</Link>}
     >
       {error && <p className="text-sm text-[var(--ax-muted)]">{error}</p>}
       {data && (

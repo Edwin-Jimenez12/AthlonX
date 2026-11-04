@@ -8,7 +8,7 @@ import {
   addDays, dayKey, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
   type CalendarFilter, type CalendarView, type FeedItem,
 } from '../../lib/athlete-calendar'
-import { Button, Card, CardHeader, FieldLabel, Notice, PageHeader, Segment, inputClass } from '../mi-equipo/ui'
+import { Button, ButtonLink, Card, CardHeader, FieldLabel, Notice, PageHeader, Segment, inputClass } from '../mi-equipo/ui'
 
 const views: Array<{ id: CalendarView; label: string }> = [
   { id: 'mes', label: 'Mes' },
@@ -122,9 +122,9 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
   const end = item ? new Date(item.ends_at) : new Date(start.getTime() + 60 * 60 * 1000)
   const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   return {
-    scope: item?.source === 'team' ? (item.owner_id ?? 'personal') : 'personal',
-    eventType: item?.source === 'team' ? item.event_type : 'training',
-    id: item?.source === 'personal' || item?.source === 'team' ? item.id : null,
+    scope: item?.source === 'team' || item?.source === 'organization' ? (item.owner_id ?? 'personal') : 'personal',
+    eventType: item?.source === 'team' || item?.source === 'organization' ? item.event_type : 'training',
+    id: item ? item.id : null,
     title: item?.title ?? '',
     description: item?.description ?? '',
     location: item?.location ?? '',
@@ -137,9 +137,14 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
   }
 }
 
-export default function AthleteCalendar() {
+type OrgUsage = { limits: Record<string, number | null>; usage: Record<string, number> }
+
+// Sin organización: calendario del atleta. Con organización: calendario de la cuenta de organización, según su plan.
+export default function AthleteCalendar({ organization = null }: { organization?: { id: string; name: string } | null } = {}) {
+  const isOrg = organization !== null
   const [userId, setUserId] = useState<string | null>(null)
   const [plan, setPlan] = useState<AccountPlan | null>(null)
+  const [orgUsage, setOrgUsage] = useState<OrgUsage | null>(null)
   const [usage, setUsage] = useState(0)
   const [view, setView] = useState<CalendarView>('mes')
   const [filter, setFilter] = useState<CalendarFilter>('todos')
@@ -155,12 +160,21 @@ export default function AthleteCalendar() {
 
   const unlimited = plan?.personal_activity_monthly_limit === null && plan !== null
   const limit = plan?.personal_activity_monthly_limit ?? null
+  const orgEventLimit = orgUsage ? (orgUsage.limits?.eventos_mes ?? null) : null
+  const orgEventsUsed = orgUsage?.usage?.eventos_mes ?? 0
+  const orgFlag = (key: string) => plan?.feature_flags?.[key] === true
 
   async function loadAccount() {
     if (!supabase) return
     const { data } = await supabase.auth.getUser()
     if (!data.user) return
     setUserId(data.user.id)
+    if (organization) {
+      setPlan(await loadAccountPlan('organizacion', organization.id))
+      const { data: usageData } = await supabase.rpc('platform_org_usage', { p_org: organization.id })
+      setOrgUsage((usageData ?? null) as OrgUsage | null)
+      return
+    }
     setPlan(await loadAccountPlan('persona', data.user.id))
     const { data: memberships } = await supabase
       .from('team_user_memberships')
@@ -177,10 +191,15 @@ export default function AthleteCalendar() {
     setUsage(typeof count === 'number' ? count : 0)
   }
 
+  function feed(from: Date, to: Date) {
+    if (organization) return supabase!.rpc('calendar_org_feed', { p_org: organization.id, p_from: from.toISOString(), p_to: to.toISOString() })
+    return supabase!.rpc('calendar_my_feed', { p_from: from.toISOString(), p_to: to.toISOString() })
+  }
+
   async function loadFeed() {
     if (!supabase) return
     const { from, to } = rangeFor(view, anchor)
-    const { data, error } = await supabase.rpc('calendar_my_feed', { p_from: from.toISOString(), p_to: to.toISOString() })
+    const { data, error } = await feed(from, to)
     if (error) return setMessage({ tone: 'danger', text: error.message })
     setItems((data ?? []) as FeedItem[])
   }
@@ -193,7 +212,7 @@ export default function AthleteCalendar() {
   async function loadUpcoming() {
     if (!supabase) return
     const from = startOfDay(new Date())
-    const { data } = await supabase.rpc('calendar_my_feed', { p_from: from.toISOString(), p_to: addDays(from, 60).toISOString() })
+    const { data } = await feed(from, addDays(from, 60))
     setUpcoming(((data ?? []) as FeedItem[]).sort((a, b) => a.starts_at.localeCompare(b.starts_at)))
   }
 
@@ -236,7 +255,9 @@ export default function AthleteCalendar() {
 
   async function removeActivity(item: FeedItem) {
     if (!supabase) return
-    const { error } = item.source === 'team'
+    const { error } = item.source === 'organization'
+      ? await supabase.from('organization_calendar_events').delete().eq('id', item.id)
+      : item.source === 'team'
       ? await supabase.rpc('calendar_delete_team_event', { p_id: item.id })
       : await supabase.rpc('calendar_delete_personal_activity', { p_id: item.id })
     if (error) return setMessage({ tone: 'danger', text: error.message })
@@ -256,6 +277,28 @@ export default function AthleteCalendar() {
     }
     setSaving(true)
     setMessage(null)
+    if (organization && userId) {
+      const row = {
+        title: editor.title.trim(),
+        description: editor.description || null,
+        location: editor.location || null,
+        event_type: editor.eventType,
+        starts_at: starts.toISOString(),
+        ends_at: ends.toISOString(),
+        all_day: false,
+      }
+      const { error: orgError } = editor.id
+        ? await supabase.from('organization_calendar_events').update(row).eq('id', editor.id)
+        : await supabase.from('organization_calendar_events').insert({ ...row, organization_id: organization.id, created_by: userId })
+      setSaving(false)
+      if (orgError) return setMessage({ tone: 'danger', text: orgError.message })
+      setEditor(null)
+      setMessage({ tone: 'success', text: editor.id ? 'Evento actualizado.' : 'Evento creado en el calendario de la organización.' })
+      await loadAccount()
+      await loadFeed()
+      await loadUpcoming()
+      return
+    }
     if (editor.scope !== 'personal') {
       const { error: teamError } = await supabase.rpc('calendar_save_team_event', {
         p_id: editor.id,
@@ -306,7 +349,7 @@ export default function AthleteCalendar() {
 
   function openNew() {
     setSelected(null)
-    setEditor(toEditor(null, anchor))
+    setEditor(organization ? { ...toEditor(null, anchor), scope: organization.id } : toEditor(null, anchor))
     setMessage(null)
   }
 
@@ -449,14 +492,24 @@ export default function AthleteCalendar() {
           actions={(
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
-              <Button variant="primary" onClick={openNew}>+ Crear actividad</Button>
+              <Button variant="primary" onClick={openNew}>{isOrg ? '+ Crear evento' : '+ Crear actividad'}</Button>
             </div>
           )}
         />
 
         {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
-        {plan && !unlimited && (
+        {!isOrg && plan && !unlimited && (
           <Notice tone="neutral" icon={Info}>Plan {plan.name}: {usage} de {limit} actividades personales este mes.</Notice>
+        )}
+        {isOrg && plan && orgUsage && orgEventLimit !== null && (
+          <Notice
+            tone={orgEventsUsed >= orgEventLimit ? 'warning' : 'neutral'}
+            icon={Info}
+            action={<ButtonLink href="/mi-perfil?seccion=cuenta&mejorar=1" variant="secondary" size="sm">Mejorar plan</ButtonLink>}
+          >
+            Plan {plan.name}: {orgEventsUsed} de {orgEventLimit} eventos de la organización este mes.
+            {!orgFlag('vista_equipos') && ' Los eventos de tus equipos se ven desde el plan Pro.'}
+          </Notice>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -482,7 +535,7 @@ export default function AthleteCalendar() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {filters.map((f) => {
+          {filters.filter((f) => !isOrg || f.id !== 'personales').map((f) => {
             const on = filter === f.id
             return (
               <button
@@ -513,7 +566,7 @@ export default function AthleteCalendar() {
             {selected.description && <p className="whitespace-pre-line text-[var(--ax-muted)]">{selected.description}</p>}
             <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? 'Actividad personal' : selected.owner_name ?? ''}</p>
           </div>
-          {(selected.source === 'team' || selected.source === 'organization') && (
+          {!isOrg && (selected.source === 'team' || selected.source === 'organization') && (
             <div className="mt-5">
               <FieldLabel>Tu asistencia</FieldLabel>
               <div className="flex flex-wrap gap-2">
@@ -523,10 +576,10 @@ export default function AthleteCalendar() {
               </div>
             </div>
           )}
-          {selected.source === 'team' && managedTeams.some((t) => t.id === selected.owner_id && t.role !== 'staff') && (
+          {!isOrg && selected.source === 'team' && managedTeams.some((t) => t.id === selected.owner_id && t.role !== 'staff') && (
             <TeamAttendance eventId={selected.id} />
           )}
-          {(selected.source === 'personal' || (selected.source === 'team' && selected.can_edit)) && (
+          {(selected.source === 'personal' || ((selected.source === 'team' || selected.source === 'organization') && selected.can_edit)) && (
             <div className="mt-5 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => { setEditor(toEditor(selected, anchor)); setSelected(null) }}>Editar</Button>
               <Button variant="secondary" onClick={() => void removeActivity(selected)}>Eliminar</Button>
@@ -537,9 +590,9 @@ export default function AthleteCalendar() {
 
       {editor && (
         <Card>
-          <CardHeader id="actividad-editor" title={editor.id ? 'Editar actividad' : 'Nueva actividad'} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
+          <CardHeader id="actividad-editor" title={isOrg ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
           <div className="mt-6 grid gap-5 md:grid-cols-2">
-            {managedTeams.length > 0 && (
+            {!isOrg && managedTeams.length > 0 && (
               <div className="md:col-span-2">
                 <FieldLabel>Calendario</FieldLabel>
                 <div className="flex flex-wrap gap-2">
@@ -587,7 +640,19 @@ export default function AthleteCalendar() {
               <textarea className={`${inputClass} min-h-24 py-3`} value={editor.description} onChange={(e) => setEditor({ ...editor, description: e.target.value })} />
             </label>
 
-            {editor.scope === 'personal' && (
+            {isOrg && (
+              <>
+                <div className="md:col-span-2">
+                  <FieldLabel>Repetir</FieldLabel>
+                  <p className="text-sm text-[var(--ax-muted)]">{orgFlag('repetir_eventos') ? 'Repetir eventos de la organización llegará pronto.' : 'Repetir eventos es parte del plan Pro.'}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <FieldLabel>Recordatorios</FieldLabel>
+                  <p className="text-sm text-[var(--ax-muted)]">{reminderLabels[240]}</p>
+                </div>
+              </>
+            )}
+            {!isOrg && editor.scope === 'personal' && (
               <>
             <div className="md:col-span-2">
               <FieldLabel>Repetir</FieldLabel>
@@ -624,7 +689,7 @@ export default function AthleteCalendar() {
               </>
             )}
             <div className="flex justify-end gap-3 md:col-span-2">
-              <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : 'Guardar actividad'}</Button>
+              <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : isOrg ? 'Guardar evento' : 'Guardar actividad'}</Button>
             </div>
           </div>
         </Card>
@@ -637,7 +702,7 @@ export default function AthleteCalendar() {
             {['Google Calendar', 'Outlook'].map((name) => (
               <div key={name} className="flex flex-col gap-3 rounded-[14px] border border-[var(--ax-line)] p-5">
                 <p className="font-display text-[28px] uppercase leading-none text-[var(--ax-accent-text)]">{name}</p>
-                <p className="text-sm text-[var(--ax-muted)]">{unlimited ? 'Próximamente' : 'Disponible en Pro'}</p>
+                <p className="text-sm text-[var(--ax-muted)]">{(isOrg ? orgFlag('sincronizacion') : unlimited) ? 'Próximamente' : 'Disponible en Pro'}</p>
                 <Button variant="secondary" disabled>Conectar</Button>
               </div>
             ))}
