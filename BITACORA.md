@@ -37,11 +37,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Lista de preparación en el detalle del evento (diseño de Figma; no hay datos todavía).
 - [ ] Recordatorios personalizados para eventos de equipo y organización en Pro (hoy todos reciben 4 horas antes).
 - [ ] Exportar a ICS: postergado.
-- [ ] Reporte de asistencia por jugador (Pro): base de datos lista, falta la pantalla.
+- [ ] **Definir la asistencia del jugador**: Edwin quiere un sistema de asistencia dentro de la cancha (no solo la confirmación Voy / Tal vez / No voy). Hay que definir cómo se registra, quién la toma y en qué plan va. Mientras tanto aparece como "Próximamente" en el diseño de equipo.
+- [ ] Reporte de asistencia por jugador (Pro): base de datos lista, falta la pantalla. Depende de la definición anterior.
 - [ ] Vista de todos los equipos de la organización y choques de cancha/horario (Pro, directivo): base de datos lista, falta la pantalla.
 - [ ] Torneos y convocatorias en el calendario: los filtros existen, pero no hay eventos de esos tipos.
 - [ ] Verificar en navegador el calendario de coach, staff y directivo.
 - [ ] Versión móvil y modo claro del calendario, contra Figma.
+
+**Cuenta de equipo**
+- [ ] Finanzas: discutir la sección completa con Edwin (lo dejó pendiente en el Excel); el diseño de Figma sirve de base.
+- [ ] Confirmar el límite de presupuestos en Free (en el diseño: 1 presupuesto activo).
 
 **Mi perfil**
 - [ ] Modo claro de "Plan actual" y "Mejorar plan" (diseño de Figma).
