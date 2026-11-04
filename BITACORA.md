@@ -28,7 +28,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Sincronización real con Google y Outlook (el interruptor de Pro queda guardado solo en pantalla).
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
-- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios.
+- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios, y la sección Finanzas: Excel enviado el 2026-11-04, espera aprobación.
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
 - [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
@@ -62,6 +62,19 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Excel de planes de la cuenta de equipo (con Finanzas)
+
+**Qué se hizo**: propuesta `documentos/PLANES_EQUIPO_PROPUESTA.xlsx`, con el mismo formato que el Excel de organización: columnas Free, Pro y Élite, y "APRO/RECHA" con lista desplegable. Tiene cuatro hojas:
+- **Planes equipo**: 49 filas por plan. Las de Finanzas van en amarillo.
+- **Finanzas · detalle**: 25 filas sobre qué muestra cada pantalla de Finanzas y en qué plan (Resumen, Movimientos, Cuotas, Presupuesto, Estadísticas, Cajas, Patrocinios, Reportes, Permisos, Auditoría).
+- **Precios**: Free gratis; Pro y Élite por definir.
+- **Secciones**.
+
+**Verificación**: el archivo se generó con openpyxl.
+**Pendiente**: que Edwin lo apruebe; luego el diseño en Figma (REDISEÑO) por plan y después el código.
 
 ---
 
