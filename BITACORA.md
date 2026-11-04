@@ -28,7 +28,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Sincronización real con Google y Outlook (el interruptor de Pro queda guardado solo en pantalla).
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
-- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios, y la sección Finanzas: Excel enviado el 2026-11-04, espera aprobación.
+- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios, y la sección Finanzas: Excel aprobado y diseño en Figma listo el 2026-11-04; espera aprobación del diseño.
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
 - [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
@@ -62,6 +62,50 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Figma: cuenta de equipo por plan (Free, Pro, Élite), con Finanzas
+
+**Excel aprobado**: `documentos/PLANES_EQUIPO_APROBADO.xlsx` (marcado por Edwin).
+
+**Decisiones del Excel y de sus respuestas**
+- **Free**:
+  - 1 división de hasta 25 jugadores; 5 personas en cuerpo técnico y directiva.
+  - 1 torneo rápido activo con hasta 8 equipos.
+  - 10 eventos al mes y 1 evento repetido; recordatorio fijo de 4 horas.
+  - Estadísticas de la temporada actual.
+- **Pro**:
+  - 3 divisiones de hasta 60 jugadores; 15 personas en cuerpo técnico y directiva.
+  - 1 torneo rápido activo.
+  - Repetir eventos, sincronización, permisos de edición por evento y comparar temporadas.
+  - Reportes PDF/CSV con el logotipo del equipo.
+- **Élite**: todo sin límite.
+- **Temporada**: la define el equipo en Mi perfil › Configuración (inicio y fin; por defecto, enero a diciembre).
+- **Asistencia por jugador**: queda "Próximamente" porque Edwin quiere un sistema de asistencia dentro de la cancha.
+- **Permisos de edición por evento**: para personas con permiso de staff, aunque no tengan el perfil de staff.
+- **Finanzas**: "tenemos que discutirlo mejor"; se diseñó con sus notas para revisarla viendo las pantallas.
+  - Free: 30 movimientos al mes, categorías base, historial de 3 meses, cuotas de hasta 30 jugadores, recordatorio de cuota pendiente y varias cajas. 1 presupuesto activo (supuesto mío, a confirmar).
+  - Desde Pro: comprobantes, categorías propias, cuota por división, presupuestos sin límite, estadísticas (ingresos contra gastos, gasto por categoría, morosidad, proyección), patrocinios y reportes con logotipo.
+  - Solo en Élite: costo por jugador y por partido, comparativa entre temporadas, alertas de presupuesto y registro de cambios.
+  - Tesoreros: Free 1, Pro 2, Élite sin límite.
+  - Cobro en línea: "Próximamente" en todos los planes.
+
+**Qué se hizo en Figma** (página REDISEÑO)
+- Comparación de la cuenta de equipo debajo de la de organización, con rótulos `Equipo · Rótulo · …`.
+  - Oscuro desde y=70000 (Free 70000, Pro 72000, Élite 74000).
+  - Claro desde y=77000.
+- 19 pantallas por plan: Búsqueda, Notificaciones, Mi equipo (con Límites del plan), Eventos (con Torneos del equipo), Calendario, Nuevo evento, Estadísticas, Finanzas (Resumen, Movimientos, Cuotas, Presupuesto, Estadísticas), Información del equipo, Roles (Tesoreros y permisos por evento), Configuración (Temporada), Seguridad, Cuenta (aviso "Equipo eliminado"), Mejorar plan y Código.
+- En total, 114 marcos con nombres `Equipo · <plan> · <sección>[ · Claro]`.
+- Prototipo con 1356 enlaces: menú, menú del perfil, "Vista del plan", pestañas de Finanzas, Mejorar plan, Comprar, Crear evento y Nuevo movimiento.
+- Ajustes en modo claro:
+  - Los marcos de equipo usan el modo "Claro" de las variables.
+  - Las tarjetas blancas heredadas toman el tono del panel.
+  - Los iconos inactivos del menú se oscurecieron, también en los marcos de organización en claro.
+- Menú del equipo: Búsqueda, Notificaciones, Mi equipo, Eventos, Calendario, Estadísticas y Finanzas (icono de billetera).
+
+**Verificación**: capturas de cada tipo de pantalla en oscuro y en claro.
+**Pendiente**: que Edwin apruebe el diseño; luego pasarlo a código, con límites en la base de datos como en organización.
 
 ---
 
