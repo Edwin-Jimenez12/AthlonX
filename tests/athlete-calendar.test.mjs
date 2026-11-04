@@ -44,3 +44,17 @@ test('la agenda agrupa por día local y ordena por hora', () => {
   const [first] = [...groups.values()]
   assert.deepEqual(first.map((i) => i.id), ['a', 'b'])
 })
+
+test('el filtro Todos los equipos muestra solo eventos de equipos', () => {
+  assert.equal(cal.matchesFilter(item({ source: 'team' }), 'equipos'), true)
+  assert.equal(cal.matchesFilter(item({ source: 'organization' }), 'equipos'), false)
+})
+
+test('hay choque cuando dos eventos usan el mismo lugar a la misma hora', () => {
+  const a = item({ id: 'a', location: 'Cancha 2', starts_at: '2026-11-14T15:00:00Z', ends_at: '2026-11-14T16:30:00Z' })
+  const b = item({ id: 'b', location: ' cancha 2 ', starts_at: '2026-11-14T16:00:00Z', ends_at: '2026-11-14T17:00:00Z' })
+  const c = item({ id: 'c', location: 'Cancha 1', starts_at: '2026-11-14T16:00:00Z', ends_at: '2026-11-14T17:00:00Z' })
+  const d = item({ id: 'd', location: 'Cancha 2', starts_at: '2026-11-14T16:30:00Z', ends_at: '2026-11-14T17:30:00Z' })
+  const clashes = cal.findClashes([a, b, c, d])
+  assert.deepEqual(clashes.map((x) => `${x.first.id}-${x.second.id}`), ['a-b', 'b-d'])
+})

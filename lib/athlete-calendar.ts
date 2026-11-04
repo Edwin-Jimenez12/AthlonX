@@ -18,10 +18,12 @@ export type FeedItem = {
   repeat_rule: 'none' | 'weekly' | 'monthly'
   my_response: 'voy' | 'tal_vez' | 'no_voy' | null
   can_edit?: boolean
+  repeat_until?: string | null
+  reminder_minutes?: number[] | null
 }
 
 export type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda' | 'linea'
-export type CalendarFilter = 'todos' | 'partidos' | 'entrenamientos' | 'torneos' | 'convocatorias' | 'personales' | 'organizacion'
+export type CalendarFilter = 'todos' | 'partidos' | 'entrenamientos' | 'torneos' | 'convocatorias' | 'personales' | 'organizacion' | 'equipos'
 export type ItemKind = 'partido' | 'entrenamiento' | 'torneo' | 'convocatoria' | 'personal' | 'organizacion' | 'otro'
 
 export function startOfDay(date: Date) {
@@ -92,6 +94,7 @@ export function matchesFilter(item: FeedItem, filter: CalendarFilter) {
   if (filter === 'torneos') return kind === 'torneo'
   if (filter === 'convocatorias') return kind === 'convocatoria'
   if (filter === 'personales') return kind === 'personal'
+  if (filter === 'equipos') return item.source === 'team'
   return kind === 'organizacion'
 }
 
@@ -121,4 +124,21 @@ export const reminderLabels: Record<number, string> = {
   60: '1 hora antes',
   240: '4 horas antes',
   1440: '1 día antes',
+}
+
+// Choques de cancha y horario (calendario de organización, Pro): eventos en el mismo lugar que se cruzan en el tiempo.
+export function findClashes(items: FeedItem[]) {
+  const placed = items
+    .filter((item) => item.location && item.location.trim())
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+  const clashes: Array<{ first: FeedItem; second: FeedItem }> = []
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i]
+      const b = placed[j]
+      if (new Date(b.starts_at) >= new Date(a.ends_at)) break
+      if (a.location!.trim().toLowerCase() === b.location!.trim().toLowerCase()) clashes.push({ first: a, second: b })
+    }
+  }
+  return clashes
 }

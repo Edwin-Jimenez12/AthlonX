@@ -539,6 +539,10 @@ h3 {
   --ax-accent-line: rgba(180, 255, 69, .35);
   --ax-warning-text: #ffcf70;
   --ax-warning-soft: rgba(255, 191, 64, .12);
+  --ax-info-text: #7fc8ff;
+  --ax-info-soft: rgba(127, 200, 255, .16);
+  --ax-violet-text: #c9a7ff;
+  --ax-violet-soft: rgba(201, 167, 255, .16);
   --ax-danger-text: #ff9ca5;
   --ax-danger-soft: rgba(255, 125, 136, .12);
   --ax-danger-line: rgba(255, 125, 136, .40);
@@ -561,6 +565,10 @@ html[data-theme='light'] .athlonx-dashboard {
   --ax-accent-line: rgba(63, 125, 0, .30);
   --ax-warning-text: #8a5a00;
   --ax-warning-soft: rgba(255, 170, 0, .14);
+  --ax-info-text: #1f6fa8;
+  --ax-info-soft: rgba(31, 111, 168, .12);
+  --ax-violet-text: #6b3fb8;
+  --ax-violet-soft: rgba(107, 63, 184, .12);
   --ax-danger-text: #b4232f;
   --ax-danger-soft: rgba(180, 35, 47, .08);
   --ax-danger-line: rgba(180, 35, 47, .30);

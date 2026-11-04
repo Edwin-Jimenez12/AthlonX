@@ -1,73 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Info } from 'lucide-react'
 import { OrganizationDirectPeoplePanel } from '../../../Components/organization-direct-people-panel'
 import { OrganizationHierarchyPanel } from '../../../Components/organization-hierarchy-panel'
-import { supabase } from '../../../lib/supabase'
-import { StyledSelect } from '../../../Components/styled-select'
+import { ButtonLink, Card, Notice, PageHeader, SkeletonRows } from '../../../Components/mi-equipo/ui'
+import { useActiveOrganization } from '../../../Components/organizacion/plan-ui'
 
-type Organization = { id: string; name: string; type: string; created_by: string | null }
-
+// Organización (diseño de Figma: Org · Free/Pro/Élite · Organización): jerarquía y personas, con el límite del plan.
 export default function OrganizationsPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [activeOrganizationId, setActiveOrganizationId] = useState('')
-  const [message, setMessage] = useState('')
+  const { status, organization, plan, usage, reload } = useActiveOrganization()
 
-  async function loadOrganizations() {
-    if (!supabase) return
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      setMessage('Debes iniciar sesión para administrar una organización.')
-      return
-    }
+  return (
+    <main className="ax-v2 min-h-screen bg-transparent text-[var(--ax-text)] lg:ml-64">
+      <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-6 sm:px-8 sm:pt-8 lg:px-10">
+        <PageHeader title="Organización" actions={organization && <ButtonLink href="/equipos" variant="primary">Agregar equipo</ButtonLink>} />
 
-    const [{ data: organizationRows, error: organizationError }, { data: membershipRows }] = await Promise.all([
-      supabase.from('organizations').select('id, name, type, created_by').order('created_at', { ascending: false }),
-      supabase.from('organization_members').select('organization_id').eq('user_id', userData.user.id).in('role', ['owner', 'directivo']).eq('status', 'active'),
-    ])
-    if (organizationError) {
-      setMessage(organizationError.message)
-      return
-    }
-    const visibleIds = new Set([
-      ...(membershipRows ?? []).map((membership) => membership.organization_id),
-      ...(organizationRows ?? []).filter((organization) => organization.created_by === userData.user?.id).map((organization) => organization.id),
-    ])
-    const visibleOrganizations = (organizationRows ?? []).filter((organization) => visibleIds.has(organization.id)) as Organization[]
-    setOrganizations(visibleOrganizations)
-
-    const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
-    const { data: activeContext } = storedContextId
-      ? await supabase.from('user_contexts').select('organization_id, context_type').eq('id', storedContextId).maybeSingle()
-      : { data: null }
-    const contextOrganizationId = activeContext?.context_type === 'organization' ? activeContext.organization_id : null
-    setActiveOrganizationId(contextOrganizationId && visibleIds.has(contextOrganizationId) ? contextOrganizationId : visibleOrganizations[0]?.id ?? '')
-  }
-
-  useEffect(() => { void loadOrganizations() }, [])
-
-  useEffect(() => {
-    const syncContext = (event: Event) => {
-      const context = (event as CustomEvent<{ contextType?: string; organizationId?: string }>).detail
-      if (context?.contextType === 'organization' && context.organizationId) setActiveOrganizationId(context.organizationId)
-    }
-    window.addEventListener('athlonx-context-change', syncContext)
-    return () => window.removeEventListener('athlonx-context-change', syncContext)
-  }, [])
-
-  const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) || organizations[0]
-  const organizationId = activeOrganization?.id
-
-  return <main className="min-h-screen bg-transparent px-5 py-8 text-white lg:ml-64 lg:px-10">
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header><p className="font-heading text-sm uppercase tracking-[.28em] text-[#b4ff45]">Estructura institucional</p><h1 className="mt-2 font-heading text-5xl font-black uppercase">Organización</h1><p className="mt-2 max-w-3xl text-slate-400">Administra la jerarquía, las afiliaciones directas y las organizaciones que forman parte de tu autoridad institucional.</p></header>
-      {organizations.length > 1 && <section className="rounded-[10px] border border-[#29485d] bg-[#0b1d2c] p-5"><StyledSelect label="Organización activa" value={organizationId || ''} onChange={setActiveOrganizationId} options={[{ value: '', label: 'Seleccionar organización' }, ...organizations.map((organization) => ({ value: organization.id, label: organization.name }))]} /></section>}
-      {message && <p role="alert" className="rounded-[5px] border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{message}</p>}
-      {!message && !organizationId && <section className="rounded-[10px] border border-dashed border-[#31556b] bg-[#0b1d2c] p-8 text-slate-400">No hay una organización disponible para administrar.</section>}
-      {organizationId && <div className="grid items-start gap-6 xl:grid-cols-[1.35fr_.85fr]">
-        <OrganizationHierarchyPanel rootOrganizationId={organizationId} />
-        <OrganizationDirectPeoplePanel organizationId={organizationId} />
-      </div>}
-    </div>
-  </main>
+        {status === 'cargando' && <Card><SkeletonRows count={4} /></Card>}
+        {status === 'sin-organizacion' && (
+          <Notice tone="neutral" icon={Info}>Esta sección es de la cuenta de organización. Cambia a tu organización desde el menú de cuentas.</Notice>
+        )}
+        {status === 'lista' && organization && (
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+            <OrganizationHierarchyPanel rootOrganizationId={organization.id} />
+            <OrganizationDirectPeoplePanel
+              organizationId={organization.id}
+              planName={plan?.name}
+              staffLimit={usage ? (usage.limits?.directivos_staff ?? null) : undefined}
+              staffUsed={usage?.usage?.directivos_staff ?? 0}
+              onChanged={() => void reload()}
+            />
+          </div>
+        )}
+      </div>
+    </main>
+  )
 }

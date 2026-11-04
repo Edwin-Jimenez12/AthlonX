@@ -31,6 +31,14 @@ export default function EventsPage() {
   const [error, setError] = useState('')
   const [visibleTournamentIds, setVisibleTournamentIds] = useState<string[] | null>(null)
   const [creating, setCreating] = useState(false)
+  // "+ Crear torneo" de Equipos · Torneos llega con ?crear=1 y abre el formulario.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('crear') !== '1') return
+    setCreating(true)
+    url.searchParams.delete('crear')
+    window.history.replaceState(null, '', url.toString())
+  }, [])
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   async function loadEvents(userId?: string, context?: AccountContext | null) {

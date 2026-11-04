@@ -21,10 +21,12 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Formato liga (con fases o final directa) en la cuenta de organización: lo que cambia es cuántas ligas activas hay. Pro: 5 en torneos rápidos y 3 en oficiales; Élite: sin límite; Free: en su único torneo rápido activo (decidido el 2026-11-03).
 - [x] Implementar en código los límites y bloqueos de la cuenta de organización según el Excel aprobado: base de datos, Mi perfil y planes (entrada del 2026-11-03, "Planes de la cuenta de organización en código").
 - [x] Participantes y calendario de la organización (entrada del 2026-11-04, "Calendario y Participantes de la organización").
-- [ ] Organización, pantallas que faltan: asistencia resumida por equipo, reportes PDF/CSV y patrocinios.
+- [x] Organización: asistencia resumida por equipo, reportes PDF/CSV y patrocinios (entrada del 2026-11-04).
 - [ ] Probar en navegador, con una cuenta de organización real, el calendario y Participantes en Free y en Pro.
-- [ ] Pasar a código, según Figma y separado por plan: Organización, Equipos y Torneos (hoy con el diseño anterior). Organización espera aprobación.
-- [ ] Organización: repetir eventos y sincronización (la tabla de eventos de la organización no tiene campo de repetición).
+- [x] Pasar a código, según Figma y separado por plan: Organización, Equipos y Torneos (entrada del 2026-11-04, "Secciones de organización según Figma").
+- [ ] Patrocinios: mostrar los logotipos en la página pública del torneo y permitir subir la imagen (hoy se guarda un enlace).
+- [ ] Sincronización real con Google y Outlook (el interruptor de Pro queda guardado solo en pantalla).
+- [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios.
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
@@ -60,6 +62,54 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Secciones de organización según Figma, separadas por plan
+
+**Qué se hizo**
+- **Organización** (`/organizaciones`), con el diseño aprobado:
+  - Jerarquía organizacional con el mapa por niveles y la invitación inline.
+  - Personas de la organización con el medidor de directivos y staff. En Free, al llegar al límite, aparece "Llegaste al límite del plan Free" con "Mejorar plan" y la invitación se desactiva.
+- **Equipos** (`/equipos`, cuenta de organización), con pestañas Equipos y Torneos:
+  - Límites del plan.
+  - Equipos propios, afiliados directamente y de organizaciones vinculadas.
+  - "+ Crear equipo" crea un equipo propio (`org_create_team`); el límite del plan lo aplica el trigger.
+  - Asistencia resumida por equipo y reportes PDF/CSV: bloqueados en Free; desde Pro funcionan (Élite pone el logotipo de la organización en el PDF).
+- **Torneos** (`/equipos?vista=torneos`):
+  - Torneos rápidos con su límite y su lista.
+  - Torneos oficiales: bloqueados en Free; con límite en Pro; sin límite en Élite.
+  - Formato liga: en Pro, ligas activas en torneos rápidos y en oficiales.
+  - Patrocinios en Élite: agregar y quitar.
+  - Reportes.
+  - "+ Crear torneo" abre el formulario de Eventos (`/eventos?crear=1`).
+- **Calendario de organización**:
+  - Pro: "Exportar PDF / CSV", filtro "Todos los equipos" y tarjeta "Choques de cancha y horario" (`findClashes`).
+  - Free: chip "Todos los equipos · Pro" y tarjetas bloqueadas.
+  - Conexiones según el plan.
+  - Editor:
+    - Calendario: Organización o un equipo (`calendar_org_save_team_event`).
+    - Repetir: bloqueado en Free; en Pro se elige.
+    - Recordatorios: 4 horas fijo en Free; hasta 5 en Pro; sin límite en Élite.
+    - Sincronizar: bloqueado en Free.
+    - Aviso "te quedan X de Y eventos".
+- **Base de datos** (`supabase/organization-sections-migration.sql`, aplicada):
+  - Eventos de organización: nuevas columnas `repeat_rule`, `repeat_until` y `reminder_minutes`. El trigger `enforce_org_event_features` aplica el plan.
+  - Feed con repeticiones y equipos editables desde la organización.
+  - `calendar_send_due_reminders` usa los minutos y las repeticiones de cada evento de organización.
+  - Funciones nuevas: `platform_org_teams`, `platform_org_tournaments`, `org_create_team`, `org_team_attendance_summary`, `calendar_org_save_team_event` y `calendar_org_delete_team_event`.
+  - Tabla `organization_sponsors`, con RLS solo para Élite.
+- Tokens nuevos `--ax-info-*` y `--ax-violet-*` (chips Afiliado y Vinculado), en oscuro y claro.
+
+**Archivos clave**: `Components/organizacion/plan-ui.tsx`, `org-teams-view.tsx`, `org-tournaments-view.tsx`, `Components/organization-hierarchy-panel.tsx`, `Components/organization-direct-people-panel.tsx`, `app/(panel)/organizaciones/page.tsx`, `app/(panel)/equipos/page.tsx`, `Components/calendario/athlete-calendar.tsx`, `lib/athlete-calendar.ts`, `app/(panel)/eventos/page.tsx`, `app/globals.css`.
+
+**Verificación**
+- Prueba que se revierte en la base: en Free, los recordatorios quedan en `{240}`, repetir se bloquea con el mensaje del plan y el recordatorio se envía.
+- Las consultas de equipos y torneos corren sin errores. Hoy no hay equipos ligados a organizaciones, así que devuelven listas vacías.
+- `npm run build` sin errores; 53 pruebas correctas (2 nuevas: filtro de equipos y choques).
+- No se probó en navegador: falta iniciar sesión con una cuenta de organización.
+
+**Pendiente**: patrocinios en la página pública del torneo, sincronización real, versión móvil revisada contra Figma.
 
 ---
 

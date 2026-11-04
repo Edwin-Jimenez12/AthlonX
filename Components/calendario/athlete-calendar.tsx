@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
 import {
-  addDays, dayKey, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
+  addDays, dayKey, findClashes, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
   type CalendarFilter, type CalendarView, type FeedItem,
 } from '../../lib/athlete-calendar'
+import Link from 'next/link'
+import { LockedFeature, downloadCsv, printReport, upgradeHref } from '../organizacion/plan-ui'
 import { Button, ButtonLink, Card, CardHeader, FieldLabel, Notice, PageHeader, Segment, inputClass } from '../mi-equipo/ui'
 
 const views: Array<{ id: CalendarView; label: string }> = [
@@ -77,6 +79,7 @@ const filterDot: Record<CalendarFilter, string> = {
   convocatorias: '#c9a7ff',
   personales: '#91a8ba',
   organizacion: '#e8eef3',
+  equipos: '#e8eef3',
 }
 
 function monthLabel(date: Date) {
@@ -132,8 +135,8 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
     start: hhmm(start),
     end: hhmm(end),
     repeat: item?.repeat_rule ?? 'none',
-    repeatUntil: '',
-    reminders: [240],
+    repeatUntil: item?.repeat_until ? dayKey(new Date(item.repeat_until)) : '',
+    reminders: item?.reminder_minutes?.length ? item.reminder_minutes : [240],
   }
 }
 
@@ -145,6 +148,8 @@ export default function AthleteCalendar({ organization = null }: { organization?
   const [userId, setUserId] = useState<string | null>(null)
   const [plan, setPlan] = useState<AccountPlan | null>(null)
   const [orgUsage, setOrgUsage] = useState<OrgUsage | null>(null)
+  const [orgTeams, setOrgTeams] = useState<Array<{ id: string; name: string }>>([])
+  const [syncOn, setSyncOn] = useState(false)
   const [usage, setUsage] = useState(0)
   const [view, setView] = useState<CalendarView>('mes')
   const [filter, setFilter] = useState<CalendarFilter>('todos')
@@ -163,6 +168,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
   const orgEventLimit = orgUsage ? (orgUsage.limits?.eventos_mes ?? null) : null
   const orgEventsUsed = orgUsage?.usage?.eventos_mes ?? 0
   const orgFlag = (key: string) => plan?.feature_flags?.[key] === true
+  const orgReminderLimit = plan?.limits?.recordatorios_evento ?? null
 
   async function loadAccount() {
     if (!supabase) return
@@ -173,6 +179,10 @@ export default function AthleteCalendar({ organization = null }: { organization?
       setPlan(await loadAccountPlan('organizacion', organization.id))
       const { data: usageData } = await supabase.rpc('platform_org_usage', { p_org: organization.id })
       setOrgUsage((usageData ?? null) as OrgUsage | null)
+      const { data: teamRows } = await supabase.rpc('platform_org_teams', { p_org: organization.id })
+      setOrgTeams(((teamRows ?? []) as Array<{ team_id: string; team_name: string; team_group: string }>)
+        .filter((team) => team.team_group !== 'vinculado')
+        .map((team) => ({ id: team.team_id, name: team.team_name })))
       return
     }
     setPlan(await loadAccountPlan('persona', data.user.id))
@@ -257,6 +267,8 @@ export default function AthleteCalendar({ organization = null }: { organization?
     if (!supabase) return
     const { error } = item.source === 'organization'
       ? await supabase.from('organization_calendar_events').delete().eq('id', item.id)
+      : organization && item.source === 'team'
+      ? await supabase.rpc('calendar_org_delete_team_event', { p_org: organization.id, p_id: item.id })
       : item.source === 'team'
       ? await supabase.rpc('calendar_delete_team_event', { p_id: item.id })
       : await supabase.rpc('calendar_delete_personal_activity', { p_id: item.id })
@@ -277,7 +289,28 @@ export default function AthleteCalendar({ organization = null }: { organization?
     }
     setSaving(true)
     setMessage(null)
+    if (organization && userId && editor.scope !== organization.id) {
+      const { error: teamError } = await supabase.rpc('calendar_org_save_team_event', {
+        p_org: organization.id,
+        p_id: editor.id,
+        p_team: editor.scope,
+        p_title: editor.title.trim(),
+        p_description: editor.description,
+        p_location: editor.location,
+        p_event_type: editor.eventType,
+        p_starts: starts.toISOString(),
+        p_ends: ends.toISOString(),
+      })
+      setSaving(false)
+      if (teamError) return setMessage({ tone: 'danger', text: teamError.message })
+      setEditor(null)
+      setMessage({ tone: 'success', text: editor.id ? 'Evento del equipo actualizado.' : 'Evento creado en el calendario del equipo.' })
+      await loadFeed()
+      await loadUpcoming()
+      return
+    }
     if (organization && userId) {
+      const orgRepeat = orgFlag('repetir_eventos') ? editor.repeat : 'none'
       const row = {
         title: editor.title.trim(),
         description: editor.description || null,
@@ -286,6 +319,9 @@ export default function AthleteCalendar({ organization = null }: { organization?
         starts_at: starts.toISOString(),
         ends_at: ends.toISOString(),
         all_day: false,
+        repeat_rule: orgRepeat,
+        repeat_until: orgRepeat === 'none' || !editor.repeatUntil ? null : new Date(`${editor.repeatUntil}T23:59:59`).toISOString(),
+        reminder_minutes: orgReminderLimit === 1 ? [240] : editor.reminders,
       }
       const { error: orgError } = editor.id
         ? await supabase.from('organization_calendar_events').update(row).eq('id', editor.id)
@@ -344,7 +380,18 @@ export default function AthleteCalendar({ organization = null }: { organization?
   function toggleReminder(minutes: number) {
     if (!editor) return
     const has = editor.reminders.includes(minutes)
+    if (!has && isOrg && orgReminderLimit !== null && editor.reminders.length >= orgReminderLimit) {
+      return setMessage({ tone: 'danger', text: `Tu plan permite hasta ${orgReminderLimit} recordatorios por evento.` })
+    }
     setEditor({ ...editor, reminders: has ? editor.reminders.filter((m) => m !== minutes) : [...editor.reminders, minutes] })
+  }
+
+  // Exportar (organización, Pro): CSV del periodo visible y PDF por la impresión del navegador.
+  function exportOrg() {
+    const header = ['Fecha', 'Inicio', 'Fin', 'Evento', 'Calendario', 'Lugar']
+    const rows = visible.map((item) => [new Date(item.starts_at).toLocaleDateString('es-PA'), formatTime(item.starts_at), formatTime(item.ends_at), item.title, item.owner_name ?? '', item.location ?? ''])
+    downloadCsv('calendario.csv', header, rows)
+    printReport(`Calendario · ${organization?.name ?? ''}`, header, rows)
   }
 
   function openNew() {
@@ -481,6 +528,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
     ? Math.max(0, Math.round((startOfDay(new Date(nextMatch.starts_at)).getTime() - startOfDay(now).getTime()) / 86400000))
     : 0
   const nextActivities = upcoming.filter((item) => new Date(item.ends_at) >= now).slice(0, 5)
+  const clashes = isOrg ? findClashes(upcoming.filter((item) => new Date(item.ends_at) >= now)) : []
 
   const panelClass = 'rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface)] p-5'
 
@@ -491,6 +539,9 @@ export default function AthleteCalendar({ organization = null }: { organization?
           title="Calendario"
           actions={(
             <div className="flex flex-wrap gap-2">
+              {isOrg && orgFlag('reportes') && (
+                <Button variant="secondary" onClick={() => exportOrg()}>Exportar PDF / CSV</Button>
+              )}
               <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
               <Button variant="primary" onClick={openNew}>{isOrg ? '+ Crear evento' : '+ Crear actividad'}</Button>
             </div>
@@ -535,7 +586,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {filters.filter((f) => !isOrg || f.id !== 'personales').map((f) => {
+          {[...filters, ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos' as CalendarFilter, label: 'Todos los equipos' }] : [])].filter((f) => !isOrg || f.id !== 'personales').map((f) => {
             const on = filter === f.id
             return (
               <button
@@ -545,11 +596,14 @@ export default function AthleteCalendar({ organization = null }: { organization?
                 onClick={() => setFilter(f.id)}
                 className={`inline-flex h-[34px] items-center gap-2 rounded-full border px-4 text-[13px] font-medium text-[var(--ax-text)] ${on ? 'border-[var(--ax-accent)] bg-[var(--ax-surface-raised)]' : 'border-[var(--ax-line)] bg-[var(--ax-surface)]'}`}
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: filterDot[f.id] }} aria-hidden="true" />
+                {f.id !== 'equipos' && <span className="h-2 w-2 rounded-full" style={{ background: filterDot[f.id] }} aria-hidden="true" />}
                 {f.label}
               </button>
             )
           })}
+          {isOrg && plan && !orgFlag('vista_equipos') && (
+            <Link href={upgradeHref} className="inline-flex h-[34px] items-center rounded-full bg-[var(--ax-accent-soft)] px-3.5 text-xs font-semibold text-[var(--ax-accent-text)]">Todos los equipos · Pro</Link>
+          )}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -592,6 +646,20 @@ export default function AthleteCalendar({ organization = null }: { organization?
         <Card>
           <CardHeader id="actividad-editor" title={isOrg ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
           <div className="mt-6 grid gap-5 md:grid-cols-2">
+            {isOrg && organization && (
+              <div className="md:col-span-2">
+                {orgEventLimit !== null && editor.scope === organization.id && !editor.id && (
+                  <div className="mb-5"><Notice tone="neutral" icon={Info}>Plan {plan?.name}: te quedan {Math.max(0, orgEventLimit - orgEventsUsed)} de {orgEventLimit} eventos este mes.</Notice></div>
+                )}
+                <FieldLabel>Calendario</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  <Segment active={editor.scope === organization.id} label="Organización" disabled={Boolean(editor.id)} onClick={() => setEditor({ ...editor, scope: organization.id })} />
+                  {orgTeams.map((team) => (
+                    <Segment key={team.id} active={editor.scope === team.id} label={team.name} disabled={Boolean(editor.id)} onClick={() => setEditor({ ...editor, scope: team.id })} />
+                  ))}
+                </div>
+              </div>
+            )}
             {!isOrg && managedTeams.length > 0 && (
               <div className="md:col-span-2">
                 <FieldLabel>Calendario</FieldLabel>
@@ -640,15 +708,51 @@ export default function AthleteCalendar({ organization = null }: { organization?
               <textarea className={`${inputClass} min-h-24 py-3`} value={editor.description} onChange={(e) => setEditor({ ...editor, description: e.target.value })} />
             </label>
 
-            {isOrg && (
+            {isOrg && organization && editor.scope === organization.id && (
               <>
                 <div className="md:col-span-2">
                   <FieldLabel>Repetir</FieldLabel>
-                  <p className="text-sm text-[var(--ax-muted)]">{orgFlag('repetir_eventos') ? 'Repetir eventos de la organización llegará pronto.' : 'Repetir eventos es parte del plan Pro.'}</p>
+                  {orgFlag('repetir_eventos') ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <Segment active={editor.repeat === 'none'} label="No se repite" onClick={() => setEditor({ ...editor, repeat: 'none' })} />
+                        <Segment active={editor.repeat === 'weekly'} label="Cada semana" onClick={() => setEditor({ ...editor, repeat: 'weekly' })} />
+                        <Segment active={editor.repeat === 'monthly'} label="Cada mes" onClick={() => setEditor({ ...editor, repeat: 'monthly' })} />
+                      </div>
+                      {editor.repeat !== 'none' && (
+                        <label className="mt-3 block">
+                          <FieldLabel>Repetir hasta</FieldLabel>
+                          <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
+                        </label>
+                      )}
+                    </>
+                  ) : <LockedFeature label="Repetir eventos" />}
                 </div>
                 <div className="md:col-span-2">
                   <FieldLabel>Recordatorios</FieldLabel>
-                  <p className="text-sm text-[var(--ax-muted)]">{reminderLabels[240]}</p>
+                  {orgReminderLimit === 1 ? (
+                    <p className="text-sm text-[var(--ax-text)]">{reminderLabels[240]} (fijo en el plan {plan?.name})</p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(reminderLabels).map(([minutes, label]) => (
+                          <Segment key={minutes} active={editor.reminders.includes(Number(minutes))} label={label.replace(' antes', '')} onClick={() => toggleReminder(Number(minutes))} />
+                        ))}
+                      </div>
+                      <p className="mt-2 text-xs text-[var(--ax-muted)]">{orgReminderLimit === null ? 'Recordatorios sin límite por evento.' : `Hasta ${orgReminderLimit} recordatorios por evento.`}</p>
+                    </>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <FieldLabel>Sincronizar con Google y Outlook</FieldLabel>
+                  {orgFlag('sincronizacion') ? (
+                    <label className="inline-flex cursor-pointer items-center gap-3 text-sm text-[var(--ax-text)]">
+                      <input type="checkbox" className="peer sr-only" checked={syncOn} onChange={(e) => setSyncOn(e.target.checked)} />
+                      <span className="relative h-6 w-11 rounded-full bg-[var(--ax-line-strong)] transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[18px] after:w-[18px] after:rounded-full after:bg-[var(--ax-text)] after:transition-transform peer-checked:bg-[var(--ax-accent)] peer-checked:after:translate-x-5 peer-checked:after:bg-[var(--ax-on-accent)]" aria-hidden="true" />
+                      {syncOn ? 'Activado' : 'Desactivado'}
+                      <span className="text-xs text-[var(--ax-muted)]">Se aplicará al conectar Google u Outlook en Conexiones.</span>
+                    </label>
+                  ) : <LockedFeature label="Sincronización automática" />}
                 </div>
               </>
             )}
@@ -747,6 +851,43 @@ export default function AthleteCalendar({ organization = null }: { organization?
                 ))}
               </ul>
             </div>
+            {isOrg && (
+              <div className={panelClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Choques de cancha y horario</p>
+                {!orgFlag('vista_equipos') ? (
+                  <div className="mt-3 flex flex-col gap-2.5">
+                    <p className="text-[13px] text-[var(--ax-muted)]">Vista de todos los equipos · Disponible en Pro</p>
+                    <ButtonLink href={upgradeHref} variant="secondary">Mejorar plan</ButtonLink>
+                  </div>
+                ) : clashes.length === 0 ? (
+                  <p className="mt-3 text-sm text-[var(--ax-muted)]">Sin choques en los próximos 60 días.</p>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-1.5">
+                    <p className="text-sm font-semibold text-[var(--ax-text)]">
+                      {new Date(clashes[0].second.starts_at).toLocaleDateString('es-PA', { weekday: 'short', day: 'numeric', month: 'short' })} · {formatTime(clashes[0].second.starts_at)} · {clashes[0].second.location}
+                    </p>
+                    <p className="text-[13px] text-[var(--ax-muted)]">{clashes[0].first.title} y {clashes[0].second.title} usan la misma cancha.</p>
+                    {clashes.length > 1 && <p className="text-xs text-[var(--ax-muted)]">{clashes.length - 1} {clashes.length === 2 ? 'choque más' : 'choques más'}.</p>}
+                  </div>
+                )}
+              </div>
+            )}
+            {isOrg && (
+              <div className={panelClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Conexiones</p>
+                {!orgFlag('sincronizacion') ? (
+                  <div className="mt-3 flex flex-col gap-2.5">
+                    <p className="text-[13px] text-[var(--ax-muted)]">Sincronizar con Google y Outlook · Disponible en Pro</p>
+                    <ButtonLink href={upgradeHref} variant="secondary">Mejorar plan</ButtonLink>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-1.5 text-sm text-[var(--ax-text)]">
+                    <p>Google Calendar · No conectado</p>
+                    <p>Outlook · No conectado</p>
+                  </div>
+                )}
+              </div>
+            )}
           </aside>
         </div>
       </div>

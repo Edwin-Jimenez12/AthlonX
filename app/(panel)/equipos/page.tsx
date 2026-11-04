@@ -2,10 +2,14 @@
 
 import Link from 'next/link'
 import { MapPin, Search, SlidersHorizontal, Users, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 import { loadOrganizationScope } from '../../../lib/organization-hierarchy'
 import { StyledSelect } from '../../../Components/styled-select'
+import { useActiveOrganization } from '../../../Components/organizacion/plan-ui'
+import { OrgTeamsView } from '../../../Components/organizacion/org-teams-view'
+import { OrgTournamentsView } from '../../../Components/organizacion/org-tournaments-view'
 
 type Organization = { id: string; name: string }
 type Discipline = { id: string; name: string; code: string }
@@ -13,7 +17,20 @@ type Modality = { id: string; name: string; code: string; discipline_id: string 
 type Team = { id: string; name: string; country: string | null; city: string | null; logo_url: string | null; organization_id: string | null; discipline_id: string | null; modality_id: string | null; athlonx_code: string | null; handle: string | null }
 type Player = { id: string; full_name: string; shirt_number: number | null; position: string | null; division: string | null }
 
+// Cuenta de organización: Equipos y Torneos del rediseño, según su plan. Otras cuentas: directorio de equipos.
 export default function TeamsPage() {
+  return <Suspense fallback={<main className="ax-v2 min-h-screen lg:ml-64" />}><TeamsRouter /></Suspense>
+}
+
+function TeamsRouter() {
+  const org = useActiveOrganization()
+  const view = useSearchParams().get('vista') === 'torneos' ? 'torneos' : 'equipos'
+  if (org.status === 'cargando') return <main className="ax-v2 min-h-screen lg:ml-64" />
+  if (org.status === 'lista') return view === 'torneos' ? <OrgTournamentsView org={org} /> : <OrgTeamsView org={org} />
+  return <LegacyTeamsPage />
+}
+
+function LegacyTeamsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [modalities, setModalities] = useState<Modality[]>([])
