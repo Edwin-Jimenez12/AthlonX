@@ -57,6 +57,7 @@ type Editor = {
   end: string
   repeat: 'none' | 'weekly' | 'monthly'
   repeatUntil: string
+  division: string
   reminders: number[]
 }
 
@@ -137,18 +138,24 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
     repeat: item?.repeat_rule ?? 'none',
     repeatUntil: item?.repeat_until ? dayKey(new Date(item.repeat_until)) : '',
     reminders: item?.reminder_minutes?.length ? item.reminder_minutes : [240],
+    division: item?.division_id ?? '',
   }
 }
 
 type OrgUsage = { limits: Record<string, number | null>; usage: Record<string, number> }
 
 // Sin organización: calendario del atleta. Con organización: calendario de la cuenta de organización, según su plan.
-export default function AthleteCalendar({ organization = null }: { organization?: { id: string; name: string } | null } = {}) {
+export default function AthleteCalendar({ organization = null, team = null }: { organization?: { id: string; name: string } | null; team?: { id: string; name: string } | null } = {}) {
   const isOrg = organization !== null
+  const isTeam = team !== null
+  // Organización y cuenta de equipo comparten el modo de gestión (eventos de la cuenta, plan y límites).
+  const isMgmt = isOrg || isTeam
+  const mgmtId = organization?.id ?? team?.id ?? ''
   const [userId, setUserId] = useState<string | null>(null)
   const [plan, setPlan] = useState<AccountPlan | null>(null)
   const [orgUsage, setOrgUsage] = useState<OrgUsage | null>(null)
   const [orgTeams, setOrgTeams] = useState<Array<{ id: string; name: string }>>([])
+  const [divisions, setDivisions] = useState<Array<{ id: string; name: string }>>([])
   const [syncOn, setSyncOn] = useState(false)
   const [usage, setUsage] = useState(0)
   const [view, setView] = useState<CalendarView>('mes')
@@ -169,12 +176,28 @@ export default function AthleteCalendar({ organization = null }: { organization?
   const orgEventsUsed = orgUsage?.usage?.eventos_mes ?? 0
   const orgFlag = (key: string) => plan?.feature_flags?.[key] === true
   const orgReminderLimit = plan?.limits?.recordatorios_evento ?? null
+  // Repetir: organización por función del plan; equipo por cantidad de eventos repetidos (Free: 1).
+  const canRepeat = (ed: Editor) => {
+    if (!isTeam) return orgFlag('repetir_eventos')
+    const lim = orgUsage?.limits?.eventos_repetidos ?? null
+    if (lim === null) return true
+    const editingRepeat = Boolean(ed.id) && items.some((i) => i.id === ed.id && i.repeat_rule !== 'none')
+    return editingRepeat || (orgUsage?.usage?.eventos_repetidos ?? 0) < lim
+  }
 
   async function loadAccount() {
     if (!supabase) return
     const { data } = await supabase.auth.getUser()
     if (!data.user) return
     setUserId(data.user.id)
+    if (team) {
+      setPlan(await loadAccountPlan('equipo', team.id))
+      const { data: usageData } = await supabase.rpc('platform_team_usage', { p_team: team.id })
+      setOrgUsage((usageData ?? null) as OrgUsage | null)
+      const { data: divs } = await supabase.from('team_division_catalog').select('id, name').eq('team_id', team.id).order('created_at')
+      setDivisions((divs ?? []) as Array<{ id: string; name: string }>)
+      return
+    }
     if (organization) {
       setPlan(await loadAccountPlan('organizacion', organization.id))
       const { data: usageData } = await supabase.rpc('platform_org_usage', { p_org: organization.id })
@@ -202,6 +225,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
   }
 
   function feed(from: Date, to: Date) {
+    if (team) return supabase!.rpc('calendar_team_feed', { p_team: team.id, p_from: from.toISOString(), p_to: to.toISOString() })
     if (organization) return supabase!.rpc('calendar_org_feed', { p_org: organization.id, p_from: from.toISOString(), p_to: to.toISOString() })
     return supabase!.rpc('calendar_my_feed', { p_from: from.toISOString(), p_to: to.toISOString() })
   }
@@ -289,6 +313,31 @@ export default function AthleteCalendar({ organization = null }: { organization?
     }
     setSaving(true)
     setMessage(null)
+    if (team) {
+      const teamRepeat = canRepeat(editor) ? editor.repeat : 'none'
+      const { error: teamError } = await supabase.rpc('calendar_save_team_event_v2', {
+        p_id: editor.id,
+        p_team: team.id,
+        p_title: editor.title.trim(),
+        p_description: editor.description,
+        p_location: editor.location,
+        p_event_type: editor.eventType,
+        p_starts: starts.toISOString(),
+        p_ends: ends.toISOString(),
+        p_division: editor.division || null,
+        p_repeat: teamRepeat,
+        p_repeat_until: teamRepeat === 'none' || !editor.repeatUntil ? null : new Date(`${editor.repeatUntil}T23:59:59`).toISOString(),
+        p_reminders: orgReminderLimit === 1 ? [240] : editor.reminders,
+      })
+      setSaving(false)
+      if (teamError) return setMessage({ tone: 'danger', text: teamError.message })
+      setEditor(null)
+      setMessage({ tone: 'success', text: editor.id ? 'Evento actualizado.' : 'Evento creado en el calendario del equipo.' })
+      await loadAccount()
+      await loadFeed()
+      await loadUpcoming()
+      return
+    }
     if (organization && userId && editor.scope !== organization.id) {
       const { error: teamError } = await supabase.rpc('calendar_org_save_team_event', {
         p_org: organization.id,
@@ -380,7 +429,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
   function toggleReminder(minutes: number) {
     if (!editor) return
     const has = editor.reminders.includes(minutes)
-    if (!has && isOrg && orgReminderLimit !== null && editor.reminders.length >= orgReminderLimit) {
+    if (!has && isMgmt && orgReminderLimit !== null && editor.reminders.length >= orgReminderLimit) {
       return setMessage({ tone: 'danger', text: `Tu plan permite hasta ${orgReminderLimit} recordatorios por evento.` })
     }
     setEditor({ ...editor, reminders: has ? editor.reminders.filter((m) => m !== minutes) : [...editor.reminders, minutes] })
@@ -391,12 +440,12 @@ export default function AthleteCalendar({ organization = null }: { organization?
     const header = ['Fecha', 'Inicio', 'Fin', 'Evento', 'Calendario', 'Lugar']
     const rows = visible.map((item) => [new Date(item.starts_at).toLocaleDateString('es-PA'), formatTime(item.starts_at), formatTime(item.ends_at), item.title, item.owner_name ?? '', item.location ?? ''])
     downloadCsv('calendario.csv', header, rows)
-    printReport(`Calendario · ${organization?.name ?? ''}`, header, rows)
+    printReport(`Calendario · ${organization?.name ?? team?.name ?? ''}`, header, rows)
   }
 
   function openNew() {
     setSelected(null)
-    setEditor(organization ? { ...toEditor(null, anchor), scope: organization.id } : toEditor(null, anchor))
+    setEditor(isMgmt ? { ...toEditor(null, anchor), scope: mgmtId } : toEditor(null, anchor))
     setMessage(null)
   }
 
@@ -539,27 +588,27 @@ export default function AthleteCalendar({ organization = null }: { organization?
           title="Calendario"
           actions={(
             <div className="flex flex-wrap gap-2">
-              {isOrg && orgFlag('reportes') && (
+              {isMgmt && orgFlag('reportes') && (
                 <Button variant="secondary" onClick={() => exportOrg()}>Exportar PDF / CSV</Button>
               )}
               <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
-              <Button variant="primary" onClick={openNew}>{isOrg ? '+ Crear evento' : '+ Crear actividad'}</Button>
+              <Button variant="primary" onClick={openNew}>{isMgmt ? '+ Crear evento' : '+ Crear actividad'}</Button>
             </div>
           )}
         />
 
         {message && <Notice tone={message.tone === 'success' ? 'success' : 'danger'} icon={Info}>{message.text}</Notice>}
-        {!isOrg && plan && !unlimited && (
+        {!isMgmt && plan && !unlimited && (
           <Notice tone="neutral" icon={Info}>Plan {plan.name}: {usage} de {limit} actividades personales este mes.</Notice>
         )}
-        {isOrg && plan && orgUsage && orgEventLimit !== null && (
+        {isMgmt && plan && orgUsage && orgEventLimit !== null && (
           <Notice
             tone={orgEventsUsed >= orgEventLimit ? 'warning' : 'neutral'}
             icon={Info}
             action={<ButtonLink href="/mi-perfil?seccion=cuenta&mejorar=1" variant="secondary" size="sm">Mejorar plan</ButtonLink>}
           >
-            Plan {plan.name}: {orgEventsUsed} de {orgEventLimit} eventos de la organización este mes.
-            {!orgFlag('vista_equipos') && ' Los eventos de tus equipos se ven desde el plan Pro.'}
+            Plan {plan.name}: {orgEventsUsed} de {orgEventLimit} eventos {isTeam ? 'del equipo' : 'de la organización'} este mes.
+            {isOrg && !orgFlag('vista_equipos') && ' Los eventos de tus equipos se ven desde el plan Pro.'}
           </Notice>
         )}
 
@@ -586,7 +635,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {[...filters, ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos' as CalendarFilter, label: 'Todos los equipos' }] : [])].filter((f) => !isOrg || f.id !== 'personales').map((f) => {
+          {[...filters, ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos' as CalendarFilter, label: 'Todos los equipos' }] : [])].filter((f) => !isMgmt || f.id !== 'personales').filter((f) => !isTeam || f.id !== 'organizacion').map((f) => {
             const on = filter === f.id
             return (
               <button
@@ -620,7 +669,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
             {selected.description && <p className="whitespace-pre-line text-[var(--ax-muted)]">{selected.description}</p>}
             <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? 'Actividad personal' : selected.owner_name ?? ''}</p>
           </div>
-          {!isOrg && (selected.source === 'team' || selected.source === 'organization') && (
+          {!isMgmt && (selected.source === 'team' || selected.source === 'organization') && (
             <div className="mt-5">
               <FieldLabel>Tu asistencia</FieldLabel>
               <div className="flex flex-wrap gap-2">
@@ -630,7 +679,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
               </div>
             </div>
           )}
-          {!isOrg && selected.source === 'team' && managedTeams.some((t) => t.id === selected.owner_id && t.role !== 'staff') && (
+          {selected.source === 'team' && (isTeam || !isOrg) && (isTeam || managedTeams.some((t) => t.id === selected.owner_id && t.role !== 'staff')) && (
             <TeamAttendance eventId={selected.id} />
           )}
           {(selected.source === 'personal' || ((selected.source === 'team' || selected.source === 'organization') && selected.can_edit)) && (
@@ -644,7 +693,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
 
       {editor && (
         <Card>
-          <CardHeader id="actividad-editor" title={isOrg ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
+          <CardHeader id="actividad-editor" title={isMgmt ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             {isOrg && organization && (
               <div className="md:col-span-2">
@@ -660,7 +709,19 @@ export default function AthleteCalendar({ organization = null }: { organization?
                 </div>
               </div>
             )}
-            {!isOrg && managedTeams.length > 0 && (
+            {isTeam && team && (
+              <div className="md:col-span-2">
+                {orgEventLimit !== null && !editor.id && (
+                  <div className="mb-5"><Notice tone="neutral" icon={Info}>Plan {plan?.name}: te quedan {Math.max(0, orgEventLimit - orgEventsUsed)} de {orgEventLimit} eventos este mes.</Notice></div>
+                )}
+                <FieldLabel>División</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  <Segment active={!editor.division} label="Todo el equipo" onClick={() => setEditor({ ...editor, division: '' })} />
+                  {divisions.map((d) => <Segment key={d.id} active={editor.division === d.id} label={d.name} onClick={() => setEditor({ ...editor, division: d.id })} />)}
+                </div>
+              </div>
+            )}
+            {!isMgmt && managedTeams.length > 0 && (
               <div className="md:col-span-2">
                 <FieldLabel>Calendario</FieldLabel>
                 <div className="flex flex-wrap gap-2">
@@ -708,11 +769,11 @@ export default function AthleteCalendar({ organization = null }: { organization?
               <textarea className={`${inputClass} min-h-24 py-3`} value={editor.description} onChange={(e) => setEditor({ ...editor, description: e.target.value })} />
             </label>
 
-            {isOrg && organization && editor.scope === organization.id && (
+            {isMgmt && editor.scope === mgmtId && (
               <>
                 <div className="md:col-span-2">
                   <FieldLabel>Repetir</FieldLabel>
-                  {orgFlag('repetir_eventos') ? (
+                  {canRepeat(editor) ? (
                     <>
                       <div className="flex flex-wrap gap-2">
                         <Segment active={editor.repeat === 'none'} label="No se repite" onClick={() => setEditor({ ...editor, repeat: 'none' })} />
@@ -725,8 +786,11 @@ export default function AthleteCalendar({ organization = null }: { organization?
                           <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
                         </label>
                       )}
+                      {isTeam && orgUsage?.limits?.eventos_repetidos != null && (
+                        <p className="mt-2 text-xs text-[var(--ax-muted)]">Plan {plan?.name}: {orgUsage.usage?.eventos_repetidos ?? 0} de {orgUsage.limits.eventos_repetidos} evento repetido en uso.</p>
+                      )}
                     </>
-                  ) : <LockedFeature label="Repetir eventos" />}
+                  ) : <LockedFeature label={isTeam ? `Tu plan permite ${orgUsage?.limits?.eventos_repetidos ?? 1} evento repetido` : 'Repetir eventos'} />}
                 </div>
                 <div className="md:col-span-2">
                   <FieldLabel>Recordatorios</FieldLabel>
@@ -756,7 +820,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
                 </div>
               </>
             )}
-            {!isOrg && editor.scope === 'personal' && (
+            {!isMgmt && editor.scope === 'personal' && (
               <>
             <div className="md:col-span-2">
               <FieldLabel>Repetir</FieldLabel>
@@ -793,7 +857,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
               </>
             )}
             <div className="flex justify-end gap-3 md:col-span-2">
-              <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : isOrg ? 'Guardar evento' : 'Guardar actividad'}</Button>
+              <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : isMgmt ? 'Guardar evento' : 'Guardar actividad'}</Button>
             </div>
           </div>
         </Card>
@@ -806,7 +870,7 @@ export default function AthleteCalendar({ organization = null }: { organization?
             {['Google Calendar', 'Outlook'].map((name) => (
               <div key={name} className="flex flex-col gap-3 rounded-[14px] border border-[var(--ax-line)] p-5">
                 <p className="font-display text-[28px] uppercase leading-none text-[var(--ax-accent-text)]">{name}</p>
-                <p className="text-sm text-[var(--ax-muted)]">{(isOrg ? orgFlag('sincronizacion') : unlimited) ? 'Próximamente' : 'Disponible en Pro'}</p>
+                <p className="text-sm text-[var(--ax-muted)]">{(isMgmt ? orgFlag('sincronizacion') : unlimited) ? 'Próximamente' : 'Disponible en Pro'}</p>
                 <Button variant="secondary" disabled>Conectar</Button>
               </div>
             ))}
@@ -872,7 +936,14 @@ export default function AthleteCalendar({ organization = null }: { organization?
                 )}
               </div>
             )}
-            {isOrg && (
+            {isTeam && (
+              <div className={panelClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Asistencia por jugador</p>
+                <span className="mt-3 inline-flex h-[23px] items-center rounded-full bg-[var(--ax-violet-soft)] px-2.5 text-xs font-semibold text-[var(--ax-violet-text)]">Próximamente</span>
+                <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Asistencia registrada dentro de la cancha. La estamos definiendo.</p>
+              </div>
+            )}
+            {isMgmt && (
               <div className={panelClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Conexiones</p>
                 {!orgFlag('sincronizacion') ? (

@@ -77,6 +77,11 @@ export function PlanCard({ accountType, accountId }: { accountType: AccountType;
                 <span className="text-[var(--ax-muted)]">{limitLabel(plan.limits?.equipos_afiliados, 'equipos afiliados')}</span>
                 <span className="text-[var(--ax-muted)]">{plan.limits?.eventos_mes === null || plan.limits?.eventos_mes === undefined ? 'Eventos sin límite' : `${plan.limits.eventos_mes} eventos al mes`}</span>
               </>
+            ) : accountType === 'equipo' ? (
+              <>
+                <span className="text-[var(--ax-muted)]">{plan.limits?.jugadores_division === null || plan.limits?.jugadores_division === undefined ? 'Divisiones y jugadores sin límite' : `Hasta ${plan.limits.jugadores_division} jugadores por división`}</span>
+                <span className="text-[var(--ax-muted)]">{plan.limits?.eventos_mes === null || plan.limits?.eventos_mes === undefined ? 'Eventos sin límite' : `${plan.limits.eventos_mes} eventos al mes`}</span>
+              </>
             ) : (
               <span className="text-[var(--ax-muted)]">
                 {plan.personal_activity_monthly_limit !== null

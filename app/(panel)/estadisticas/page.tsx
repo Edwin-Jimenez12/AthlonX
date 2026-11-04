@@ -3,13 +3,23 @@
 import { BarChart3, TrendingUp, Trophy, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useActiveTeam } from "../../../Components/equipo/team-plan";
+import { TeamStatsView } from "../../../Components/equipo/team-stats-view";
 
 type Summary = { points: number; tries: number; matches: number; athletes: number };
 type TournamentStats = { id: string; name: string; matches: number; finished: number; tries: number };
 
 const emptySummary: Summary = { points: 0, tries: 0, matches: 0, athletes: 0 };
 
+// Cuenta de equipo: estadísticas del equipo según su plan. Otras cuentas: resumen general.
 export default function StatisticsPage() {
+  const ctx = useActiveTeam();
+  if (ctx.status === "cargando") return <main className="ax-v2 min-h-screen lg:ml-64" />;
+  if (ctx.status === "listo") return <TeamStatsView ctx={ctx} />;
+  return <LegacyStatisticsPage />;
+}
+
+function LegacyStatisticsPage() {
   const [summary, setSummary] = useState(emptySummary);
   const [tournaments, setTournaments] = useState<TournamentStats[]>([]);
   const [loading, setLoading] = useState(true);

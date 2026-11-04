@@ -43,6 +43,7 @@ export default function PlanesPage() {
   }, [])
 
   const individuals = plans.filter((plan) => plan.kind === 'individual' && plan.account_type === 'persona')
+  const teams = plans.filter((plan) => plan.kind === 'individual' && plan.account_type === 'equipo')
   const organizations = plans.filter((plan) => plan.kind === 'individual' && plan.account_type === 'organizacion')
   const groups = plans.filter((plan) => plan.kind === 'grupo')
 
@@ -61,6 +62,7 @@ export default function PlanesPage() {
         <div className="mx-auto max-w-7xl space-y-14">
           {loading && <p className="text-slate-300">Cargando planes…</p>}
           <PlanGroup title="Para personas" plans={individuals} />
+          <PlanGroup title="Para equipos" plans={teams} />
           <PlanGroup title="Para organizaciones" plans={organizations} />
           {groups.length > 0 && <PlanGroup title="AX Club · planes de grupo" plans={groups} />}
         </div>

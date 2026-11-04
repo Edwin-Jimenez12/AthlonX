@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users } from 'lucide-react'
+import { ArrowLeft, BarChart3, Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users, Wallet } from 'lucide-react'
 import { settingsSectionIcons, useSettingsNavConfig } from './settings-nav'
 import { usePathname } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -27,6 +27,8 @@ const teamNavigation: NavigationItem[] = [
   { label: 'Mi equipo', icon: Shield, href: '/equipo' },
   { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+  { label: 'Estadísticas', icon: BarChart3, href: '/estadisticas' },
+  { label: 'Finanzas', icon: Wallet, href: '/finanzas' },
 ]
 
 const trainerNavigation: NavigationItem[] = [

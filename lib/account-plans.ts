@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 
 export type AccountType = 'persona' | 'equipo' | 'organizacion'
 
-export type PlanLimits = Partial<Record<'equipos_afiliados' | 'equipos_propios' | 'directivos_staff' | 'eventos_mes' | 'torneos_rapidos' | 'torneos_oficiales' | 'recordatorios_evento', number | null>>
+export type PlanLimits = Partial<Record<string, number | null>>
 
 export type AccountPlan = {
   code: string
@@ -49,11 +49,11 @@ export function redeemPlanCode(accountType: AccountType, accountId: string, plan
   })
 }
 
-// Planes que se ofrecen según el tipo de cuenta: persona (Libre, Pro y Élite) u organización (Free, Pro y Élite).
-// Los equipos usan por ahora el catálogo de persona. Los planes de grupo se venden aparte.
+// Planes que se ofrecen según el tipo de cuenta: persona (Libre, Pro y Élite), equipo u organización (Free, Pro y Élite).
+// Los planes de grupo se venden aparte.
 export async function loadUpgradePlans(accountType: AccountType): Promise<CatalogPlan[]> {
   if (!supabase) return []
-  const catalog = accountType === 'organizacion' ? 'organizacion' : 'persona'
+  const catalog = accountType
   const { data, error } = await supabase
     .from('plans')
     .select('code, name, monthly_price, price_pending, annual_enabled, annual_price, features')

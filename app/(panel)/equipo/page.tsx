@@ -9,6 +9,7 @@ import { InvitePanel } from '../../../Components/mi-equipo/invite-panel'
 import { TeamCallupsCard } from '../../../Components/mi-equipo/team-callups-card'
 import { TeamPeopleCard } from '../../../Components/mi-equipo/team-people-card'
 import { TeamRosterCard } from '../../../Components/mi-equipo/team-roster-card'
+import { TeamPlanLimitsCard } from '../../../Components/equipo/team-plan'
 import { Badge, Button, ButtonLink, initialsOf } from '../../../Components/mi-equipo/ui'
 import { useTeamRoster } from '../../../Components/mi-equipo/use-team-roster'
 
@@ -77,6 +78,8 @@ export default function TeamDashboard() {
       </header>
 
       {inviting && team?.id && <InvitePanel teamId={team.id} divisions={roster.divisions} members={roster.members} title="Invitar persona al equipo" onClose={() => setInviting(false)} onSent={() => void roster.reload()} />}
+
+      {team?.id && <TeamPlanLimitsCard teamId={team.id} />}
 
       {team?.id ? <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
         <TeamRosterCard teamId={team.id} canManage={canManage} discipline={team.discipline} disciplineCode={team.disciplineCode} {...roster} />

@@ -26,6 +26,8 @@ const planOptions = [
   { code: 'club_pro', name: 'Club Pro' },
   { code: 'club_elite', name: 'Club Élite' },
   { code: 'libre', name: 'Libre' },
+  { code: 'team_pro', name: 'Equipo Pro' },
+  { code: 'team_elite', name: 'Equipo Élite' },
   { code: 'org_pro', name: 'Organización Pro' },
   { code: 'org_elite', name: 'Organización Élite' },
 ]

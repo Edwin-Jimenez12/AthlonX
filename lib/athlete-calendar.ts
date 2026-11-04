@@ -20,6 +20,7 @@ export type FeedItem = {
   can_edit?: boolean
   repeat_until?: string | null
   reminder_minutes?: number[] | null
+  division_id?: string | null
 }
 
 export type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda' | 'linea'

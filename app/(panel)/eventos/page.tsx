@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { DraftRow, EventCard } from '../../../Components/eventos/event-cards'
 import { Button, Card, CardHeader, EmptyState, Notice, PageHeader, SearchField, Segment, Select } from '../../../Components/mi-equipo/ui'
 import { OrganizationEventsPanel } from '../../../Components/organization-events-panel'
+import { TeamTournamentsCard } from '../../../Components/equipo/team-plan'
 import { loadAccountContexts, AccountContext } from '../../../lib/account-contexts'
 import { supabase } from '../../../lib/supabase'
 import { loadOrganizationScope } from '../../../lib/organization-hierarchy'
@@ -179,6 +180,8 @@ export default function EventsPage() {
         description={isOrganization ? 'Torneos que organiza tu organización y aquellos en los que participan sus equipos.' : 'Explora los torneos de AthlonX, desde los más recientes hasta los más antiguos.'}
         actions={canCreate && <Button variant="primary" icon={CalendarPlus} aria-expanded={creating} onClick={() => setCreating((current) => !current)} className="w-full sm:w-auto">Crear evento</Button>}
       />
+
+      {sourceTeamId && !organizationId && <TeamTournamentsCard teamId={sourceTeamId} />}
 
       {canCreate && creating && <OrganizationEventsPanel organizationId={organizationId || undefined} sourceTeamId={sourceTeamId || undefined} disciplines={disciplines} onClose={() => setCreating(false)} onCreated={() => void loadEvents(currentUserId, activeContext)} />}
 

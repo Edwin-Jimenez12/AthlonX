@@ -16,6 +16,7 @@ import { PlanCard } from './plan-card'
 import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
+import { TeamEventPermissionsCard, TeamLimitMeters, TeamSeasonCard, TeamTreasurersCard, useTeamUsage } from '../equipo/team-plan'
 
 export const teamSections: SectionItem[] = [
   { id: 'identidad', label: 'Información del equipo', description: 'Datos, escudo y divisiones', icon: Shield },
@@ -65,6 +66,7 @@ export function TeamProfileView({
   onSaved: () => void
 }) {
   const meta = useAccountMeta()
+  const { usage } = useTeamUsage(team.id)
   const countries = useCountries()
   const canEdit = team.myRole === 'owner' || team.myRole === 'directivo'
   const [editing, setEditing] = useState(false)
@@ -261,6 +263,7 @@ export function TeamProfileView({
                 meta={[division.level && levelLabels[division.level], division.ageGroup && ageLabels[division.ageGroup], division.gender && genderLabels[division.gender], division.athlonxCode].filter(Boolean).join(' · ')}
               />
             ))}</RowList> : <Pending>Este equipo todavía no tiene divisiones.</Pending>}
+            {usage && <TeamLimitMeters usage={usage} keys={[['divisiones', 'Divisiones']]} />}
           </Card>
         </>
       )}
@@ -316,6 +319,12 @@ export function TeamProfileView({
           </Card>
         </CardRow>
       )}
+      {section === 'roles' && (
+        <>
+          <TeamTreasurersCard teamId={team.id} canEdit={canEdit} members={Array.from(new Map(team.members.map((m) => [m.userId, { userId: m.userId, fullName: m.fullName }])).values())} />
+          <TeamEventPermissionsCard teamId={team.id} />
+        </>
+      )}
 
       {section === 'configuracion' && (
         <CardRow>
@@ -332,6 +341,7 @@ export function TeamProfileView({
           </Card>
         </CardRow>
       )}
+      {section === 'configuracion' && <TeamSeasonCard teamId={team.id} canEdit={canEdit} />}
 
       {section === 'seguridad' && <SecurityCards email={meta.email} />}
 
@@ -351,7 +361,7 @@ export function TeamProfileView({
           </Card>
           <CardRow>
             <SessionCard />
-            <DeleteAccountCard />
+            <DeleteAccountCard warning='Se borran el perfil y los datos del equipo. Los torneos que comparte con otros equipos u organizaciones no se eliminan: seguirán con el nombre "Equipo eliminado".' />
           </CardRow>
         </>
       )}

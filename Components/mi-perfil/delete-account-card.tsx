@@ -23,7 +23,7 @@ export function SessionCard() {
 }
 
 // Eliminación de cuenta: confirmación inline con contraseña y periodo de recuperación de 15 días calendario.
-export function DeleteAccountCard() {
+export function DeleteAccountCard({ warning }: { warning?: string } = {}) {
   const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -70,7 +70,7 @@ export function DeleteAccountCard() {
       ) : open ? (
         <InlineConfirm
           title="¿Eliminar tu cuenta?"
-          description="Tienes 15 días calendario para recuperarla volviendo a iniciar sesión. Después se elimina para siempre."
+          description={`${warning ? warning + ' ' : ''}Tienes 15 días calendario para recuperarla volviendo a iniciar sesión. Después se elimina para siempre.`}
           confirmLabel="Eliminar cuenta"
           danger
           busy={busy}

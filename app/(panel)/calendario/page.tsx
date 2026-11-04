@@ -10,6 +10,7 @@ import TeamCalendarView from '../../../Components/calendario/team-calendar-view'
 export default function CalendarioPage() {
   const [mode, setMode] = useState<'cargando' | 'atleta' | 'gestion'>('cargando')
   const [organization, setOrganization] = useState<{ id: string; name: string } | null>(null)
+  const [team, setTeam] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -25,6 +26,11 @@ export default function CalendarioPage() {
         setOrganization({ id: active_.organizationId, name: active_.name })
         return setMode('atleta')
       }
+      // Cuenta de equipo (propietario, directivo o cuerpo técnico): calendario del equipo según su plan.
+      if (active_?.contextType === 'team' && active_.teamId && active_.role !== 'atleta') {
+        setTeam({ id: active_.teamId, name: active_.name })
+        return setMode('atleta')
+      }
       setMode(active_ ? 'atleta' : 'gestion')
     }
     void resolve()
@@ -34,5 +40,5 @@ export default function CalendarioPage() {
   }, [])
 
   if (mode === 'cargando') return <p className="p-6 text-sm text-[var(--ax-muted)]">Cargando calendario…</p>
-  return mode === 'atleta' ? <AthleteCalendar organization={organization} /> : <TeamCalendarView />
+  return mode === 'atleta' ? <AthleteCalendar organization={organization} team={team} /> : <TeamCalendarView />
 }

@@ -28,7 +28,9 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Sincronización real con Google y Outlook (el interruptor de Pro queda guardado solo en pantalla).
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
-- [ ] Planes de equipo (Free, Pro, Élite) con sus propios límites y precios, y la sección Finanzas: Excel aprobado y diseño en Figma listo el 2026-11-04; espera aprobación del diseño.
+- [x] Planes de equipo (Free, Pro, Élite) y la sección Finanzas en código (entrada del 2026-11-04, "Planes de la cuenta de equipo y Finanzas en código").
+- [ ] Probar en navegador, con una cuenta de equipo real, Finanzas, Estadísticas, Calendario y Mi perfil en Free y en Pro (con un código al 100 %).
+- [ ] Finanzas: editar un movimiento (hoy se puede crear y eliminar; el registro de cambios ya guarda las ediciones).
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
 - [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
@@ -67,6 +69,59 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-04 · `claude/great-ritchie-2n8uq9` · nube → Planes de la cuenta de equipo y Finanzas en código
+
+**Base de datos** (`supabase/team-plans-migration.sql`, aplicada)
+- **Planes** `team_free`, `team_pro` y `team_elite`, con límites y funciones del Excel aprobado.
+  - `platform_account_plan` y el canje de códigos ya distinguen la cuenta de equipo.
+  - Funciones nuevas: `platform_team_plan`, `platform_team_limit` y `platform_team_feature`.
+- **Triggers por plan** (se aplican a lo nuevo):
+  - Divisiones (`team_division_catalog`), jugadores por división (`team_players`) y cuerpo técnico (`team_user_memberships`).
+  - Eventos al mes, eventos repetidos y recordatorios (`team_calendar_events`: nuevas columnas `repeat_rule`, `repeat_until` y `reminder_minutes`).
+  - Torneos rápidos del equipo y equipos por torneo.
+- **Calendario**:
+  - `calendar_save_team_event_v2` (con división, repetición y recordatorios) y `calendar_team_feed`.
+  - `calendar_my_feed` repite los eventos de equipo.
+  - Los recordatorios usan los minutos de cada evento.
+  - `calendar_grant_event_edit` exige el plan Pro.
+- **Temporada**: `teams.season_start` y `teams.season_end`, con `team_season` y `team_set_season`.
+- **Finanzas**:
+  - Tablas: tesoreros, cajas, categorías propias, movimientos, cuotas (montos y pagos), presupuestos con sus líneas, patrocinios y registro de cambios.
+  - RLS: solo propietario, directivos y tesoreros; cada jugador ve solo su cuota. En Free, el historial se limita a 3 meses.
+  - Bucket privado `team-finance` para comprobantes y contratos.
+  - Triggers: 30 movimientos al mes en Free, comprobantes y categorías propias desde Pro, cuota por división, patrocinios, tesoreros (1, 2 o sin límite), presupuestos (1 en Free), jugadores con cuota (30 en Free), alerta de presupuesto al 90 % (Élite) y registro de cambios.
+  - Recordatorio de cuota pendiente desde el día 5: tarea pg_cron `athlonx-fee-reminders`, todos los planes.
+- **Lecturas**: `platform_team_usage`, `team_fee_board`, `team_season_stats`, `team_compare_seasons` y `team_finance_stats` (Pro; costo y comparativa en Élite).
+
+**Pantallas**
+- Menú del equipo: Estadísticas y Finanzas.
+- `/finanzas`, cinco pestañas:
+  - **Resumen**: indicadores del mes, saldo de la temporada, últimos movimientos, cajas con transferencias, tesoreros, reportes PDF/CSV, patrocinios con contrato y aviso de vencimiento, y cobro en línea "Próximamente".
+  - **Movimientos**: filtros, tabla, eliminar con confirmación y registro de cambios (Élite).
+  - **Cuotas**: tablero por mes con Pagado, Pendiente o Exento; al marcar Pagado se registra el ingreso. Cuota del equipo y por división (Pro). Interruptor del recordatorio.
+  - **Presupuesto**: presupuestos con líneas por categoría, archivar y alertas (Élite).
+  - **Estadísticas**: gráfico de 12 meses, gasto por categoría, ingreso por fuente, morosidad, proyección y, en Élite, costo por jugador y partido, y comparativa entre temporadas.
+- `/estadisticas` (cuenta de equipo): partidos jugados, ganados, empatados y perdidos, y estadísticas por jugador de la temporada. Rango libre y comparar temporadas desde Pro. Asistencia por jugador "Próximamente". Reportes.
+- Calendario de la cuenta de equipo: aviso de eventos del mes, división, repetir según el plan (Free: 1), recordatorios (Free fijo, Pro 5), sincronización y exportar (Pro), tarjeta de asistencia "Próximamente" y Conexiones.
+- **Mi equipo**: tarjeta "Límites del plan". **Eventos**: tarjeta "Torneos del equipo".
+- **Mi perfil**:
+  - Divisiones con su medidor.
+  - Tesoreros y Permisos de edición por evento en Roles.
+  - Temporada en Configuración.
+  - Plan actual y Mejorar plan con el catálogo de equipo.
+  - Aviso "Equipo eliminado" al eliminar la cuenta.
+- `/planes` muestra "Para equipos"; Promociones acepta `team_pro` y `team_elite`.
+
+**Verificación**
+- Prueba que se revierte, en Free: se bloquean la 2.ª división, el 11.º evento, el 2.º evento repetido, el 31.º movimiento, las categorías propias, los patrocinios y el 2.º presupuesto. Los recordatorios quedan en `{240}`.
+- Como Élite (simulando al dueño): estadísticas de finanzas y registro de cambios correctos.
+- `npm run build` sin errores; 56 pruebas correctas (3 nuevas en `tests/team-finance.test.mjs`).
+- No se probó en navegador: falta una cuenta de equipo real.
+
+**Pendiente**: ver la sección Pendientes.
 
 ---
 
