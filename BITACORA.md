@@ -29,6 +29,8 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [x] Planes de equipo (Free, Pro, Élite) y la sección Finanzas en código (entrada del 2026-11-04, "Planes de la cuenta de equipo y Finanzas en código").
+- [ ] Pasarela de pago antes de diciembre: sin ella no hay ingreso real (hoy solo códigos al 100 %).
+- [ ] Plan de pruebas con un equipo de prueba (copia, sin datos reales de jugadores) y cuentas de cada perfil, en Free, Pro y Élite.
 - [ ] Probar en navegador, con una cuenta de equipo real, Finanzas, Estadísticas, Calendario y Mi perfil en Free y en Pro (con un código al 100 %).
 - [ ] Finanzas: editar un movimiento (hoy se puede crear y eliminar; el registro de cambios ya guarda las ediciones).
 - [ ] Cuenta de organización en Figma: versión responsive (tablet y móvil).
@@ -70,6 +72,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Excel de planes de la cuenta personal por perfil
+
+**Qué se hizo**: `documentos/PLANES_PERSONA_PROPUESTA.xlsx`, con una hoja por perfil (Atleta, Entrenador, Staff y Directivo) y columnas Libre, Pro y Élite con APRO/RECHA. Además, hojas de Precios (los del documento de planes de noviembre) y Decisiones (6 preguntas abiertas). Lo que todavía no existe lleva "(próximo)" y no debería cobrarse hasta construirlo.
+**Base**: `documentos/athlonx-planes-y-precios.docx` (noviembre) y los límites actuales de la tabla `plans`.
+**Pendiente**: que Edwin marque el Excel; luego, Figma por perfil y código. Pasarela de pago antes de diciembre (ver Decisiones).
 
 ---
 
