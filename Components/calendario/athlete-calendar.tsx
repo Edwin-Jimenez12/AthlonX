@@ -104,7 +104,7 @@ function TeamAttendance({ eventId }: { eventId: string }) {
   const labels: Record<string, string> = { voy: 'Voy', tal_vez: 'Tal vez', no_voy: 'No voy' }
   return (
     <div className="mt-5">
-      <FieldLabel>Asistencia por jugador</FieldLabel>
+      <FieldLabel>Respuestas de los jugadores</FieldLabel>
       {error && <p className="text-sm text-[var(--ax-muted)]">{error}</p>}
       {rows && rows.length === 0 && <p className="text-sm text-[var(--ax-muted)]">Todavía no hay respuestas.</p>}
       {rows && rows.length > 0 && (
@@ -934,13 +934,6 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                     {clashes.length > 1 && <p className="text-xs text-[var(--ax-muted)]">{clashes.length - 1} {clashes.length === 2 ? 'choque más' : 'choques más'}.</p>}
                   </div>
                 )}
-              </div>
-            )}
-            {isTeam && (
-              <div className={panelClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">Asistencia por jugador</p>
-                <span className="mt-3 inline-flex h-[23px] items-center rounded-full bg-[var(--ax-violet-soft)] px-2.5 text-xs font-semibold text-[var(--ax-violet-text)]">Próximamente</span>
-                <p className="mt-2 text-[13px] text-[var(--ax-muted)]">Asistencia registrada dentro de la cancha. La estamos definiendo.</p>
               </div>
             )}
             {isMgmt && (

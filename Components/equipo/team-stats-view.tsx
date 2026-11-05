@@ -82,22 +82,15 @@ export function TeamStatsView({ ctx }: { ctx: ActiveTeam }) {
           )}
           {!compareOn && <p className="mt-4 text-xs text-[var(--ax-muted)]">Plan {usage?.plan}: estadísticas de la temporada actual.</p>}
         </Card>
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <Card className="flex flex-col gap-3.5">
-            <CardHeader id="comparar" title="Comparar temporadas" />
+        <Card className="flex flex-col gap-3.5">
+          <CardHeader id="comparar" title="Comparar temporadas" />
             {!compareOn ? <LockedFeature label="Comparar temporadas y rendimiento" /> : seasons.length === 0 ? <p className="text-sm text-[var(--ax-muted)]">Todavía no hay temporadas con partidos finalizados.</p> : seasons.map((s) => (
               <LimitMeter key={s.temporada} label={`${s.temporada} · ${s.ganados} de ${s.jugados} ganados`} used={s.jugados ? Math.round((100 * s.ganados) / s.jugados) : 0} limit={100} />
             ))}
-          </Card>
-          <Card className="flex flex-col gap-3">
-            <CardHeader id="asistencia" title="Asistencia por jugador" />
-            <div><Chip tone="violet">Próximamente</Chip></div>
-            <p className="text-[13px] text-[var(--ax-muted)]">Asistencia registrada dentro de la cancha. La estamos definiendo.</p>
-          </Card>
-        </div>
+        </Card>
         <Card className="flex flex-col gap-3">
           <CardHeader id="reportes" title="Reportes" />
-          {!reportsOn ? <LockedFeature label="Reportes de plantilla, asistencia y estadísticas en PDF y CSV" /> : (
+          {!reportsOn ? <LockedFeature label="Reportes de plantilla y estadísticas en PDF y CSV" /> : (
             <div className="flex flex-wrap gap-2.5"><Button variant="secondary" onClick={() => printReport(`Estadísticas · ${team.name}`, header, rows())}>Descargar PDF</Button><Button variant="secondary" onClick={() => downloadCsv('estadisticas.csv', header, rows())}>Descargar CSV</Button></div>
           )}
         </Card>

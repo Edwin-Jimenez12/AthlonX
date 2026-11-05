@@ -39,7 +39,8 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Lista de preparación en el detalle del evento (diseño de Figma; no hay datos todavía).
 - [ ] Recordatorios personalizados para eventos de equipo y organización en Pro (hoy todos reciben 4 horas antes).
 - [ ] Exportar a ICS: postergado.
-- [ ] **Definir la asistencia del jugador**: Edwin quiere un sistema de asistencia dentro de la cancha (no solo la confirmación Voy / Tal vez / No voy). Hay que definir cómo se registra, quién la toma y en qué plan va. Mientras tanto aparece como "Próximamente" en el diseño de equipo.
+- [ ] **Eventos: agregar el tipo "Amistoso"** (pedido por Edwin el 2026-11-05), para partidos amistosos del equipo sin armar un torneo.
+- [ ] **Definir la asistencia del jugador**: Edwin quiere un sistema de asistencia dentro de la cancha (no solo la confirmación Voy / Tal vez / No voy). Hay que definir cómo se registra, quién la toma y en qué plan va. Mientras se define, no se muestra en la plataforma (se quitó la tarjeta "Próximamente" del calendario y de Estadísticas el 2026-11-05).
 - [ ] Reporte de asistencia por jugador (Pro): base de datos lista, falta la pantalla. Depende de la definición anterior.
 - [ ] Vista de todos los equipos de la organización y choques de cancha/horario (Pro, directivo): base de datos lista, falta la pantalla.
 - [ ] Torneos y convocatorias en el calendario: los filtros existen, pero no hay eventos de esos tipos.
@@ -69,6 +70,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Asistencia del jugador fuera de la plataforma y amistoso pendiente
+
+**Qué se hizo**
+- Se quitó la tarjeta "Asistencia por jugador · Próximamente" del calendario de equipo y de Estadísticas, en código y en Figma (12 tarjetas en los marcos "Equipo · …"). Se mostrará cuando se defina el sistema de asistencia dentro de la cancha.
+- En el detalle del evento, la lista de respuestas (Voy, Tal vez, No voy) pasó a llamarse "Respuestas de los jugadores", para no confundirla con ese sistema.
+- Se agregó a Pendientes el tipo de evento "Amistoso".
+
+**Archivos**: `Components/calendario/athlete-calendar.tsx`, `Components/equipo/team-stats-view.tsx`, `BITACORA.md`.
+**Verificación**: `npm run build` sin errores; 56 pruebas correctas.
 
 ---
 
