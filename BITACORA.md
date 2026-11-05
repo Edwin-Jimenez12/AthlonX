@@ -158,6 +158,15 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Escudo del equipo con subida, recorte y vista previa
+
+**Qué se hizo**: la tarjeta "Escudo" de Mi perfil › Información del equipo tenía un aviso "Próximamente". Ahora usa el mismo componente de imagen de la foto de persona (compresión en el navegador, arrastrar para elegir la parte visible y zoom con vista previa). El escudo se guarda al subirlo en `teams.logo_url`, con `update_team_profile`. Solo propietario y directivos lo cambian.
+**Archivos**: `Components/mi-perfil/team-profile-view.tsx`.
+**Verificación**: `npm run build` sin errores; 56 pruebas correctas. Backend ya existente: bucket `avatars` (2 MB, webp/jpg/png) y permiso `equipo/{id}` para dueño y organización.
+**Pendiente**: probar la subida en el sitio publicado (requiere desplegar); el escudo no aparece todavía en el encabezado del equipo, solo en la tarjeta.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Excel de atleta y entrenador (Free y Pro), para elegir funciones por incluir
 
 **Qué se hizo**: `documentos/PLANES_ATLETA_ENTRENADOR_FREE_PRO.xlsx`, con hojas Atleta, Entrenador y Por definir. Cada función lleva [HOY] (ya existe), [PENDIENTE] (hay que construirla) o [POR DEFINIR] (falta una decisión). Élite queda para después.

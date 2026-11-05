@@ -3,6 +3,8 @@
 import { Lock, ShieldCheck, Shield, SlidersHorizontal, UserCog, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import { ImageUploadField } from '../image-upload-field'
+import { imageFolders } from '../../lib/image-upload'
 import { supabase } from '../../lib/supabase'
 import { applyTheme } from '../../lib/theme'
 import { formatLastAccess, formatLongDate, handlePattern, normalizeHandle, phoneError } from '../../lib/mi-perfil'
@@ -86,6 +88,8 @@ export function TeamProfileView({
   const [contactPhone, setContactPhone] = useState(team.contactPhone)
   const [websiteUrl, setWebsiteUrl] = useState(team.websiteUrl)
   const [isPublic, setIsPublic] = useState(team.isPublic)
+  const [logoUrl, setLogoUrl] = useState(team.logoUrl)
+  const [logoError, setLogoError] = useState('')
 
   // Gestión de directivos (solo propietario y directivos), con confirmación en la misma fila.
   const [roleEdit, setRoleEdit] = useState<{ key: string; role: string } | null>(null)
@@ -132,7 +136,7 @@ export function TeamProfileView({
       p_team_id: team.id,
       p_name: values.name.trim(),
       p_description: values.description.trim() || null,
-      p_logo_url: team.logoUrl || null,
+      p_logo_url: logoUrl || null,
       p_country: values.country.trim() || 'Panamá',
       p_city: values.city.trim() || null,
       p_contact_email: values.contactEmail.trim() || null,
@@ -166,6 +170,15 @@ export function TeamProfileView({
     setNotice({ type: 'ok', text: 'Perfil del equipo actualizado.' })
     onSaved()
     return ''
+  }
+
+  // El escudo se guarda al subirlo (como la visibilidad), con el resto de datos ya guardados.
+  async function saveLogo(url: string | null) {
+    const previous = logoUrl
+    setLogoUrl(url ?? '')
+    setLogoError('')
+    const failure = await writeTeam({ name: team.name, handle: team.handle, description: team.description, city: team.city, country: team.country, disciplineId: team.disciplineId, contactEmail: team.contactEmail, contactPhone: team.contactPhone, websiteUrl: team.websiteUrl, isPublic })
+    if (failure) { setLogoUrl(previous); setLogoError(failure) }
   }
 
   // Visibilidad al momento: se envían los datos ya guardados del equipo con el nuevo valor.
@@ -244,14 +257,9 @@ export function TeamProfileView({
               <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={disabled} maxLength={descriptionCharLimit} placeholder="Cuenta la historia del equipo." />
               {editing && <p className={`text-right text-xs ${description.length > descriptionCharLimit ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>}
             </Card>
-            <Card title="Escudo" description="Opcional. Sin escudo se muestran las iniciales.">
-              <div className="flex items-center gap-4">
-                <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{initials}</span>
-                <div className="min-w-0 space-y-2">
-                  <p className="text-sm font-semibold text-[var(--ax-text)]">PNG o SVG cuadrado de hasta 2 MB</p>
-                  <Badge>Próximamente</Badge>
-                </div>
-              </div>
+            <Card title="Escudo" description="Opcional. Sin escudo se muestran las iniciales. Se comprime en tu navegador y puedes elegir el recorte.">
+              <ImageUploadField label="Escudo" value={logoUrl || null} kind="avatar" folder={imageFolders.equipo(team.id)} slot="logo" disabled={!canEdit} hint={canEdit ? undefined : 'Solo el propietario y los directivos cambian el escudo.'} onChange={(url) => void saveLogo(url)} />
+              {logoError && <p role="alert" className="mt-2 text-xs text-red-200">{logoError}</p>}
             </Card>
           </CardRow>
           <Card title="Divisiones" description="Cada división tiene su propio código AthlonX. Se gestionan desde Mi equipo." action={<Link href="/equipo" className={buttonClass('secondary', 'sm')}><Users size={15} aria-hidden="true" /><span className="hidden sm:inline">Gestionar en Mi equipo</span><span className="sm:hidden">Mi equipo</span></Link>}>
