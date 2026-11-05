@@ -93,6 +93,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Agregar roles en Mi perfil
+
+**Qué pasaba**: la tarjeta Roles de Mi perfil > Equipo y roles solo mostraba los roles. No había forma de agregar entrenador. La función `set_my_personal_roles` ya existía en la base (`supabase/personal-role-management-migration.sql`), pero la interfaz nunca la llamaba.
+
+**Qué se hizo**: en modo de edición, la tarjeta Roles muestra los cuatro roles (Atleta, Entrenador, Staff, Directivo) para activar o desactivar. Al guardar se llama a `set_my_personal_roles`; la base exige que quede al menos un rol. Después se avisa al menú lateral para que cambie el contexto. Archivo: `Components/mi-perfil/persona-profile-view.tsx`.
+
+**Verificación**: `npx tsc --noEmit` sin errores; la función existe y el constraint acepta los cuatro roles (consulta de solo lectura). Falta probar en navegador con una cuenta real.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Estadísticas por año, cuota propia, entrenamientos, formaciones y anuncios (con SQL aplicado)
 
 **Decisiones de Edwin aplicadas**:

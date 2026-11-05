@@ -104,6 +104,7 @@ export function PersonaProfileView({
   const [allowInvitations, setAllowInvitations] = useState(profile.allowInvitations)
   const [privacy, setPrivacy] = useState<Record<PrivacyField, Visibility>>(profile.privacy)
   const [tournaments, setTournaments] = useState(profile.tournaments)
+  const [roles, setRoles] = useState<string[]>(profile.roles)
 
   const age = ageFrom(birthDate || null)
   const displayName = `${firstName} ${lastName}`.trim() || profile.fullName || 'Persona pendiente'
@@ -111,7 +112,7 @@ export function PersonaProfileView({
 
   // Cambios sin guardar: se compara con la versión que había al empezar a editar.
   const [baseline, setBaseline] = useState('')
-  const currentSnapshot = JSON.stringify([firstName, lastName, phone, bloodType, birthDate, tournaments])
+  const currentSnapshot = JSON.stringify([firstName, lastName, phone, bloodType, birthDate, tournaments, [...roles].sort()])
   const unsaved = editing && currentSnapshot !== baseline
 
   function startEdit() {
@@ -129,6 +130,7 @@ export function PersonaProfileView({
     setBloodType(profile.bloodType)
     setBirthDate(profile.birthDate ?? '')
     setTournaments(profile.tournaments)
+    setRoles(profile.roles)
     setSaveError('')
     setEditing(false)
   }
@@ -155,6 +157,13 @@ export function PersonaProfileView({
         { onConflict: 'user_id,tournament_id' },
       )
       if (tournamentError) return tournamentError.message
+    }
+    const rolesChanged = JSON.stringify([...roles].sort()) !== JSON.stringify([...profile.roles].sort())
+    if (rolesChanged) {
+      if (!roles.length) return 'Debes conservar al menos un rol personal.'
+      const { error: roleError } = await supabase.rpc('set_my_personal_roles', { p_roles: roles })
+      if (roleError) return roleError.message
+      window.dispatchEvent(new Event('athlonx-roles-updated'))
     }
     window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { full_name: `${firstName.trim()} ${lastName.trim()}` } }))
     return ''
@@ -252,10 +261,29 @@ export function PersonaProfileView({
       {section === 'participacion' && (
         <>
           <CardRow>
-            <Card title="Roles" description="Tu cuenta de persona puede tener varios roles a la vez.">
-              <div className="flex flex-wrap gap-2">
-                {profile.roles.length ? profile.roles.map((role) => <Chip key={role} tone="lime">{roleLabels[role] ?? role}</Chip>) : <Pending>Aún no tienes roles asignados.</Pending>}
-              </div>
+            <Card title="Roles" description="Tu cuenta de persona puede tener varios roles a la vez. Debe quedar al menos uno.">
+              {editing ? (
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Roles personales">
+                  {(['atleta', 'entrenador', 'staff', 'directivo'] as const).map((value) => {
+                    const on = roles.includes(value)
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setRoles(on ? roles.filter((role) => role !== value) : [...roles, value])}
+                        className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${on ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]' : 'border-[var(--ax-line-strong)] text-[var(--ax-muted)] hover:border-[var(--ax-accent-text)]'}`}
+                      >
+                        {roleLabels[value]}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {profile.roles.length ? profile.roles.map((role) => <Chip key={role} tone="lime">{roleLabels[role] ?? role}</Chip>) : <Pending>Aún no tienes roles asignados.</Pending>}
+                </div>
+              )}
             </Card>
             <Card title="Cargo de staff" description="Lista fija de cargos. Solo aplica si trabajas como staff de un equipo.">
               <ReadValue label="Cargo" value={profile.staffPositionName ?? ''} empty="Sin cargo de staff asignado" />
