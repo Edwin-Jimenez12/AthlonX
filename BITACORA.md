@@ -93,6 +93,31 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Cuenta personal aplicada en código (diseño aprobado)
+
+**Qué se hizo** (Edwin aprobó el diseño de la cuenta personal en Figma y dio permiso para aplicarlo):
+- **Menú**: atleta con Búsqueda, Notificaciones, Mi equipo, Calendario, Estadísticas, Entrenamientos y Carga y salud. Entrenador con Mi equipo, Calendario, Estadísticas, Entrenamientos, Carga y salud, Formaciones y Anuncios (`Components/dashboard-sidebar.tsx`).
+- **Atleta · Mi equipo** (`app/(panel)/atleta/page.tsx`): equipos del atleta, convocatorias por equipo (`TeamCallupsCard`) y plan. La cuota muestra un aviso de pendiente.
+- **Entrenador · Mi equipo** (`app/(panel)/entrenador/page.tsx`): equipos a cargo con su plantilla y convocatorias. Límite de equipos por plan: Libre 1, Pro 3.
+- **Entrenador · Convocatoria** (`app/(panel)/entrenador/convocatoria/page.tsx`): convocatorias del equipo elegido.
+- **Estadísticas personales** (`Components/persona/persona-stats-view.tsx`, enlazado desde `app/(panel)/estadisticas/page.tsx`): semana, mes y año. Libre ve el año actual; Pro ve años anteriores. Muestra la fila propia del jugador en `team_season_stats` (busca por nombre).
+- **Entrenamientos, Carga y salud, Formaciones y Anuncios** (`app/(panel)/*`): pantallas del diseño con sus funciones y su plan, marcadas como "Próximamente". No hay datos ni tablas todavía.
+- **Componentes compartidos**: `Components/persona/persona-ui.tsx`.
+
+**Limitaciones conocidas** (requieren SQL nuevo, no aplicado):
+- La cuota propia del atleta: `team_fee_board` solo deja leerla al tesorero. Hace falta una consulta de lectura propia.
+- Estadísticas por año: el rango lo ajusta el plan del **equipo**, no el de la persona (`team_season_stats`). Hace falta una consulta personal con el plan de la persona. Si el rango cambia, la pantalla lo avisa.
+- Límite de 5 eventos al mes para el entrenador en Free: no está implementado. Requiere una regla en la base de datos.
+- Carga, disponibilidad, entrenamientos, formaciones y anuncios: sin modelo de datos. Carga y disponibilidad dependen de decisiones de salud pendientes.
+- Recordatorios por correo: sin proveedor.
+- Calendario móvil en el código: sin cambios; el de Figma ya replica su diseño.
+
+**Verificación**: `npx tsc --noEmit` (sin errores fuera de `.next`), `npm run build` correcto, 59 pruebas en `tests/*.mjs` correctas. `npm run lint` no corre: el repo no tiene configuración de ESLint (`eslint.config.*`), problema previo. No se probó en navegador porque las pantallas requieren una cuenta con datos reales.
+
+**Pendiente**: aplicar las consultas de lectura propia (cuota y estadísticas) y la regla de 5 eventos al mes, con aprobación de Edwin para ejecutar SQL en el proyecto. Definir la lista de salud con médico y revisión legal. Elegir proveedor de correo para recordatorios.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Calendario móvil en Figma igual al código
 
 **Qué se hizo**: en los 8 frames móviles de calendario de la cuenta personal (Atleta y Entrenador, Free y Pro, oscuro y claro) la cuadrícula del mes pasó a 640 px dentro de un contenedor de 358 px con recorte, como en `Components/calendario/athlete-calendar.tsx` (`overflow-x-auto` con `min-w-[640px]`). Las barras de color de "Próximas actividades" volvieron a 4 px. No se cambió el diseño del código.

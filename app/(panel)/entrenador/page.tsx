@@ -1,26 +1,31 @@
 'use client'
 
-import { ArrowUpRight, Users } from 'lucide-react'
+import { ArrowUpRight, Megaphone } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { loadAccountPlan, AccountPlan } from '../../../lib/account-plans'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
 import { PersonaViewSwitcher } from '../../../Components/persona-view-switcher'
+import { PersonaShell } from '../../../Components/persona/persona-ui'
+import { TeamCallupsCard } from '../../../Components/mi-equipo/team-callups-card'
+import { TeamRosterCard } from '../../../Components/mi-equipo/team-roster-card'
+import { useTeamRoster } from '../../../Components/mi-equipo/use-team-roster'
+import { Badge, ButtonLink, Card, CardHeader, EntityMark, Notice, PageHeader, Segment } from '../../../Components/mi-equipo/ui'
+import { Chip, LockedFeature } from '../../../Components/organizacion/plan-ui'
 
-type TournamentRow = { id: string; name: string; cover_url: string | null; status: string; start_date: string | null }
-type TeamLogo = { id: string; logo_url: string | null }
-
-const statusLabels: Record<string, string> = { in_progress: 'En curso', finished: 'Finalizado' }
-
-function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'EQ'
+// Equipos que la persona entrena por cargo de entrenador (Figma: Entrenador · Free y Pro · Mi equipo).
+// Free: 1 equipo a cargo. Pro: hasta 3.
+function teamLimit(plan: AccountPlan | null) {
+  if (!plan || plan.code === 'libre') return 1
+  if (plan.code === 'pro') return 3
+  return null
 }
 
-export default function TrainerDashboard() {
-  const [userName, setUserName] = useState('Entrenador')
-  const [coachedTeams, setCoachedTeams] = useState<(ManagedTeam & { logo_url: string | null })[]>([])
-  const [tournaments, setTournaments] = useState<TournamentRow[]>([])
-  const [athleteCount, setAthleteCount] = useState<number | null>(null)
+export default function TrainerTeamPage() {
+  const [teams, setTeams] = useState<ManagedTeam[]>([])
+  const [plan, setPlan] = useState<AccountPlan | null>(null)
+  const [selectedId, setSelectedId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -32,126 +37,85 @@ export default function TrainerDashboard() {
         setLoading(false)
         return
       }
-      const { data: userData } = await supabase.auth.getUser()
-      const user = userData.user
-      if (!user) {
-        setError('Debes iniciar sesión para ver tu panel de entrenador.')
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        setError('Debes iniciar sesión para ver tu equipo.')
         setLoading(false)
         return
       }
-      const [{ data: profile }, managedTeams] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
-        loadManagedTeams(user.id),
+      const [managed, accountPlan] = await Promise.all([
+        loadManagedTeams(data.user.id),
+        loadAccountPlan('persona', data.user.id).catch(() => null),
       ])
-      const coached = managedTeams.filter((team) => team.role === 'entrenador')
-      const teamIds = coached.map((team) => team.id)
-
-      let logos: TeamLogo[] = []
-      let tournamentRows: TournamentRow[] = []
-      let athletes: number | null = 0
-      if (teamIds.length) {
-        const [{ data: logoRows }, { data: links }, { data: players }] = await Promise.all([
-          supabase.from('teams').select('id, logo_url').in('id', teamIds),
-          supabase.from('tournament_teams').select('tournament_id').in('team_id', teamIds),
-          supabase.from('team_players').select('player_id').in('team_id', teamIds),
-        ])
-        logos = (logoRows ?? []) as TeamLogo[]
-        athletes = new Set((players ?? []).map((row) => row.player_id)).size
-        const tournamentIds = Array.from(new Set((links ?? []).map((link) => link.tournament_id)))
-        if (tournamentIds.length) {
-          const { data } = await supabase
-            .from('tournaments')
-            .select('id, name, cover_url, status, start_date')
-            .in('id', tournamentIds)
-            .neq('status', 'draft')
-            .order('start_date', { ascending: true })
-          tournamentRows = (data ?? []) as TournamentRow[]
-        }
-      } else {
-        athletes = null
-      }
-
       if (!active) return
-      const logoById = new Map(logos.map((logo) => [logo.id, logo.logo_url]))
-      setUserName(profile?.full_name || user.user_metadata?.full_name || 'Entrenador')
-      setCoachedTeams(coached.map((team) => ({ ...team, logo_url: logoById.get(team.id) ?? null })))
-      setTournaments(tournamentRows)
-      setAthleteCount(athletes)
+      const coached = managed.filter((team) => team.role === 'entrenador')
+      setTeams(coached)
+      setPlan(accountPlan)
+      setSelectedId(coached[0]?.id ?? '')
       setLoading(false)
     }
     void load()
     return () => { active = false }
   }, [])
 
-  const value = (number: number | null) => (loading || number === null ? '—' : String(number))
-  const firstName = userName.trim().split(/\s+/)[0]?.toUpperCase() || 'ENTRENADOR'
+  const limit = teamLimit(plan)
+  const visible = limit === null ? teams : teams.slice(0, limit)
+  const hidden = teams.length - visible.length
+  const selected = teams.find((team) => team.id === selectedId) ?? visible[0] ?? null
+  const roster = useTeamRoster(selected?.id || undefined)
 
   return (
-    <main className="ax-panel-enter min-h-screen bg-transparent text-white lg:ml-64">
-      <section className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
-        <header className="flex flex-col gap-6 border-b border-[#1f4057] pb-8">
-          <PersonaViewSwitcher active="entrenador" />
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[.24em] text-[#b4ff45]">Mi vista · Entrenador</p>
-            <h1 className="mt-3 font-display text-5xl uppercase leading-none sm:text-6xl">Hola, {firstName}</h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Tus equipos a cargo, su plantilla y sus convocatorias por torneo y jornada.</p>
+    <PersonaShell>
+      <PersonaViewSwitcher active="entrenador" />
+      <PageHeader
+        title="Mi equipo"
+        description="Tus equipos a cargo, su plantilla y tus convocatorias."
+        actions={<>
+          {plan && <Chip tone="accent">Plan {plan.name}</Chip>}
+          {selected && <ButtonLink href="/entrenador/convocatoria" icon={Megaphone}>Convocatoria</ButtonLink>}
+        </>}
+      />
+
+      {error && <Notice tone="danger" icon={ArrowUpRight}>{error}</Notice>}
+
+      <Card labelledBy="equipos-a-cargo">
+        <CardHeader id="equipos-a-cargo" title="Equipos que entrenas" subtitle={teams.length ? `${teams.length} ${teams.length === 1 ? 'equipo' : 'equipos'}` : undefined} />
+        {visible.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Equipo a cargo">
+            {visible.map((team) => (
+              <Segment key={team.id} active={team.id === selected?.id} label={team.name} onClick={() => setSelectedId(team.id)} />
+            ))}
           </div>
-        </header>
-
-        {error && <p role="alert" className="rounded-2xl border border-[#ff7d88]/40 bg-[#ff7d88]/10 p-4 text-sm text-[#ffb0b7]">{error}</p>}
-
-        <section className="grid grid-cols-3 gap-4">
-          {[
-            ['Equipos a cargo', value(loading ? null : coachedTeams.length)],
-            ['Atletas en plantilla', value(athleteCount)],
-            ['Torneos', value(loading ? null : tournaments.length)],
-          ].map(([label, figure]) => (
-            <article key={label} className="rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6">
-              <p className="font-display text-5xl leading-none">{figure}</p>
-              <p className="mt-3 text-xs font-bold uppercase tracking-[.2em] text-slate-400">{label}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-          <div className="space-y-4">
-            <h2 className="font-display text-3xl uppercase">Mis equipos</h2>
-            {coachedTeams.length ? coachedTeams.map((team) => (
-              <article key={team.id} className="space-y-5 rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-2xl text-[#07131e]">
-                    {team.logo_url ? <img src={team.logo_url} alt="" className="h-full w-full object-cover" /> : initials(team.name)}
-                  </div>
-                  <div>
-                    <h3 className="font-display text-3xl uppercase">{team.name}</h3>
-                    <p className="mt-1 text-sm text-slate-400">{team.discipline}{team.city ? ` · ${team.city}` : ''}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <Link href={`/entrenador/equipo/${team.id}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#b4ff45] px-5 py-3 font-bold text-[#07131e] transition hover:brightness-110"><Users size={18} />Administrar equipo</Link>
-                  <Link href={`/entrenador/equipo/${team.id}?tab=convocatorias`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#31556b] px-5 py-3 font-semibold text-slate-200 transition hover:border-[#b4ff45] hover:text-[#b4ff45]">Convocatorias</Link>
-                </div>
-              </article>
-            )) : !loading && <p className="rounded-3xl border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Aún no tienes equipos asignados como entrenador.</p>}
+        )}
+        {selected && (
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--ax-line)] pt-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <EntityMark name={selected.name} src={selected.logoUrl} size={44} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{selected.name}</p>
+                <p className="mt-0.5 truncate text-xs text-[var(--ax-muted)]">Entrenador{selected.discipline ? ` · ${selected.discipline}` : ''}</p>
+              </div>
+            </div>
+            <Badge tone="success">Activo</Badge>
           </div>
-
-          <div className="space-y-4">
-            <h2 className="font-display text-3xl uppercase">Torneos de mis equipos</h2>
-            {tournaments.length ? tournaments.map((tournament) => (
-              <article key={tournament.id} className="overflow-hidden rounded-3xl border border-[#29485d] bg-[#0b1d2c]">
-                <div className="flex h-28 items-center justify-center bg-[#1b3b50]">
-                  {tournament.cover_url ? <img src={tournament.cover_url} alt="" className="h-full w-full object-cover" /> : <span className="font-display text-3xl text-slate-300">{initials(tournament.name)}</span>}
-                </div>
-                <div className="space-y-3 p-5">
-                  <h3 className="font-display text-2xl uppercase">{tournament.name}</h3>
-                  {statusLabels[tournament.status] && <span className="inline-flex rounded-full border border-[#b4ff45]/30 bg-[#b4ff45]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#cfff91]">{statusLabels[tournament.status]}</span>}
-                  <Link href={`/torneos/ver/${tournament.id}`} className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#b4ff45] hover:text-white">Ver evento<ArrowUpRight size={16} /></Link>
-                </div>
-              </article>
-            )) : !loading && <p className="rounded-3xl border border-dashed border-[#31556b] p-6 text-sm text-slate-400">Tus equipos aún no están inscritos en torneos.</p>}
+        )}
+        {hidden > 0 && (
+          <div className="mt-4">
+            <LockedFeature label={`Tu plan permite ${limit} ${limit === 1 ? 'equipo a cargo' : 'equipos a cargo'}. Hay ${hidden} más.`} />
           </div>
-        </section>
-      </section>
-    </main>
+        )}
+        {!loading && teams.length === 0 && <p className="mt-4 text-sm text-[var(--ax-muted)]">Aún no tienes equipos a cargo como entrenador.</p>}
+      </Card>
+
+      {selected && (
+        <>
+          <TeamRosterCard teamId={selected.id} canManage={false} discipline={selected.discipline} disciplineCode={selected.disciplineCode} {...roster} />
+          <TeamCallupsCard teamId={selected.id} teamName={selected.name} />
+          <p className="text-xs text-[var(--ax-muted)]">
+            Quién puede editar eventos y administrar personas lo decide el directivo del equipo. <Link href={`/entrenador/equipo/${selected.id}`} className="font-semibold text-[var(--ax-accent-text)] underline underline-offset-4">Ver el equipo completo</Link>
+          </p>
+        </>
+      )}
+    </PersonaShell>
   )
 }

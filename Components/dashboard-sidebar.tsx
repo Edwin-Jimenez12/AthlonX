@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Bell, Building2, CalendarDays, Circle, Globe2, Menu, Megaphone, Search, Shield, Users, Wallet } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, Bell, Building2, CalendarDays, Circle, Dumbbell, Globe2, Map as MapIcon, Menu, Megaphone, Search, Shield, Users, Wallet } from 'lucide-react'
 import { settingsSectionIcons, useSettingsNavConfig } from './settings-nav'
 import { usePathname } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -36,6 +36,11 @@ const trainerNavigation: NavigationItem[] = [
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/entrenador' },
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+  { label: 'Estadísticas', icon: BarChart3, href: '/estadisticas' },
+  { label: 'Entrenamientos', icon: Dumbbell, href: '/entrenamientos' },
+  { label: 'Carga y salud', icon: Activity, href: '/carga-salud' },
+  { label: 'Formaciones', icon: MapIcon, href: '/formaciones' },
+  { label: 'Anuncios', icon: Megaphone, href: '/anuncios' },
 ]
 
 const staffNavigation: NavigationItem[] = [
@@ -50,7 +55,15 @@ const personNavigation: NavigationItem[] = [
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
 ]
 
-const athleteNavigation = personNavigation
+const athleteNavigation: NavigationItem[] = [
+  { label: 'Búsqueda', icon: Search, href: '/busqueda' },
+  { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
+  { label: 'Mi equipo', icon: Shield, href: '/atleta' },
+  { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+  { label: 'Estadísticas', icon: BarChart3, href: '/estadisticas' },
+  { label: 'Entrenamientos', icon: Dumbbell, href: '/entrenamientos' },
+  { label: 'Carga y salud', icon: Activity, href: '/carga-salud' },
+]
 
 const organizationNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
@@ -148,6 +161,8 @@ export function DashboardSidebar() {
   let baseNavigation = personNavigation
   if (activeContext?.contextType === 'organization') {
     baseNavigation = organizationNavigation
+  } else if (activeContext?.contextType === 'personal' && activeContext.role === 'atleta') {
+    baseNavigation = athleteNavigation
   } else if (activeContext?.contextType === 'personal' && activeContext.role === 'entrenador') {
     baseNavigation = trainerNavigation
   } else if (activeContext?.contextType === 'personal' && activeContext.role === 'staff') {

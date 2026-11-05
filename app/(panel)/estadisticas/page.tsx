@@ -2,7 +2,9 @@
 
 import { BarChart3, TrendingUp, Trophy, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { loadAccountContexts } from "../../../lib/account-contexts";
 import { supabase } from "../../../lib/supabase";
+import { PersonaStatsView } from "../../../Components/persona/persona-stats-view";
 import { useActiveTeam } from "../../../Components/equipo/team-plan";
 import { TeamStatsView } from "../../../Components/equipo/team-stats-view";
 
@@ -14,8 +16,25 @@ const emptySummary: Summary = { points: 0, tries: 0, matches: 0, athletes: 0 };
 // Cuenta de equipo: estadísticas del equipo según su plan. Otras cuentas: resumen general.
 export default function StatisticsPage() {
   const ctx = useActiveTeam();
-  if (ctx.status === "cargando") return <main className="ax-v2 min-h-screen lg:ml-64" />;
+  const [personal, setPersonal] = useState<boolean | null>(null);
+
+  // Cuenta personal: atleta o entrenador con equipo vinculado ve sus propias estadísticas.
+  useEffect(() => {
+    let active = true;
+    async function check() {
+      if (!supabase) return setPersonal(false);
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return setPersonal(false);
+      const contexts = await loadAccountContexts(data.user.id);
+      if (active) setPersonal(contexts.some((context) => context.contextType === "team" && Boolean(context.teamId) && (context.role === "atleta" || context.role === "entrenador")));
+    }
+    void check();
+    return () => { active = false; };
+  }, []);
+
+  if (ctx.status === "cargando" || personal === null) return <main className="ax-v2 min-h-screen lg:ml-64" />;
   if (ctx.status === "listo") return <TeamStatsView ctx={ctx} />;
+  if (personal) return <PersonaStatsView />;
   return <LegacyStatisticsPage />;
 }
 
