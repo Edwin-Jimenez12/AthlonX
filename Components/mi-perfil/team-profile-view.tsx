@@ -18,7 +18,7 @@ import { PlanCard } from './plan-card'
 import { savePreferences, themeOptions } from './persona-profile-view'
 import { useAccountMeta } from './use-account-meta'
 import { useCountries } from './use-countries'
-import { TeamEventPermissionsCard, TeamLimitMeters, TeamSeasonCard, TeamTreasurersCard, useTeamUsage } from '../equipo/team-plan'
+import { TeamEventPermissionsCard, TeamLimitMeters, TeamTreasurersCard, useTeamUsage } from '../equipo/team-plan'
 
 export const teamSections: SectionItem[] = [
   { id: 'identidad', label: 'Información del equipo', description: 'Datos, escudo y divisiones', icon: Shield },
@@ -342,7 +342,6 @@ export function TeamProfileView({
           </Card>
         </CardRow>
       )}
-      {section === 'configuracion' && <TeamSeasonCard teamId={team.id} canEdit={canEdit} />}
 
       {section === 'seguridad' && <SecurityCards email={meta.email} />}
 

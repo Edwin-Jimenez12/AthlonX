@@ -11,10 +11,15 @@ import { PersonaShell } from '../../../Components/persona/persona-ui'
 import { TeamCallupsCard } from '../../../Components/mi-equipo/team-callups-card'
 import { Badge, Card, CardHeader, ButtonLink, EmptyState, EntityMark, Notice, PageHeader } from '../../../Components/mi-equipo/ui'
 
+function money(value: number) {
+  return new Intl.NumberFormat('es-PA', { style: 'currency', currency: 'USD' }).format(value)
+}
+
 // Atleta · Mi equipo (Figma: Atleta · Free y Pro · Mi equipo): equipos, convocatorias y cuota.
 export default function AthleteTeamPage() {
   const [contexts, setContexts] = useState<AccountContext[]>([])
   const [planName, setPlanName] = useState<string | null>(null)
+  const [fees, setFees] = useState<Record<string, { fee: number; status: string; pending_months: number }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -39,6 +44,14 @@ export default function AthleteTeamPage() {
       if (!active) return
       setContexts(accountContexts)
       setPlanName(plan?.name ?? null)
+      const persona = accountContexts.filter((context) => context.contextType === 'team' && context.teamId && context.role === 'atleta')
+      const monthStart = new Date(); monthStart.setDate(1)
+      const results = await Promise.all(persona.map(async (context) => {
+        const { data: rows } = await supabase!.rpc('team_my_fee', { p_team: context.teamId, p_month: monthStart.toISOString().slice(0, 10) })
+        const row = (rows as Array<{ fee: number; status: string; pending_months: number }> | null)?.[0]
+        return [context.teamId as string, row ?? { fee: 0, status: 'pendiente', pending_months: 0 }] as const
+      }))
+      if (active) setFees(Object.fromEntries(results))
       setLoading(false)
     }
     void load()
@@ -89,11 +102,23 @@ export default function AthleteTeamPage() {
 
         <Card labelledBy="mi-cuota">
           <CardHeader id="mi-cuota" title="Mi cuota" subtitle="Estado de tu pago en cada equipo" />
-          <div className="mt-4">
-            <Notice tone="neutral" icon={Shield}>
-              Tu estado de cuota aparecerá aquí cuando la plataforma permita que cada jugador vea su propio pago. Hoy solo lo ven el tesorero y el equipo.
-            </Notice>
-          </div>
+          <ul className="mt-4 divide-y divide-[var(--ax-line)]">
+            {teams.length === 0 && !loading && <li className="py-3 text-sm text-[var(--ax-muted)]">Cuando juegues en un equipo, verás aquí tu cuota.</li>}
+            {teams.map((team) => {
+              const fee = fees[team.teamId as string]
+              return (
+                <li key={team.id} className="flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{team.name}</p>
+                    <p className="mt-0.5 text-xs text-[var(--ax-muted)]">{fee ? `${money(fee.fee)} al mes` : 'Cargando cuota…'}</p>
+                  </div>
+                  {fee && (fee.status === 'pagado'
+                    ? <Badge tone="success">Pagada este mes</Badge>
+                    : <Badge tone="warning">Pendiente{fee.pending_months > 1 ? ` · ${fee.pending_months} meses` : ''}</Badge>)}
+                </li>
+              )
+            })}
+          </ul>
         </Card>
       </div>
 

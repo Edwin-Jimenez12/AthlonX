@@ -49,7 +49,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Versión móvil y modo claro del calendario, contra Figma.
 
 **Cuenta personal y staff**
-- [ ] Planes por perfil: atleta y entrenador con planes Free y Pro (y Élite después); staff y directivo quedan en Free por ahora.
+- [x] Planes por perfil: atleta y entrenador con planes Free y Pro (y Élite después); staff y directivo quedan en Free por ahora. (Código y SQL aplicados el 2026-11-05, entrada "Cuenta personal aplicada en código".)
 - [x] Excel de planes de atleta y entrenador (Free y Pro): marcado por Edwin y guardado en `documentos/PLANES_ATLETA_ENTRENADOR_APROBADO.xlsx` (entrada del 2026-11-05, "Figma de atleta y entrenador").
 - [ ] Revisar y aprobar en Figma los 4 sets de la cuenta personal (Atleta Free y Pro, Entrenador Free y Pro); después, pasarlos a código.
 - [x] Modo claro y versión móvil de los 4 sets de la cuenta personal (entrada del 2026-11-05, "Modo claro y móvil de la cuenta personal"). Pendiente: versión de tableta y revisión de Edwin.
@@ -59,7 +59,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Entrenador Free: 5 eventos del equipo al mes (hoy el límite del equipo Free es 10). Definir cómo conviven el límite del entrenador y el del equipo.
 - [ ] El entrenador no crea eventos Amistoso ni torneos, y no da permisos de edición por evento: eso lo hace un directivo. Solo edita un evento si un directivo le da permiso como staff.
 - [ ] Confirmar que "Equipos que entrena" (Free 1, Pro 3) cuenta los equipos donde tiene el cargo de entrenador.
-- [ ] Pro completo: construir entrenamientos, asistencia, formaciones y anuncios antes de vender Pro al entrenador.
+- [ ] Pro completo: asistencia en cancha pendiente (por definir). Formaciones y anuncios ya están construidos (entrada del 2026-11-05, "Cuenta personal aplicada en código").
 - [ ] Carga de trabajo semanal del atleta: la ven el atleta y el médico por defecto; el médico da permiso al entrenador o a la cuenta de equipo.
 - [ ] Seguimiento de salud centralizado: un registro por atleta con acceso por cargo y por equipo (tabla de vistas en la entrada del 2026-11-05). Confirmar con un médico y un fisioterapeuta profesionales antes de construirlo.
 - [ ] Aviso de molestias al médico: consentimiento expreso, tutores para menores de edad y revisión legal (Ley 81 de 2019, Panamá) antes de lanzarlo.
@@ -90,6 +90,37 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Estadísticas por año, cuota propia, entrenamientos, formaciones y anuncios (con SQL aplicado)
+
+**Decisiones de Edwin aplicadas**:
+- Estadísticas por año (año calendario, del 1 de enero al 31 de diciembre), por semana, mes o año, para todas las cuentas. La temporada personalizada ya no existe: `team_season()` devuelve el año en curso. Finanzas dice "Saldo del año". La tarjeta Temporada de Configuración del equipo se quitó.
+- Free ve el año actual; Pro ve los anteriores (en equipos, por `comparar_temporadas`; en personas, por plan Pro o Élite).
+
+**SQL aplicado** (proyecto `mlvtsgseneqzihwkiatg`, verificado con consultas de solo lectura; cada migración devolvió HTTP 201):
+- `supabase/persona-stats-by-year-migration.sql`: `team_season`, `team_season_stats` (sin reemplazar el rango por temporada) y la nueva `persona_personal_stats(p_from, p_to)`, que suma por equipo las estadísticas propias usando `players.user_id`.
+- `supabase/persona-coach-event-limit-migration.sql`: trigger `team_calendar_events_coach_limit`. Entrenador con plan Libre: máximo 5 eventos de equipo creados por él al mes, en todos sus equipos. Solo cuenta altas nuevas.
+- `supabase/team-my-fee-migration.sql`: `team_my_fee(p_team, p_month)`. El jugador ve su propio monto, estado del mes y meses pendientes.
+- `supabase/team-training-formations-announcements-migration.sql`: tablas `team_training_sessions`, `team_training_exercises`, `team_training_responses`, `team_training_templates`, `team_formations`, `team_announcements`, `team_announcement_views`, con seguridad por fila. Triggers `team_formations_pro` y `team_announcements_pro`: el entrenador con plan Libre no puede crear formaciones ni anuncios.
+
+**Interfaz aplicada**:
+- Atleta · Mi equipo: cuota por equipo (pagada o pendiente, con meses pendientes).
+- Entrenamientos (atleta y entrenador): sesiones con ejercicios y respuestas Voy, Tal vez o No voy; el entrenador asigna a todo el equipo o a una división, crea y reutiliza plantillas.
+- Formaciones (entrenador Pro): cancha de rugby de 15 posiciones, asignación de jugadores y formaciones guardadas.
+- Anuncios (entrenador Pro para publicar): para todo el equipo o una división; el atleta registra su lectura y el entrenador ve el número de lecturas.
+- Estadísticas personales y del equipo: periodo común (`Components/estadisticas/periodo.tsx`).
+
+**Decisiones por defecto, a revisar con Edwin y el entrenador** (están en el encabezado de la migración): entrenamientos sin repetición; formaciones de rugby guardadas por equipo; anuncios dentro de la app, sin push.
+
+**Pendiente, fuera de alcance por ahora**:
+- Carga y salud: no se construyó. La bitácora pide confirmar el modelo con un médico y un fisioterapeuta profesionales, y revisar la Ley 81 de 2019, antes de construirlo. Esa confirmación la tiene que dar una persona, no el código.
+- Recordatorios por correo: falta elegir el proveedor de correo y sus credenciales.
+- Sincronización con Google y Outlook: requiere credenciales de Google y Microsoft.
+- `supabase/` del proyecto: `team_set_season` sigue existiendo en la base, pero ya no tiene pantalla.
+
+**Verificación**: `npx tsc --noEmit` sin errores fuera de `.next`; `npm run build` correcto; 59 pruebas en `tests/*.mjs` correctas (corridas después de los últimos cambios). No se probó en navegador con cuentas reales.
 
 ---
 

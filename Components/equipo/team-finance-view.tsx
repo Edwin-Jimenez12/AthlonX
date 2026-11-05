@@ -250,9 +250,9 @@ function Resumen({ teamId, teamName, usage, accounts, monthMovs, seasonMovs, nam
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-6">
           <Card className="flex flex-col gap-3">
-            <CardHeader id="saldo" title="Saldo de la temporada" />
+            <CardHeader id="saldo" title="Saldo del año" />
             <p className="font-display text-[56px] leading-none text-[var(--ax-text)]">{money(season.saldo)}</p>
-            {usage?.season && <p className="text-[13px] text-[var(--ax-muted)]">Temporada del {shortDate(usage.season.starts_on)} al {shortDate(usage.season.ends_on)}</p>}
+            {usage?.season && <p className="text-[13px] text-[var(--ax-muted)]">Del {shortDate(usage.season.starts_on)} al {shortDate(usage.season.ends_on)}</p>}
           </Card>
           <Card className="flex flex-col gap-3">
             <CardHeader id="ultimos" title="Últimos movimientos" />
@@ -290,7 +290,7 @@ function Resumen({ teamId, teamName, usage, accounts, monthMovs, seasonMovs, nam
             <CardHeader id="reportes" title="Reportes" />
             {!reportsOn ? <LockedFeature label="Estado de resultados en PDF y CSV" /> : (
               <>
-                <p className="text-[13px] text-[var(--ax-muted)]">Estado de resultados de la temporada, con el logotipo del equipo.</p>
+                <p className="text-[13px] text-[var(--ax-muted)]">Estado de resultados del año, con el logotipo del equipo.</p>
                 <div className="flex flex-wrap gap-2.5"><Button variant="secondary" onClick={() => report(true)}>Descargar PDF</Button><Button variant="secondary" onClick={() => report(false)}>Descargar CSV</Button></div>
               </>
             )}
