@@ -163,6 +163,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Qué se hizo**: la tarjeta "Escudo" de Mi perfil › Información del equipo tenía un aviso "Próximamente". Ahora usa el mismo componente de imagen de la foto de persona (compresión en el navegador, arrastrar para elegir la parte visible y zoom con vista previa). El escudo se guarda al subirlo en `teams.logo_url`, con `update_team_profile`. Solo propietario y directivos lo cambian.
 **Archivos**: `Components/mi-perfil/team-profile-view.tsx`.
 **Verificación**: `npm run build` sin errores; 56 pruebas correctas. Backend ya existente: bucket `avatars` (2 MB, webp/jpg/png) y permiso `equipo/{id}` para dueño y organización.
+**Corrección**: al subir, el escudo se borraba al recargar porque se guardaba el valor anterior (el estado de React todavía no se había actualizado). Ahora la URL nueva se pasa directamente al guardar.
 **Pendiente**: probar la subida en el sitio publicado (requiere desplegar); el escudo no aparece todavía en el encabezado del equipo, solo en la tarjeta.
 
 ---

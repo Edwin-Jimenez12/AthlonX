@@ -130,13 +130,13 @@ export function TeamProfileView({
   }
 
   // La RPC reescribe todos los campos del perfil del equipo.
-  async function writeTeam(values: { name: string; handle: string; description: string; city: string; country: string; disciplineId: string; contactEmail: string; contactPhone: string; websiteUrl: string; isPublic: boolean }): Promise<string> {
+  async function writeTeam(values: { name: string; handle: string; description: string; city: string; country: string; disciplineId: string; contactEmail: string; contactPhone: string; websiteUrl: string; isPublic: boolean }, logo: string = logoUrl): Promise<string> {
     if (!supabase) return 'Supabase no está configurado.'
     const { error } = await supabase.rpc('update_team_profile', {
       p_team_id: team.id,
       p_name: values.name.trim(),
       p_description: values.description.trim() || null,
-      p_logo_url: logoUrl || null,
+      p_logo_url: logo || null,
       p_country: values.country.trim() || 'Panamá',
       p_city: values.city.trim() || null,
       p_contact_email: values.contactEmail.trim() || null,
@@ -177,7 +177,8 @@ export function TeamProfileView({
     const previous = logoUrl
     setLogoUrl(url ?? '')
     setLogoError('')
-    const failure = await writeTeam({ name: team.name, handle: team.handle, description: team.description, city: team.city, country: team.country, disciplineId: team.disciplineId, contactEmail: team.contactEmail, contactPhone: team.contactPhone, websiteUrl: team.websiteUrl, isPublic })
+    // Se pasa la URL nueva explícitamente: el estado todavía tiene la anterior en este momento.
+    const failure = await writeTeam({ name: team.name, handle: team.handle, description: team.description, city: team.city, country: team.country, disciplineId: team.disciplineId, contactEmail: team.contactEmail, contactPhone: team.contactPhone, websiteUrl: team.websiteUrl, isPublic }, url ?? '')
     if (failure) { setLogoUrl(previous); setLogoError(failure) }
   }
 
