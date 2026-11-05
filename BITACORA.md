@@ -158,6 +158,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Excel de atleta y entrenador (Free y Pro), para elegir funciones por incluir
+
+**Qué se hizo**: `documentos/PLANES_ATLETA_ENTRENADOR_FREE_PRO.xlsx`, con hojas Atleta, Entrenador y Por definir. Cada función lleva [HOY] (ya existe), [PENDIENTE] (hay que construirla) o [POR DEFINIR] (falta una decisión). Élite queda para después.
+**Forma de trabajo acordada**: primero se marcan las funciones a incluir en cada perfil (APRO/RECHA), luego se resuelven las decisiones de la hoja Por definir, y después se incorporan al código poco a poco.
+**Pendiente**: que Edwin marque el Excel y decida la primera tanda.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Excel de planes de la cuenta personal por perfil
 
 **Qué se hizo**: `documentos/PLANES_PERSONA_PROPUESTA.xlsx`, con una hoja por perfil (Atleta, Entrenador, Staff y Directivo) y columnas Libre, Pro y Élite con APRO/RECHA. Además, hojas de Precios (los del documento de planes de noviembre) y Decisiones (6 preguntas abiertas). Lo que todavía no existe lleva "(próximo)" y no debería cobrarse hasta construirlo.
