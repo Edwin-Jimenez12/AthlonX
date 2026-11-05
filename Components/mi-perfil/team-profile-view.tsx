@@ -220,6 +220,7 @@ export function TeamProfileView({
   const hero = (
     <Hero
       initials={initials}
+      image={logoUrl || null}
       round={false}
       kindLabel="Equipo"
       title={name || 'Equipo pendiente'}

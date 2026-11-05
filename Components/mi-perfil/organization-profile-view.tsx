@@ -221,6 +221,7 @@ export function OrganizationProfileView({
   const hero = (
     <Hero
       initials={initialsOf(name) || 'AX'}
+      image={organization.logoUrl || null}
       round={false}
       kindLabel="Organización"
       title={name || 'Organización pendiente'}

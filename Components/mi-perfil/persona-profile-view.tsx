@@ -212,6 +212,7 @@ export function PersonaProfileView({
   const hero = (
     <Hero
       initials={initialsOf(displayName)}
+      image={avatarUrl}
       kindLabel="Persona"
       title={displayName}
       code={profile.athlonxCode}

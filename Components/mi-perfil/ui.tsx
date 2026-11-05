@@ -149,6 +149,7 @@ export function Shell({
 // "Ver perfil público" está en el menú de cuenta de la barra superior.
 export function Hero({
   initials,
+  image,
   round = true,
   kindLabel,
   title,
@@ -159,6 +160,7 @@ export function Hero({
   onEdit,
 }: {
   initials: string
+  image?: string | null
   round?: boolean
   kindLabel: string
   title: string
@@ -171,7 +173,7 @@ export function Hero({
   return (
     <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
       <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
-        <span aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center bg-[var(--ax-accent)] font-display text-[24px] text-[var(--ax-on-accent)] sm:h-[72px] sm:w-[72px] sm:text-[30px] lg:h-20 lg:w-20 lg:text-[34px]', round ? 'rounded-full' : 'rounded-[14px] lg:rounded-[18px]')}>{initials || 'AX'}</span>
+        <span aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden bg-[var(--ax-accent)] font-display text-[24px] text-[var(--ax-on-accent)] sm:h-[72px] sm:w-[72px] sm:text-[30px] lg:h-20 lg:w-20 lg:text-[34px]', round ? 'rounded-full' : 'rounded-[14px] lg:rounded-[18px]')}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : (initials || 'AX')}</span>
         <div className="min-w-0 space-y-2">
           <h1 className="font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] [overflow-wrap:anywhere] sm:text-[40px] sm:leading-[42px] lg:text-[48px] lg:leading-[50px]">{title}</h1>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">

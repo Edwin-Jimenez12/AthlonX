@@ -164,7 +164,8 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Archivos**: `Components/mi-perfil/team-profile-view.tsx`.
 **Verificación**: `npm run build` sin errores; 56 pruebas correctas. Backend ya existente: bucket `avatars` (2 MB, webp/jpg/png) y permiso `equipo/{id}` para dueño y organización.
 **Corrección**: al subir, el escudo se borraba al recargar porque se guardaba el valor anterior (el estado de React todavía no se había actualizado). Ahora la URL nueva se pasa directamente al guardar.
-**Pendiente**: probar la subida en el sitio publicado (requiere desplegar); el escudo no aparece todavía en el encabezado del equipo, solo en la tarjeta.
+**Encabezado**: el encabezado del perfil (Hero) mostraba siempre las iniciales. Ahora usa la imagen cuando existe, en equipo, persona y organización (escudo, foto y logotipo).
+**Pendiente**: probar la subida en el sitio publicado (requiere desplegar).
 
 ---
 
