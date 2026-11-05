@@ -75,6 +75,28 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Seguimiento de salud centralizado con acceso por cargo y equipo
+
+**Decisiones**
+- La información de salud del atleta (molestias, estado de disponibilidad, restricciones y carga) se guarda en **un solo registro por atleta**. Lo que cada persona ve depende de su cargo en el equipo y de los permisos del atleta o del médico.
+- **Acceso ligado al equipo**: el cargo cuenta solo dentro del equipo donde está activo. Un fisioterapeuta de un equipo no ve a los atletas de otro. Si la persona deja el equipo, pierde el acceso.
+- **Vista por cargo** (propuesta, pendiente de confirmar):
+  - Atleta: todo lo suyo.
+  - Médico y fisioterapeuta del equipo: ficha clínica completa y carga de los atletas del equipo.
+  - Preparador físico: carga, sesiones y estado de disponibilidad; las restricciones que defina el médico, pero no el diagnóstico.
+  - Entrenador: estado de disponibilidad y restricciones; carga y diagnóstico solo con permiso del médico.
+  - Staff sin cargo clínico (logística, utilero, delegado): nada de salud.
+  - Árbitro: nada de salud ni de carga. La sección aparece solo si la persona tiene un cargo con acceso en ese equipo.
+  - Tesorero: solo finanzas.
+- Una persona con varios cargos en el mismo equipo ve la unión de sus accesos.
+
+**Pendientes**
+- [ ] Confirmar la tabla de vistas por cargo con el médico, el fisioterapeuta y el preparador físico.
+- [ ] Definir la ficha de seguimiento (molestia, evolución, estado, restricciones) y el registro de quién cambió cada dato.
+- [ ] Revisión legal (Ley 81 de 2019) del acceso por equipo y por cargo.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Decisiones de staff, árbitro y datos de salud
 
 **Decisiones de Edwin**
