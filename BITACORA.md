@@ -75,6 +75,29 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Decisiones de staff, árbitro y datos de salud
+
+**Decisiones de Edwin**
+- El perfil de **staff es un cargo** con varios cargos posibles según la experiencia de la persona: médico, preparador físico, fisioterapeuta, árbitro, tesorero, etc.
+- **Tesorero y árbitro/juez son permisos**, no cargos. Los puede tener cualquiera del perfil de staff.
+- **Árbitro** puede ser calificado por las personas (calificación del árbitro). Pendiente: reglas de moderación y de cuántas calificaciones hacen falta para mostrarla.
+- **Datos de salud (molestias):** el atleta y el médico lo ven por defecto. El entrenador lo ve solo si el médico da permiso. Lo mismo para la **carga semanal**: la ven el atleta y el médico; el médico puede dar permiso al entrenador o a la cuenta de equipo.
+
+**Recomendación pendiente de decidir (no implementada)**
+- Separar el dato clínico del dato operativo:
+  - Molestia y diagnóstico: solo médico y fisioterapeuta, y el atleta.
+  - Estado de disponibilidad (apto, apto con restricciones, no apto) y avance de recuperación: lo ve el entrenador y el preparador físico, sin diagnóstico.
+  - Carga de entrenamiento: preparador físico y entrenador, con permiso del médico.
+- Revisión legal de la Ley 81 de 2019 (protección de datos personales, Panamá). Incluye: consentimiento expreso para datos de salud, acceso y eliminación, transferencias fuera de Panamá (la base está alojada fuera) y consentimiento de tutores para menores de edad.
+
+**Pendientes**
+- [ ] Definir el modelo de datos de salud (molestia, estado de disponibilidad y carga) con el médico y el preparador.
+- [ ] Revisión legal con abogado de Ley 81 de 2019 antes de lanzar molestias o carga.
+- [ ] Calificación de árbitros: reglas de moderación y mínimo de calificaciones.
+- [ ] Perfil de staff como cargo con permisos (tesorero, árbitro) asignables.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Decisiones de la cuenta personal (sin Excel todavía)
 
 **Decisiones de Edwin**
