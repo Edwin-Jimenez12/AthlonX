@@ -2040,6 +2040,8 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     date,
     matches: matches.filter((match) => match.date_number === date),
   }))
+  // Escudo de cada equipo en las filas de partidos (si lo tiene).
+  const teamLogo = (teamId: string | null | undefined) => teams.find((team) => team.id === teamId)?.logo_url ?? null
 
   const shownDate = activeDate !== null && fixtureDateNumbers.includes(activeDate) ? activeDate : (fixtureDateNumbers[0] ?? null)
   return <>
@@ -2107,11 +2109,11 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
               <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[var(--ax-muted)]">{match.division_name || 'General'}</span>
               <div className="flex min-w-0 items-center justify-end gap-2.5">
                 <span className="truncate text-sm font-semibold text-[var(--ax-text)]">{match.local_team_name}</span>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-xs font-bold text-[var(--ax-text)]">{match.local_team_name.slice(0, 2).toUpperCase()}</span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-xs font-bold text-[var(--ax-text)]">{teamLogo(match.local_team_id) ? <img src={teamLogo(match.local_team_id)!} alt="" className="h-full w-full object-cover" /> : match.local_team_name.slice(0, 2).toUpperCase()}</span>
               </div>
               <span className="flex h-8 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[13px] font-medium text-[var(--ax-muted)]">vs</span>
               <div className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-xs font-bold text-[var(--ax-text)]">{match.visitor_team_name.slice(0, 2).toUpperCase()}</span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-xs font-bold text-[var(--ax-text)]">{teamLogo(match.visitor_team_id) ? <img src={teamLogo(match.visitor_team_id)!} alt="" className="h-full w-full object-cover" /> : match.visitor_team_name.slice(0, 2).toUpperCase()}</span>
                 <span className="truncate text-sm font-semibold text-[var(--ax-text)]">{match.visitor_team_name}</span>
               </div>
             </div>

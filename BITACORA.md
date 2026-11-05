@@ -158,6 +158,24 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Foto, escudo y logotipo en todos los lugares donde aparece la cuenta
+
+**Qué se hizo**: revisión de todos los lugares que dibujaban iniciales en vez de la imagen de la cuenta. Ahora usan la foto (persona), el escudo (equipo) o el logotipo (organización) cuando existe:
+- **Barra superior**: el menú de cuenta (`Components/account-menu.tsx`, `Components/dashboard-header.tsx`) y el selector de vistas (`Components/context-switcher.tsx`). Se actualizan al momento al subir una imagen (evento `athlonx-profile-updated` con `avatar_url` o `logo_url`).
+- **Contextos de cuenta** (`lib/account-contexts.ts`): nuevo campo `imageUrl`.
+- **Mi equipo**: encabezado con el escudo (`lib/team-access.ts` trae `logo_url`).
+- **Mi perfil**:
+  - Encabezado (Hero) de equipo, persona y organización.
+  - Listas: equipos y organizaciones de la persona, directivos y organización del equipo, equipos y directivos de la organización. `ListRow` acepta `image`.
+  - Tarjeta del logotipo de la organización.
+- **Torneo**: filas de partidos con el escudo de cada equipo.
+- **Panel del atleta**: tarjetas de afiliaciones.
+- Ya mostraban imagen y no se tocaron: perfiles públicos (persona, equipo, organización), búsqueda, plantilla, cuerpo técnico, tabla de posiciones y equipos del torneo.
+
+**Verificación**: `npm run build` sin errores; 56 pruebas correctas. No se probó en navegador (hay que desplegar).
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Escudo del equipo con subida, recorte y vista previa
 
 **Qué se hizo**: la tarjeta "Escudo" de Mi perfil › Información del equipo tenía un aviso "Próximamente". Ahora usa el mismo componente de imagen de la foto de persona (compresión en el navegador, arrastrar para elegir la parte visible y zoom con vista previa). El escudo se guarda al subirlo en `teams.logo_url`, con `update_team_profile`. Solo propietario y directivos lo cambian.

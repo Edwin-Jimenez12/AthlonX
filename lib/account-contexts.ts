@@ -12,6 +12,8 @@ export type AccountContext = {
   organizationType: string | null
   role: AccountRole
   roleLabel: string | null
+  // Foto (vista personal), escudo (equipo) o logotipo (organización).
+  imageUrl?: string | null
 }
 
 const accountRoles: AccountRole[] = ['atleta', 'entrenador', 'staff', 'directivo']
@@ -115,10 +117,13 @@ export async function loadAccountContexts(userId: string): Promise<AccountContex
   const teamIds = allRows.flatMap((row) => row.team_id ? [row.team_id] : [])
   const organizationIds = allRows.flatMap((row) => row.organization_id ? [row.organization_id] : [])
   const [{ data: teams }, { data: organizations }, { data: disciplines }] = await Promise.all([
-    teamIds.length ? supabase.from('teams').select('id, name, discipline_id').in('id', teamIds).eq('is_official', true) : Promise.resolve({ data: [] }),
-    organizationIds.length ? supabase.from('organizations').select('id, name, type').in('id', organizationIds) : Promise.resolve({ data: [] }),
+    teamIds.length ? supabase.from('teams').select('id, name, discipline_id, logo_url').in('id', teamIds).eq('is_official', true) : Promise.resolve({ data: [] }),
+    organizationIds.length ? supabase.from('organizations').select('id, name, type, logo_url').in('id', organizationIds) : Promise.resolve({ data: [] }),
     supabase.from('disciplines').select('id, name').eq('is_active', true),
   ])
+  const { data: ownProfile } = await supabase.from('profiles').select('avatar_url').eq('id', userId).maybeSingle()
+  const teamLogos = new Map((teams ?? []).map((team) => [team.id, (team as { logo_url?: string | null }).logo_url ?? null]))
+  const organizationLogos = new Map((organizations ?? []).map((organization) => [organization.id, (organization as { logo_url?: string | null }).logo_url ?? null]))
 
   const teamNames = new Map((teams ?? []).map((team) => [team.id, team.name]))
   const teamDisciplines = new Map((teams ?? []).map((team) => [team.id, team.discipline_id]))
@@ -140,6 +145,9 @@ export async function loadAccountContexts(userId: string): Promise<AccountContex
       organizationType: row.organization_id ? (organizationTypes.get(row.organization_id) ?? null) : null,
       role,
       roleLabel: row.role_label,
+      imageUrl: row.context_type === 'personal'
+        ? ownProfile?.avatar_url ?? null
+        : row.team_id ? teamLogos.get(row.team_id) ?? null : organizationLogos.get(row.organization_id ?? '') ?? null,
     }
   })
 }

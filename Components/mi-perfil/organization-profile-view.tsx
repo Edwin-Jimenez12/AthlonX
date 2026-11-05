@@ -195,7 +195,10 @@ export function OrganizationProfileView({
     const failure = await visibilityStatus.run(() => writeOrganization({ name: saved.name, type: saved.type, handle: saved.handle, country: saved.country, city: saved.city, description: saved.description, contactEmail: saved.contactEmail, contactPhone: saved.contactPhone, websiteUrl: saved.websiteUrl, socialLinks: saved.socialLinks, isPublic: saved.isPublic, disciplineIds: saved.disciplineIds }, url))
     if (!failure) setNotice({ type: 'ok', text: 'Logotipo actualizado.' })
     else setNotice({ type: 'error', text: failure })
-    if (!failure) onSaved()
+    if (!failure) {
+      window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { logo_url: url, kind: 'Organización' } }))
+      onSaved()
+    }
   }
 
   // Visibilidad al momento: se envían los datos ya guardados con el nuevo valor.
@@ -252,7 +255,7 @@ export function OrganizationProfileView({
               <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable />
             </FieldGrid>
             <div className="flex items-center gap-4 border-t border-[var(--ax-line)] pt-4">
-              <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{initialsOf(name) || 'AX'}</span>
+              <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-full w-full object-cover" /> : (initialsOf(name) || 'AX')}</span>
               <div className="min-w-0 space-y-2">
                 <ImageUploadField label="Logotipo" value={organization.logoUrl} kind="avatar" folder={imageFolders.organizacion(organization.id)} slot="logo" disabled={!canEdit} hint="Cuadrado. Se comprime en tu navegador antes de subirlo." onChange={(url) => void changeLogo(url)} />
               </div>
@@ -300,12 +303,12 @@ export function OrganizationProfileView({
         <CardRow>
           <Card title="Equipos afiliados" description="Equipos oficiales vinculados a esta organización.">
             {organization.teams.length ? <RowList>{organization.teams.map((team) => (
-              <ListRow key={team.id} initials={initialsOf(team.name)} title={team.name} meta={team.athlonxCode} right={<Link href={`/equipos/${team.id}`} aria-label={`Ver ${team.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><ExternalLink size={16} aria-hidden="true" /></Link>} />
+              <ListRow key={team.id} initials={initialsOf(team.name)} image={team.logoUrl} title={team.name} meta={team.athlonxCode} right={<Link href={`/equipos/${team.id}`} aria-label={`Ver ${team.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><ExternalLink size={16} aria-hidden="true" /></Link>} />
             ))}</RowList> : <Pending>Aún no hay equipos oficiales afiliados.</Pending>}
           </Card>
           <Card title="Directivos" description="Personas con permisos de administración en la organización.">
             {organization.directivos.length ? <RowList>{organization.directivos.map((person) => (
-              <ListRow key={person.userId} round initials={initialsOf(person.fullName)} title={person.fullName} right={<Chip tone={person.role === 'owner' ? 'lime' : 'default'}>{roleLabel(person.role)}</Chip>} />
+              <ListRow key={person.userId} round initials={initialsOf(person.fullName)} image={person.avatarUrl} title={person.fullName} right={<Chip tone={person.role === 'owner' ? 'lime' : 'default'}>{roleLabel(person.role)}</Chip>} />
             ))}</RowList> : <Pending>Sin directivos activos.</Pending>}
           </Card>
         </CardRow>

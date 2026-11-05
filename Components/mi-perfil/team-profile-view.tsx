@@ -179,7 +179,8 @@ export function TeamProfileView({
     setLogoError('')
     // Se pasa la URL nueva explícitamente: el estado todavía tiene la anterior en este momento.
     const failure = await writeTeam({ name: team.name, handle: team.handle, description: team.description, city: team.city, country: team.country, disciplineId: team.disciplineId, contactEmail: team.contactEmail, contactPhone: team.contactPhone, websiteUrl: team.websiteUrl, isPublic }, url ?? '')
-    if (failure) { setLogoUrl(previous); setLogoError(failure) }
+    if (failure) { setLogoUrl(previous); setLogoError(failure); return }
+    window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { logo_url: url, kind: 'Equipo' } }))
   }
 
   // Visibilidad al momento: se envían los datos ya guardados del equipo con el nuevo valor.
@@ -291,6 +292,7 @@ export function TeamProfileView({
                   key={key}
                   round
                   initials={initialsOf(member.fullName)}
+                  image={member.avatarUrl}
                   title={member.fullName}
                   meta={member.divisionName ?? undefined}
                   right={<div className="flex items-center gap-2">
@@ -325,7 +327,7 @@ export function TeamProfileView({
             })}</RowList> : <Pending>No hay directivos registrados o no tienes permiso para verlos.</Pending>}
           </Card>
           <Card title="Organización" description="Organización a la que está afiliado el equipo.">
-            {team.organizationName ? <RowList><ListRow initials={initialsOf(team.organizationName)} title={team.organizationName} right={<Badge tone="success">Afiliado</Badge>} /></RowList> : <Pending>Este equipo no está afiliado a una organización.</Pending>}
+            {team.organizationName ? <RowList><ListRow initials={initialsOf(team.organizationName)} image={team.organizationLogoUrl} title={team.organizationName} right={<Badge tone="success">Afiliado</Badge>} /></RowList> : <Pending>Este equipo no está afiliado a una organización.</Pending>}
           </Card>
         </CardRow>
       )}

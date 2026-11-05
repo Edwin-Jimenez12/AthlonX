@@ -121,7 +121,7 @@ export default function AthleteDashboard() {
               return (
                 <article key={item.id} className="flex flex-col gap-4 rounded-3xl border border-[#29485d] bg-[#0b1d2c] p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#b4ff45] font-display text-xl text-[#07131e]">{initials(item.name)}</div>
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#b4ff45] font-display text-xl text-[#07131e]">{item.imageUrl ? <img src={item.imageUrl} alt="" className="h-full w-full object-cover" /> : initials(item.name)}</div>
                     <div>
                       <h3 className="font-display text-2xl uppercase">{item.name}</h3>
                       <p className="mt-1 text-sm text-slate-400">{item.teamId ? 'Equipo' : 'Organización'} · {roleLabels[item.role]}{item.discipline ? ` · ${item.discipline}` : ''}</p>

@@ -646,12 +646,12 @@ export function SettingRow({ title, description, right }: { title: string; descr
   )
 }
 
-export function ListRow({ initials, icon: Icon, round = false, title, meta, right, children }: { initials?: string; icon?: LucideIcon; round?: boolean; title: string; meta?: string; right?: ReactNode; children?: ReactNode }) {
+export function ListRow({ initials, image, icon: Icon, round = false, title, meta, right, children }: { initials?: string; image?: string | null; icon?: LucideIcon; round?: boolean; title: string; meta?: string; right?: ReactNode; children?: ReactNode }) {
   return (
     <div className="py-3">
       <div className="flex items-center gap-3.5">
         {Icon ? <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]"><Icon size={18} /></span>
-          : initials && <span aria-hidden="true" className={cx('flex h-10 w-10 shrink-0 items-center justify-center text-[13px] font-bold', round ? 'rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}>{initials}</span>}
+          : (initials || image) && <span aria-hidden="true" className={cx('flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden text-[13px] font-bold', round ? 'rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : initials}</span>}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{title}</p>
           {meta && <p className="mt-0.5 truncate text-[13px] text-[var(--ax-muted)]">{meta}</p>}

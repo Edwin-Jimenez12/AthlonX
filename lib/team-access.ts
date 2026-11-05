@@ -8,6 +8,7 @@ export type ManagedTeam = {
   discipline: string
   disciplineCode: string
   role: string
+  logoUrl?: string | null
 }
 
 export async function loadManagedTeams(userId: string): Promise<ManagedTeam[]> {
@@ -23,7 +24,7 @@ export async function loadManagedTeams(userId: string): Promise<ManagedTeam[]> {
 
   const teamIds = memberships.map((membership) => membership.team_id)
   const [{ data: teams }, { data: disciplines }] = await Promise.all([
-    supabase.from('teams').select('id, name, city, discipline_id').in('id', teamIds).eq('is_official', true),
+    supabase.from('teams').select('id, name, city, discipline_id, logo_url').in('id', teamIds).eq('is_official', true),
     supabase.from('disciplines').select('id, name, code').eq('is_active', true),
   ])
 
@@ -41,6 +42,7 @@ export async function loadManagedTeams(userId: string): Promise<ManagedTeam[]> {
       discipline: discipline?.name ?? 'Disciplina pendiente',
       disciplineCode: discipline?.code ?? '',
       role: membership?.role ?? 'staff',
+      logoUrl: (team as { logo_url?: string | null }).logo_url ?? null,
     }
   })
 }

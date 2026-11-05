@@ -84,6 +84,7 @@ export function PersonaProfileView({
     if (error) return setPhotoError(error.message)
     setPhotoError('')
     setAvatarUrl(url)
+    window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { avatar_url: url } }))
     onProfileSaved()
   }
   const meta = useAccountMeta()
@@ -263,12 +264,12 @@ export function PersonaProfileView({
           <CardRow>
             <Card title="Equipos" description="Equipos en los que participas. Se muestran en tu perfil público.">
               {profile.teams.length ? <RowList>{profile.teams.map((team) => (
-                <ListRow key={`${team.id}-${team.role}`} initials={initialsOf(team.name)} title={team.name} meta={[team.discipline, team.athlonxCode].filter(Boolean).join(' · ')} right={<Badge>{team.roleLabel || roleLabels[team.role] || team.role}</Badge>} />
+                <ListRow key={`${team.id}-${team.role}`} initials={initialsOf(team.name)} image={team.logoUrl} title={team.name} meta={[team.discipline, team.athlonxCode].filter(Boolean).join(' · ')} right={<Badge>{team.roleLabel || roleLabels[team.role] || team.role}</Badge>} />
               ))}</RowList> : <Pending>No participas en ningún equipo todavía.</Pending>}
             </Card>
             <Card title="Organizaciones" description="Organizaciones que te han vinculado.">
               {profile.organizations.length ? <RowList>{profile.organizations.map((org) => (
-                <ListRow key={`${org.id}-${org.role}`} initials={initialsOf(org.name)} title={org.name} meta={org.athlonxCode} right={<Badge>{org.role === 'owner' ? 'Propietario' : roleLabels[org.role] ?? org.role}</Badge>} />
+                <ListRow key={`${org.id}-${org.role}`} initials={initialsOf(org.name)} image={org.logoUrl} title={org.name} meta={org.athlonxCode} right={<Badge>{org.role === 'owner' ? 'Propietario' : roleLabels[org.role] ?? org.role}</Badge>} />
               ))}</RowList> : <Pending>Sin organizaciones vinculadas.</Pending>}
             </Card>
           </CardRow>

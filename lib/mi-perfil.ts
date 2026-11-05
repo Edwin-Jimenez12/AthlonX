@@ -20,8 +20,8 @@ export type PersonaProfile = {
   privacy: Record<PrivacyField, Visibility>
   roles: string[]
   staffPositionName: string | null
-  teams: Array<{ id: string; name: string; athlonxCode: string; discipline: string; role: string; roleLabel: string | null; status: string; shirtNumber: number | null }>
-  organizations: Array<{ id: string; name: string; athlonxCode: string; role: string; status: string }>
+  teams: Array<{ id: string; name: string; athlonxCode: string; discipline: string; role: string; roleLabel: string | null; status: string; shirtNumber: number | null; logoUrl?: string | null }>
+  organizations: Array<{ id: string; name: string; athlonxCode: string; role: string; status: string; logoUrl?: string | null }>
   tournaments: Array<{ id: string; name: string; season: string | null; visible: boolean }>
 }
 
@@ -34,6 +34,7 @@ export type TeamMember = {
   roleLabel: string | null
   divisionId: string | null
   divisionName: string | null
+  avatarUrl?: string | null
 }
 
 export type TeamProfile = {
@@ -47,6 +48,7 @@ export type TeamProfile = {
   disciplineId: string
   disciplineName: string
   organizationName: string | null
+  organizationLogoUrl?: string | null
   isPublic: boolean
   contactEmail: string
   contactPhone: string
@@ -76,8 +78,8 @@ export type OrganizationProfile = {
   modalityIds: string[]
   socialLinks: Record<string, string>
   logoUrl: string
-  teams: Array<{ id: string; name: string; athlonxCode: string }>
-  directivos: Array<{ userId: string; fullName: string; role: string }>
+  teams: Array<{ id: string; name: string; athlonxCode: string; logoUrl?: string | null }>
+  directivos: Array<{ userId: string; fullName: string; role: string; avatarUrl?: string | null }>
   tournaments: Array<{ id: string; name: string; season: string | null }>
   canEdit: boolean
 }
@@ -113,8 +115,8 @@ export async function loadPersonaProfile(userId: string, email: string, emailVer
   const teamIds = [...new Set((membershipRes.data ?? []).map((row) => row.team_id))]
   const orgIds = [...new Set((memberRes.data ?? []).map((row) => row.organization_id))]
   const [teamRes, orgRes, staffNameRes, tournamentRes] = await Promise.all([
-    teamIds.length ? supabase.from('teams').select('id, name, athlonx_code, discipline_id').in('id', teamIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; athlonx_code: string | null; discipline_id: string | null }>, error: null }),
-    orgIds.length ? supabase.from('organizations').select('id, name, athlonx_code').in('id', orgIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; athlonx_code: string | null }>, error: null }),
+    teamIds.length ? supabase.from('teams').select('id, name, athlonx_code, discipline_id, logo_url').in('id', teamIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; athlonx_code: string | null; discipline_id: string | null; logo_url: string | null }>, error: null }),
+    orgIds.length ? supabase.from('organizations').select('id, name, athlonx_code, logo_url').in('id', orgIds) : Promise.resolve({ data: [] as Array<{ id: string; name: string; athlonx_code: string | null; logo_url: string | null }>, error: null }),
     staffRes.data?.[0]?.staff_position_code
       ? supabase.from('staff_positions').select('name').eq('code', staffRes.data[0].staff_position_code).maybeSingle()
       : Promise.resolve(empty),
@@ -162,11 +164,12 @@ export async function loadPersonaProfile(userId: string, email: string, emailVer
         roleLabel: row.role_label,
         status: row.status,
         shirtNumber: null,
+        logoUrl: team?.logo_url ?? null,
       }
     }),
     organizations: (memberRes.data ?? []).map((row) => {
       const org = orgNames.get(row.organization_id)
-      return { id: row.organization_id, name: org?.name ?? 'Organización', athlonxCode: org?.athlonx_code ?? '', role: row.role, status: row.status }
+      return { id: row.organization_id, name: org?.name ?? 'Organización', athlonxCode: org?.athlonx_code ?? '', role: row.role, status: row.status, logoUrl: org?.logo_url ?? null }
     }),
     tournaments: [...tournamentById.values()].map((item) => ({ id: item.id, name: item.name, season: item.season, visible: visibleIds.has(item.id) })),
   }
@@ -185,10 +188,16 @@ export async function loadTeamProfile(teamId: string, myRole: string): Promise<T
   if (!team) return null
   const discipline = (disciplineRes.data ?? []).find((item) => item.id === team.discipline_id)
   let organizationName: string | null = null
+  let organizationLogoUrl: string | null = null
   if (team.organization_id) {
-    const { data: org } = await supabase.from('organizations').select('name').eq('id', team.organization_id).maybeSingle()
+    const { data: org } = await supabase.from('organizations').select('name, logo_url').eq('id', team.organization_id).maybeSingle()
     organizationName = org?.name ?? null
+    organizationLogoUrl = org?.logo_url ?? null
   }
+  // Fotos de los integrantes (la función de integrantes no las trae).
+  const memberIds = membersRes.error ? [] : [...new Set(((membersRes.data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id))]
+  const { data: memberPhotos } = memberIds.length ? await supabase.from('profiles').select('id, avatar_url').in('id', memberIds) : { data: [] as Array<{ id: string; avatar_url: string | null }> }
+  const photoById = new Map((memberPhotos ?? []).map((row) => [row.id, row.avatar_url]))
   const memberCounts: Record<string, number> = {}
   for (const row of memberRes.data ?? []) memberCounts[row.role] = (memberCounts[row.role] ?? 0) + 1
 
@@ -203,6 +212,7 @@ export async function loadTeamProfile(teamId: string, myRole: string): Promise<T
     disciplineId: team.discipline_id ?? '',
     disciplineName: discipline?.name ?? 'Disciplina pendiente',
     organizationName,
+    organizationLogoUrl,
     isPublic: team.is_public ?? true,
     contactEmail: team.contact_email ?? '',
     contactPhone: team.contact_phone ?? '',
@@ -217,6 +227,7 @@ export async function loadTeamProfile(teamId: string, myRole: string): Promise<T
       roleLabel: row.role_label,
       divisionId: row.division_id,
       divisionName: row.division_name,
+      avatarUrl: photoById.get(row.user_id) ?? null,
     })),
     divisions: (divisionRes.data ?? []).map((division) => ({
       id: division.id,
@@ -235,7 +246,7 @@ export async function loadOrganizationProfile(organizationId: string): Promise<O
     supabase.from('organizations').select('id, name, handle, athlonx_code, type, country, city, description, contact_email, institutional_email, contact_phone, phone, website_url, is_public, social_links, logo_url').eq('id', organizationId).maybeSingle(),
     supabase.from('organization_disciplines').select('discipline_id').eq('organization_id', organizationId),
     supabase.from('disciplines').select('id, name').eq('is_active', true),
-    supabase.from('teams').select('id, name, athlonx_code').eq('organization_id', organizationId).eq('is_official', true).order('name'),
+    supabase.from('teams').select('id, name, athlonx_code, logo_url').eq('organization_id', organizationId).eq('is_official', true).order('name'),
     supabase.from('organization_members').select('user_id, role').eq('organization_id', organizationId).in('role', ['owner', 'directivo']).eq('status', 'active'),
     supabase.from('tournaments').select('id, name, season').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(20),
     supabase.rpc('is_organization_manager', { target_organization_id: organizationId }),
@@ -247,9 +258,10 @@ export async function loadOrganizationProfile(organizationId: string): Promise<O
   const names = new Map((disciplineRes.data ?? []).map((item) => [item.id, item.name]))
   const userIds = (memberRes.data ?? []).map((item) => item.user_id)
   const { data: people } = userIds.length
-    ? await supabase.from('profiles').select('id, full_name').in('id', userIds)
-    : { data: [] as Array<{ id: string; full_name: string }> }
-  const peopleById = new Map((people ?? []).map((person) => [person.id, person.full_name]))
+    ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds)
+    : { data: [] as Array<{ id: string; full_name: string; avatar_url: string | null }> }
+  const peopleById = new Map<string, string>((people ?? []).map((person) => [person.id, person.full_name]))
+  const photoByPerson = new Map<string, string | null>((people ?? []).map((person) => [person.id, person.avatar_url ?? null]))
 
   return {
     id: org.id,
@@ -269,8 +281,8 @@ export async function loadOrganizationProfile(organizationId: string): Promise<O
     logoUrl: org.logo_url ?? '',
     socialLinks: (org.social_links ?? {}) as Record<string, string>,
     disciplineNames: disciplineIds.map((id) => names.get(id)).filter((name): name is string => Boolean(name)),
-    teams: (teamRes.data ?? []).map((team) => ({ id: team.id, name: team.name, athlonxCode: team.athlonx_code ?? '' })),
-    directivos: (memberRes.data ?? []).map((item) => ({ userId: item.user_id, fullName: peopleById.get(item.user_id) ?? 'Directivo', role: item.role })),
+    teams: (teamRes.data ?? []).map((team) => ({ id: team.id, name: team.name, athlonxCode: team.athlonx_code ?? '', logoUrl: (team as { logo_url?: string | null }).logo_url ?? null })),
+    directivos: (memberRes.data ?? []).map((item) => ({ userId: item.user_id, fullName: peopleById.get(item.user_id) ?? 'Directivo', role: item.role, avatarUrl: photoByPerson.get(item.user_id) ?? null })),
     tournaments: (tournamentRes.data ?? []).map((item) => ({ id: item.id, name: item.name, season: item.season })),
     canEdit: managerRes.data === true,
   }

@@ -48,7 +48,7 @@ export function DashboardHeader() {
       if (!supabase) return
       const { data } = await supabase.auth.getUser()
       if (!data.user) return
-      const { data: profile } = await supabase.from('profiles').select('full_name, athlonx_code').eq('id', data.user.id).maybeSingle()
+      const { data: profile } = await supabase.from('profiles').select('full_name, athlonx_code, avatar_url').eq('id', data.user.id).maybeSingle()
       if (!active) return
       const personName = profile?.full_name || data.user.user_metadata?.full_name || 'Usuario AthlonX'
       const [accountContexts, teams] = await Promise.all([loadAccountContexts(data.user.id), loadManagedTeams(data.user.id)])
@@ -84,7 +84,7 @@ export function DashboardHeader() {
       if (!active) return
       setContexts(availableContexts)
       setActiveContextId(selectedContext?.id ?? '')
-      const accountIdentity = await loadIdentity(accountType, selectedContext, { userId: data.user.id, email: data.user.email ?? '', name: personName, code: profile?.athlonx_code ?? '' })
+      const accountIdentity = await loadIdentity(accountType, selectedContext, { userId: data.user.id, email: data.user.email ?? '', name: personName, code: profile?.athlonx_code ?? '', imageUrl: profile?.avatar_url ?? null })
       if (active) setIdentity(accountIdentity)
       if (selectedContext) {
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
@@ -103,8 +103,18 @@ export function DashboardHeader() {
 
   useEffect(() => {
     const syncProfileName = (event: Event) => {
-      const detail = (event as CustomEvent<{ full_name?: string }>).detail
+      const detail = (event as CustomEvent<{ full_name?: string; avatar_url?: string | null; logo_url?: string | null; kind?: 'Persona' | 'Equipo' | 'Organización' }>).detail
       if (detail?.full_name) setIdentity((current) => (current.kind === 'Persona' ? { ...current, name: detail.full_name! } : current))
+      // Foto, escudo o logotipo nuevo: se refleja al momento en el menú de cuenta.
+      if (detail && 'avatar_url' in detail) setIdentity((current) => (current.kind === 'Persona' ? { ...current, imageUrl: detail.avatar_url ?? null } : current))
+      if (detail && 'logo_url' in detail) setIdentity((current) => (current.kind === detail.kind ? { ...current, imageUrl: detail.logo_url ?? null } : current))
+      if (detail && ('avatar_url' in detail || 'logo_url' in detail)) setContexts((current) => current.map((context) => {
+        if ('avatar_url' in detail && context.contextType === 'personal') return { ...context, imageUrl: detail.avatar_url ?? null }
+        const activeId = window.localStorage.getItem('athlonx-active-context-id')
+        const sameKind = (detail.kind === 'Equipo' && context.contextType === 'team') || (detail.kind === 'Organización' && context.contextType === 'organization')
+        if ('logo_url' in detail && sameKind && context.id === activeId) return { ...context, imageUrl: detail.logo_url ?? null }
+        return context
+      }))
     }
     window.addEventListener('athlonx-profile-updated', syncProfileName)
     return () => window.removeEventListener('athlonx-profile-updated', syncProfileName)
@@ -122,7 +132,7 @@ export function DashboardHeader() {
     void (async () => {
       const { data } = (await supabase?.auth.getUser()) ?? { data: { user: null } }
       if (!data.user) return
-      const accountIdentity = await loadIdentity(data.user.user_metadata?.account_type, context, { userId: data.user.id, email: data.user.email ?? '', name: identity.kind === 'Persona' ? identity.name : data.user.user_metadata?.full_name || 'Usuario AthlonX', code: identity.kind === 'Persona' ? identity.code : '' })
+      const accountIdentity = await loadIdentity(data.user.user_metadata?.account_type, context, { userId: data.user.id, email: data.user.email ?? '', name: identity.kind === 'Persona' ? identity.name : data.user.user_metadata?.full_name || 'Usuario AthlonX', code: identity.kind === 'Persona' ? identity.code : '', imageUrl: identity.kind === 'Persona' ? identity.imageUrl ?? null : context.contextType === 'personal' ? context.imageUrl ?? null : null })
       setIdentity(accountIdentity)
     })()
     if (context.teamId) window.dispatchEvent(new CustomEvent('athlonx-team-change', { detail: context.teamId }))
@@ -170,14 +180,14 @@ export function DashboardHeader() {
 }
 
 // Datos de la cuenta activa para el menú: la persona, el equipo que administra o su organización.
-async function loadIdentity(accountType: string | undefined, context: AccountContext | undefined, person: { userId: string; email: string; name: string; code: string }): Promise<AccountIdentity> {
-  const base: AccountIdentity = { name: person.name, kind: 'Persona', code: person.code, email: person.email, round: true, publicHref: `/perfil/${person.userId}` }
+async function loadIdentity(accountType: string | undefined, context: AccountContext | undefined, person: { userId: string; email: string; name: string; code: string; imageUrl?: string | null }): Promise<AccountIdentity> {
+  const base: AccountIdentity = { name: person.name, kind: 'Persona', code: person.code, email: person.email, round: true, publicHref: `/perfil/${person.userId}`, imageUrl: person.imageUrl ?? null }
   if (!supabase) return base
   if (accountType === 'equipo') {
     const teamId = context?.teamId ?? window.localStorage.getItem('athlonx-active-team-id')
-    if (!teamId) return { ...base, kind: 'Equipo', round: false, publicHref: null }
-    const { data: team } = await supabase.from('teams').select('id, name, athlonx_code').eq('id', teamId).maybeSingle()
-    return { ...base, name: team?.name || context?.name || base.name, kind: 'Equipo', code: team?.athlonx_code ?? '', round: false, publicHref: team ? `/equipos/${team.id}` : null }
+    if (!teamId) return { ...base, kind: 'Equipo', round: false, publicHref: null, imageUrl: null }
+    const { data: team } = await supabase.from('teams').select('id, name, athlonx_code, logo_url').eq('id', teamId).maybeSingle()
+    return { ...base, name: team?.name || context?.name || base.name, kind: 'Equipo', code: team?.athlonx_code ?? '', round: false, publicHref: team ? `/equipos/${team.id}` : null, imageUrl: team?.logo_url ?? null }
   }
   if (accountType === 'organizacion') {
     let organizationId = context?.organizationId ?? null
@@ -189,9 +199,9 @@ async function loadIdentity(accountType: string | undefined, context: AccountCon
       const { data: memberships } = await supabase.from('organization_members').select('organization_id').eq('user_id', person.userId).in('role', ['owner', 'directivo']).eq('status', 'active').limit(1)
       organizationId = memberships?.[0]?.organization_id ?? null
     }
-    if (!organizationId) return { ...base, kind: 'Organización', round: false, publicHref: null }
-    const { data: organization } = await supabase.from('organizations').select('id, name, athlonx_code').eq('id', organizationId).maybeSingle()
-    return { ...base, name: organization?.name || context?.name || base.name, kind: 'Organización', code: organization?.athlonx_code ?? '', round: false, publicHref: organization ? `/organizaciones/${organization.id}` : null }
+    if (!organizationId) return { ...base, kind: 'Organización', round: false, publicHref: null, imageUrl: null }
+    const { data: organization } = await supabase.from('organizations').select('id, name, athlonx_code, logo_url').eq('id', organizationId).maybeSingle()
+    return { ...base, name: organization?.name || context?.name || base.name, kind: 'Organización', code: organization?.athlonx_code ?? '', round: false, publicHref: organization ? `/organizaciones/${organization.id}` : null, imageUrl: organization?.logo_url ?? null }
   }
   return base
 }

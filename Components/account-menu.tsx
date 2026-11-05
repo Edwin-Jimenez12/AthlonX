@@ -18,6 +18,7 @@ export type AccountIdentity = {
   email: string
   round: boolean
   publicHref: string | null
+  imageUrl?: string | null
 }
 
 export function initialsFor(name: string) {
@@ -29,7 +30,8 @@ function AccountAvatar({ identity, size }: { identity: AccountIdentity; size: 36
     'flex shrink-0 items-center justify-center bg-[var(--ax-accent)] text-[var(--ax-on-accent)]',
     size === 44 ? 'h-11 w-11 font-display text-xl' : 'h-9 w-9 text-[13px] font-bold',
     identity.round ? 'rounded-full' : size === 44 ? 'rounded-xl' : 'rounded-[10px]',
-  )}>{initialsFor(identity.name)}</span>
+    'overflow-hidden',
+  )}>{identity.imageUrl ? <img src={identity.imageUrl} alt="" className="h-full w-full object-cover" /> : initialsFor(identity.name)}</span>
 }
 
 // Botón que abre el menú: avatar, nombre de la cuenta activa y su tipo.

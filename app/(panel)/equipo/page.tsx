@@ -59,7 +59,7 @@ export default function TeamDashboard() {
     <div className="mx-auto max-w-[1184px] space-y-5 px-4 pb-16 pt-5 sm:space-y-7 sm:px-8 sm:pt-8 lg:px-10">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
         <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
-          <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-[var(--ax-accent)] font-display text-[26px] text-[var(--ax-on-accent)] sm:h-16 sm:w-16 sm:text-[30px] lg:h-[72px] lg:w-[72px] lg:rounded-[18px] lg:text-[33px]">{initialsOf(name)}</span>
+          <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[var(--ax-accent)] font-display text-[26px] text-[var(--ax-on-accent)] sm:h-16 sm:w-16 sm:text-[30px] lg:h-[72px] lg:w-[72px] lg:rounded-[18px] lg:text-[33px]">{team?.logoUrl ? <img src={team.logoUrl} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}</span>
           <div className="min-w-0 space-y-1.5">
             <h1 className="truncate font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] sm:text-[40px] sm:leading-[42px] lg:text-[48px] lg:leading-[50px]">{loading ? 'Cargando equipo' : name}</h1>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-sm">
