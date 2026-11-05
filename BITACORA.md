@@ -158,6 +158,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Margen para fotos, escudos y logotipos
+
+**Qué se hizo**: al subir una imagen aparece el control "Margen (espacio alrededor)" (0 a 30 %, por defecto 10 %). Deja espacio vacío alrededor de la imagen para que no toque el borde. Se aplica igual en el recuadro de edición, en "Así se verá" y en el archivo que se guarda (`lib/image-compress.ts` → `render` dibuja en un área reducida; `lib/image-upload.ts` recibe el margen).
+**Nota**: las imágenes ya guardadas no cambian; para aplicar el margen hay que volver a subirlas.
+**Verificación**: `npm run build` sin errores; 56 pruebas correctas. No se probó en navegador.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Escudo del equipo solo en modo edición
 
 **Qué se hizo**: el escudo ya no se guarda al subirlo. "Cambiar imagen" y "Quitar" se habilitan solo al pulsar Editar información, y el cambio se guarda con el botón Guardar cambios, junto con el resto de los datos. Cancelar devuelve el escudo guardado. El cambio cuenta como cambio sin guardar.

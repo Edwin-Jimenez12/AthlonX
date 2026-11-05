@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { clampFrameOffset, frameScale, frameSizes, sourceCropFromFrame, type ImageKind } from '../lib/image-compress'
+import { clampFrameOffset, frameScale, frameSizes, maxMargin, sourceCropFromFrame, type ImageKind } from '../lib/image-compress'
 import { uploadProfileImage } from '../lib/image-upload'
 
 type Pending = { file: File; url: string; imgWidth: number; imgHeight: number }
@@ -31,6 +31,8 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
   const [pending, setPending] = useState<Pending | null>(null)
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  // Margen alrededor de la imagen (fracción del recuadro): evita que choque con el borde.
+  const [margin, setMargin] = useState(0.1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const frame = frameSizes[kind]
@@ -50,6 +52,7 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
       const size = await readSize(url).catch((cause) => { URL.revokeObjectURL(url); throw cause })
       setPending({ file, url, imgWidth: size.width, imgHeight: size.height })
       setZoom(1)
+      setMargin(0.1)
       setOffset(centered(size.width, size.height, 1))
     } catch (cause) {
       setError((cause as Error).message || 'No se pudo abrir la imagen.')
@@ -72,9 +75,10 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
     if (!pending || !drag.current) return
     const scale = frameScale(pending.imgWidth, pending.imgHeight, frame.width, frame.height, zoom)
+    const k = 1 - 2 * margin
     const next = clampFrameOffset(
-      drag.current.startX + event.clientX - drag.current.x,
-      drag.current.startY + event.clientY - drag.current.y,
+      drag.current.startX + (event.clientX - drag.current.x) / k,
+      drag.current.startY + (event.clientY - drag.current.y) / k,
       pending.imgWidth, pending.imgHeight, frame.width, frame.height, scale,
     )
     setOffset(next)
@@ -92,7 +96,7 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
     setError('')
     try {
       const crop = sourceCropFromFrame(pending.imgWidth, pending.imgHeight, frame.width, frame.height, zoom, offset.x, offset.y)
-      const url = await uploadProfileImage(pending.file, kind, folder, slot, crop)
+      const url = await uploadProfileImage(pending.file, kind, folder, slot, crop, margin)
       onChange(url)
       closeCrop()
     } catch (cause) {
@@ -108,6 +112,9 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
   const scale = pending ? frameScale(pending.imgWidth, pending.imgHeight, frame.width, frame.height, zoom) : 1
   const previewWidth = kind === 'avatar' ? 80 : 160
   const previewK = previewWidth / frame.width
+  // La imagen ocupa el recuadro menos el margen: k es esa proporción.
+  const k = 1 - 2 * margin
+  const inset = { left: margin * frame.width, top: margin * frame.height }
 
   return <div className="space-y-2">
     <p className="text-sm font-semibold text-[var(--ax-text)]">{label}</p>
@@ -139,15 +146,19 @@ export function ImageUploadField({ label, value, kind, folder, slot, disabled = 
             src={pending.url}
             alt=""
             draggable={false}
-            style={{ left: offset.x, top: offset.y, width: pending.imgWidth * scale, height: pending.imgHeight * scale, maxWidth: 'none' }}
+            style={{ left: inset.left + offset.x * k, top: inset.top + offset.y * k, width: pending.imgWidth * scale * k, height: pending.imgHeight * scale * k, maxWidth: 'none' }}
             className="pointer-events-none absolute"
           />
         </div>
         <div className="min-w-0 space-y-2">
           <p className="text-xs font-semibold text-[var(--ax-text)]">Así se verá</p>
           <div style={{ width: previewWidth, height: frame.height * previewK }} className={`${kind === 'avatar' ? 'rounded-full' : 'rounded-[10px]'} relative overflow-hidden border border-[var(--ax-line)]`}>
-            <img src={pending.url} alt="" draggable={false} style={{ left: offset.x * previewK, top: offset.y * previewK, width: pending.imgWidth * scale * previewK, height: pending.imgHeight * scale * previewK, maxWidth: 'none' }} className="pointer-events-none absolute" />
+            <img src={pending.url} alt="" draggable={false} style={{ left: (inset.left + offset.x * k) * previewK, top: (inset.top + offset.y * k) * previewK, width: pending.imgWidth * scale * k * previewK, height: pending.imgHeight * scale * k * previewK, maxWidth: 'none' }} className="pointer-events-none absolute" />
           </div>
+          <label className="block text-xs text-[var(--ax-muted)]">
+            Margen (espacio alrededor)
+            <input type="range" min={0} max={maxMargin} step={0.01} value={margin} disabled={busy} onChange={(event) => setMargin(Number(event.target.value))} className="mt-1 block w-full" />
+          </label>
           <label className="block text-xs text-[var(--ax-muted)]">
             Zoom
             <input type="range" min={1} max={3} step={0.05} value={zoom} disabled={busy} onChange={(event) => changeZoom(Number(event.target.value))} className="mt-1 block w-full" />

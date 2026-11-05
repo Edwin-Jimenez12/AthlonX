@@ -57,14 +57,18 @@ export function sourceCropFromFrame(imgWidth: number, imgHeight: number, frameWi
 
 export type CompressedImage = { blob: Blob; width: number; height: number; mime: string }
 
-function render(bitmap: ImageBitmap, width: number, height: number, crop: SourceCrop) {
+// Margen: fracción del tamaño de salida que queda vacía alrededor de la imagen (0 a 0.3).
+export const maxMargin = 0.3
+
+function render(bitmap: ImageBitmap, width: number, height: number, crop: SourceCrop, margin = 0) {
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) throw new Error('El navegador no permite procesar imágenes.')
   context.imageSmoothingQuality = 'high'
-  context.drawImage(bitmap, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, width, height)
+  const inset = Math.min(Math.max(margin, 0), maxMargin)
+  context.drawImage(bitmap, crop.sx, crop.sy, crop.sw, crop.sh, width * inset, height * inset, width * (1 - 2 * inset), height * (1 - 2 * inset))
   return canvas
 }
 
@@ -73,7 +77,7 @@ function encode(canvas: HTMLCanvasElement, mime: string, quality: number): Promi
 }
 
 // Recorta (centrado o con el encuadre dado) y baja calidad o tamaño hasta quedar bajo el límite del destino.
-export async function compressImage(file: File, kind: ImageKind, crop?: SourceCrop): Promise<CompressedImage> {
+export async function compressImage(file: File, kind: ImageKind, crop?: SourceCrop, margin = 0): Promise<CompressedImage> {
   if (!file.type.startsWith('image/')) throw new Error('Elige un archivo de imagen.')
   if (file.size > maxInputBytes) throw new Error('La imagen supera los 25 MB.')
   const target = imageTargets[kind]
@@ -86,7 +90,7 @@ export async function compressImage(file: File, kind: ImageKind, crop?: SourceCr
     for (const scale of [1, 0.75, 0.5]) {
       const width = Math.round(target.width * scale)
       const height = Math.round(target.height * scale)
-      const canvas = render(bitmap, width, height, region)
+      const canvas = render(bitmap, width, height, region, margin)
       smallest = { width, height }
       for (const quality of [0.85, 0.75, 0.6, 0.45]) {
         const blob = await encode(canvas, 'image/webp', quality)
@@ -99,11 +103,11 @@ export async function compressImage(file: File, kind: ImageKind, crop?: SourceCr
     for (const scale of [1, 0.75, 0.5]) {
       const width = Math.round(target.width * scale)
       const height = Math.round(target.height * scale)
-      const png = await encode(render(bitmap, width, height, region), 'image/png', 1)
+      const png = await encode(render(bitmap, width, height, region, margin), 'image/png', 1)
       if (png && png.type === 'image/png' && png.size <= target.maxBytes) return { blob: png, width, height, mime: 'image/png' }
     }
     // Último recurso: JPEG en el tamaño más pequeño, ya dentro del límite.
-    const canvas = render(bitmap, smallest.width, smallest.height, region)
+    const canvas = render(bitmap, smallest.width, smallest.height, region, margin)
     const blob = await encode(canvas, 'image/jpeg', 0.6)
     if (!blob) throw new Error('No se pudo comprimir la imagen.')
     if (blob.size > target.maxBytes) throw new Error('La imagen sigue siendo muy pesada después de comprimirla. Prueba con otra.')
