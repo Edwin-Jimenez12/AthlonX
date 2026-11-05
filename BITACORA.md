@@ -158,6 +158,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Fotos más grandes en la búsqueda
+
+**Qué se hizo**: los resultados de búsqueda muestran la foto o el escudo a 64 px (antes 44 px), y 56 px en móvil, con tamaño sm: 64 px. Se agregó el tamaño 64 a `Avatar` y `EntityMark` (`Components/mi-equipo/ui.tsx`), y se usa en `Components/busqueda/search-results.tsx`.
+**Verificación**: `npm run build` sin errores; 59 pruebas correctas. No se probó en navegador.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Imagen completa al subir (sin recorte de los lados)
 
 **Causa**: el encuadre inicial cubría todo el recuadro (como una foto), así que un logo ancho perdía los lados al guardarse. El margen se aplicaba bien, pero la imagen ya llegaba recortada.

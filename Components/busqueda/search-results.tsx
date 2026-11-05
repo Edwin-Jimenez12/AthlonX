@@ -59,7 +59,7 @@ export function SearchResultRow({ result }: { result: SearchResult }) {
   const action = isDivision ? 'Ver división' : actionLabels[result.result_type]
 
   return <li className="group relative flex items-center gap-3.5 border-b border-[var(--ax-line)] py-4 last:border-b-0 sm:gap-4 sm:px-4">
-    {result.result_type === 'persona' ? <Avatar name={result.display_name} src={result.avatar_url} size={44} /> : <EntityMark name={result.display_name} src={result.avatar_url} />}
+    {result.result_type === 'persona' ? <Avatar name={result.display_name} src={result.avatar_url} size={64} /> : <EntityMark name={result.display_name} src={result.avatar_url} size={64} />}
     <div className="min-w-0 flex-1 space-y-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Link href={href} className="text-[15px] font-semibold text-[var(--ax-text)] outline-none after:absolute after:inset-0 after:rounded-[10px] focus-visible:after:ring-2 focus-visible:after:ring-[var(--ax-accent-text)]">{result.display_name}</Link>

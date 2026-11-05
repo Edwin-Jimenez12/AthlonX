@@ -105,8 +105,8 @@ export function IconTile({ icon: Icon, size = 40, tone = 'accent' }: { icon: Luc
 }
 
 // Marca cuadrada para equipos, organizaciones y torneos (componente "Marca/Entidad").
-export function EntityMark({ name, src, size = 44 }: { name: string; src?: string | null; size?: 40 | 44 }) {
-  return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] font-bold text-[var(--ax-text)]', size === 40 ? 'h-10 w-10 text-[13px]' : 'h-11 w-11 text-sm')}>
+export function EntityMark({ name, src, size = 44 }: { name: string; src?: string | null; size?: 40 | 44 | 64 }) {
+  return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] font-bold text-[var(--ax-text)]', size === 40 ? 'h-10 w-10 text-[13px]' : size === 64 ? 'h-14 w-14 text-lg sm:h-16 sm:w-16 sm:text-xl' : 'h-11 w-11 text-sm')}>
     {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
   </span>
 }
@@ -115,8 +115,8 @@ export function initialsOf(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'AX'
 }
 
-export function Avatar({ name, src, size = 36 }: { name: string; src?: string | null; size?: 32 | 36 | 40 | 44 }) {
-  const dimension = size === 32 ? 'h-8 w-8 text-xs' : size === 40 ? 'h-10 w-10 text-sm' : size === 44 ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-[13px]'
+export function Avatar({ name, src, size = 36 }: { name: string; src?: string | null; size?: 32 | 36 | 40 | 44 | 64 }) {
+  const dimension = size === 32 ? 'h-8 w-8 text-xs' : size === 40 ? 'h-10 w-10 text-sm' : size === 44 ? 'h-11 w-11 text-sm' : size === 64 ? 'h-14 w-14 text-lg sm:h-16 sm:w-16 sm:text-xl' : 'h-9 w-9 text-[13px]'
   return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-[var(--ax-on-accent)]', !src && 'bg-[var(--ax-accent)]', dimension)}>
     {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
   </span>
