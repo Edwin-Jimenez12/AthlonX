@@ -89,7 +89,6 @@ export function TeamProfileView({
   const [websiteUrl, setWebsiteUrl] = useState(team.websiteUrl)
   const [isPublic, setIsPublic] = useState(team.isPublic)
   const [logoUrl, setLogoUrl] = useState(team.logoUrl)
-  const [logoError, setLogoError] = useState('')
 
   // Gestión de directivos (solo propietario y directivos), con confirmación en la misma fila.
   const [roleEdit, setRoleEdit] = useState<{ key: string; role: string } | null>(null)
@@ -104,7 +103,7 @@ export function TeamProfileView({
 
   // Cambios sin guardar: se compara con la versión que había al empezar a editar.
   const [baseline, setBaseline] = useState('')
-  const currentSnapshot = JSON.stringify([name, handle, description, city, country, disciplineId, contactEmail, contactPhone, websiteUrl])
+  const currentSnapshot = JSON.stringify([name, handle, description, city, country, disciplineId, contactEmail, contactPhone, websiteUrl, logoUrl])
   const unsaved = editing && currentSnapshot !== baseline
 
   function startEdit() {
@@ -125,6 +124,7 @@ export function TeamProfileView({
     setContactEmail(team.contactEmail)
     setContactPhone(team.contactPhone)
     setWebsiteUrl(team.websiteUrl)
+    setLogoUrl(team.logoUrl)
     setSaveError('')
     setEditing(false)
   }
@@ -168,19 +168,9 @@ export function TeamProfileView({
     }
     setEditing(false)
     setNotice({ type: 'ok', text: 'Perfil del equipo actualizado.' })
+    window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { logo_url: logoUrl || null, kind: 'Equipo' } }))
     onSaved()
     return ''
-  }
-
-  // El escudo se guarda al subirlo (como la visibilidad), con el resto de datos ya guardados.
-  async function saveLogo(url: string | null) {
-    const previous = logoUrl
-    setLogoUrl(url ?? '')
-    setLogoError('')
-    // Se pasa la URL nueva explícitamente: el estado todavía tiene la anterior en este momento.
-    const failure = await writeTeam({ name: team.name, handle: team.handle, description: team.description, city: team.city, country: team.country, disciplineId: team.disciplineId, contactEmail: team.contactEmail, contactPhone: team.contactPhone, websiteUrl: team.websiteUrl, isPublic }, url ?? '')
-    if (failure) { setLogoUrl(previous); setLogoError(failure); return }
-    window.dispatchEvent(new CustomEvent('athlonx-profile-updated', { detail: { logo_url: url, kind: 'Equipo' } }))
   }
 
   // Visibilidad al momento: se envían los datos ya guardados del equipo con el nuevo valor.
@@ -260,9 +250,8 @@ export function TeamProfileView({
               <Field label="Texto de descripción" as="textarea" value={description} onChange={setDescription} disabled={disabled} maxLength={descriptionCharLimit} placeholder="Cuenta la historia del equipo." />
               {editing && <p className={`text-right text-xs ${description.length > descriptionCharLimit ? 'text-[var(--ax-danger-text)]' : 'text-[var(--ax-muted)]'}`}>{description.length} / {descriptionCharLimit} caracteres</p>}
             </Card>
-            <Card title="Escudo" description="Opcional. Sin escudo se muestran las iniciales. Se comprime en tu navegador y puedes elegir el recorte.">
-              <ImageUploadField label="Escudo" value={logoUrl || null} kind="avatar" folder={imageFolders.equipo(team.id)} slot="logo" disabled={!canEdit} hint={canEdit ? undefined : 'Solo el propietario y los directivos cambian el escudo.'} onChange={(url) => void saveLogo(url)} />
-              {logoError && <p role="alert" className="mt-2 text-xs text-red-200">{logoError}</p>}
+            <Card title="Escudo" description="Opcional. Sin escudo se muestran las iniciales. Se cambia en modo edición y se guarda con el resto de los datos.">
+              <ImageUploadField label="Escudo" value={logoUrl || null} kind="avatar" folder={imageFolders.equipo(team.id)} slot="logo" disabled={!canEdit || !editing} hint={!canEdit ? 'Solo el propietario y los directivos cambian el escudo.' : !editing ? 'Para cambiar el escudo, pulsa Editar información.' : undefined} onChange={(url) => setLogoUrl(url ?? '')} />
             </Card>
           </CardRow>
           <Card title="Divisiones" description="Cada división tiene su propio código AthlonX. Se gestionan desde Mi equipo." action={<Link href="/equipo" className={buttonClass('secondary', 'sm')}><Users size={15} aria-hidden="true" /><span className="hidden sm:inline">Gestionar en Mi equipo</span><span className="sm:hidden">Mi equipo</span></Link>}>
