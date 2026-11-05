@@ -93,6 +93,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Calendario móvil en Figma igual al código
+
+**Qué se hizo**: en los 8 frames móviles de calendario de la cuenta personal (Atleta y Entrenador, Free y Pro, oscuro y claro) la cuadrícula del mes pasó a 640 px dentro de un contenedor de 358 px con recorte, como en `Components/calendario/athlete-calendar.tsx` (`overflow-x-auto` con `min-w-[640px]`). Las barras de color de "Próximas actividades" volvieron a 4 px. No se cambió el diseño del código.
+
+**Aprobación**: Edwin aprobó el diseño de la cuenta personal en Figma y dio permiso para aplicarlo en código. Esa implementación no se empezó en esta entrada; ver la pregunta de alcance en la sesión.
+
+**Verificación**: capturas de Atleta Free (oscuro) y Entrenador Pro (claro) en móvil.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Modo claro y móvil de la cuenta personal
 
 **Qué se hizo**: en la página REDISEÑO se agregaron, para los 4 sets de la cuenta personal (Atleta Free y Pro, Entrenador Free y Pro):
