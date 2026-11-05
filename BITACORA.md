@@ -29,7 +29,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [x] Planes de equipo (Free, Pro, Élite) y la sección Finanzas en código (entrada del 2026-11-04, "Planes de la cuenta de equipo y Finanzas en código").
-- [ ] Pasarela de pago antes de diciembre: sin ella no hay ingreso real (hoy solo códigos al 100 %).
+- [ ] Pasarela de pago antes de diciembre: sin ella no hay ingreso real (hoy solo códigos al 100 %). Se decide más adelante, con el proveedor.
 - [ ] Plan de pruebas con un equipo de prueba (copia, sin datos reales de jugadores) y cuentas de cada perfil, en Free, Pro y Élite.
 - [ ] Probar en navegador, con una cuenta de equipo real, Finanzas, Estadísticas, Calendario y Mi perfil en Free y en Pro (con un código al 100 %).
 - [ ] Finanzas: editar un movimiento (hoy se puede crear y eliminar; el registro de cambios ya guarda las ediciones).
@@ -72,6 +72,34 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Decisiones de la cuenta personal (sin Excel todavía)
+
+**Decisiones de Edwin**
+- El plan es **por perfil**: cada perfil (atleta, entrenador, staff, directivo) puede tener su propio plan.
+- **Por ahora solo planes para atleta y entrenador.** Staff y directivo quedan en Free hasta nuevo aviso.
+- **Pro se vende completo**, incluidas las funciones que todavía no existen (entrenamientos, asistencia, formaciones, anuncios). Hay que construirlas para que la cuenta personal y la de equipo queden completamente listas antes de cobrar.
+- Pasarela de pago: se decide más adelante (sigue en Pendientes).
+
+**Nuevas funciones pedidas (pendientes de definir)**
+- **Carga de trabajo semanal del atleta:** que el atleta registre su carga por semana para que el cuerpo técnico la vea.
+- **Aviso de molestias al médico:** que el atleta pueda reportar una molestia y notificar al médico. Es un dato de salud: requiere consentimiento explícito, acceso solo para el médico (no para el entrenador por defecto) y revisión legal de la ley de protección de datos personales de Panamá.
+
+**Staff: definición pendiente**
+- Hoy existen dos conceptos distintos que se llaman "staff":
+  - **Cargos del cuerpo técnico** (tabla `staff_positions`): médico, preparador físico, fisioterapeuta, analista de rendimiento, delegado, logística y utilero.
+  - **Árbitro o juez:** rol dentro de un torneo (`tournament_staff_grants`), no del equipo.
+- **Tesorero** es un permiso de finanzas (`team_treasurers`), no un cargo: lo puede tener cualquier persona del equipo.
+- Pendiente: decidir si el cargo de staff se separa del permiso de tesorero y si árbitro/juez queda en el perfil de staff o en el torneo.
+
+**Pendientes nuevos**
+- [ ] Definir la funcionalidad de carga de trabajo semanal del atleta.
+- [ ] Definir el aviso de molestias al médico (consentimiento, permisos y revisión legal).
+- [ ] Definir el perfil de staff: cargos del cuerpo técnico frente a permiso de tesorero y árbitro/juez.
+- [ ] Construir las funciones de Pro que todavía no existen (entrenamientos, asistencia, formaciones, anuncios) antes de vender Pro.
+- [ ] Excel de planes de atleta y entrenador, después de definir los puntos anteriores (el de noviembre se rehará).
 
 ---
 
