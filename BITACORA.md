@@ -11,7 +11,6 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 **Monetización y planes**
 - [ ] Descuento por tener los cuatro perfiles (atleta, coach, staff, directivo) en vez de pagar cada plan completo. Decidido: planes individuales por ahora.
 - [ ] Plan Free completo del atleta: definición final (lo aprobado está en el calendario).
-- [ ] Pasarela de pago para Pro, Élite y planes de grupo (AX Club). Mientras tanto, los códigos al 100% activan el plan.
 - [ ] Prorrateo de cupos de AX Club y precio por cupo.
 - [ ] Planes de grupo (Club Pro y Club Élite): cupos, invitaciones y panel de miembros.
 - [ ] Cuenta de organización: parte económica (que la organización maneje pagos, cobros y planes de sus miembros). Se incluirá más adelante.
@@ -49,7 +48,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Verificar en navegador el calendario de coach, staff y directivo.
 - [ ] Versión móvil y modo claro del calendario, contra Figma.
 
+**Cuenta personal y staff**
+- [ ] Planes por perfil: atleta y entrenador con planes Free y Pro (y Élite después); staff y directivo quedan en Free por ahora.
+- [ ] Excel de planes de atleta y entrenador (Free y Pro), con todas sus funciones, incluidas las pendientes. Se genera después de definir los puntos de esta sección.
+- [ ] Pro completo: construir entrenamientos, asistencia, formaciones y anuncios antes de vender Pro al entrenador.
+- [ ] Carga de trabajo semanal del atleta: la ven el atleta y el médico por defecto; el médico da permiso al entrenador o a la cuenta de equipo.
+- [ ] Seguimiento de salud centralizado: un registro por atleta con acceso por cargo y por equipo (tabla de vistas en la entrada del 2026-11-05). Confirmar con un médico y un fisioterapeuta profesionales antes de construirlo.
+- [ ] Aviso de molestias al médico: consentimiento expreso, tutores para menores de edad y revisión legal (Ley 81 de 2019, Panamá) antes de lanzarlo.
+- [ ] Perfil de staff como cargo (médico, preparador físico, fisioterapeuta, analista, delegado, logística, utilero), con permisos asignables: tesorero y árbitro/juez.
+- [ ] Calificación de árbitros por las personas: mostrar solo con un mínimo de calificaciones, con moderación y sin revelar quién califica.
+
 **Cuenta de equipo**
+- [ ] Decidir si el equipo puede crear torneos rápidos o solo las organizaciones (pregunta del 2026-11-04). Hoy el equipo sí puede; en Free cuenta contra su límite de 1 torneo activo.
 - [ ] Finanzas: discutir la sección completa con Edwin (lo dejó pendiente en el Excel); el diseño de Figma sirve de base.
 - [ ] Confirmar el límite de presupuestos en Free (en el diseño: 1 presupuesto activo).
 
