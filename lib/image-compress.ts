@@ -95,6 +95,13 @@ export async function compressImage(file: File, kind: ImageKind, crop?: SourceCr
         }
       }
     }
+    // Si el navegador no genera WebP (Safari): PNG, que conserva la transparencia (escudos y logos sin fondo).
+    for (const scale of [1, 0.75, 0.5]) {
+      const width = Math.round(target.width * scale)
+      const height = Math.round(target.height * scale)
+      const png = await encode(render(bitmap, width, height, region), 'image/png', 1)
+      if (png && png.type === 'image/png' && png.size <= target.maxBytes) return { blob: png, width, height, mime: 'image/png' }
+    }
     // Último recurso: JPEG en el tamaño más pequeño, ya dentro del límite.
     const canvas = render(bitmap, smallest.width, smallest.height, region)
     const blob = await encode(canvas, 'image/jpeg', 0.6)

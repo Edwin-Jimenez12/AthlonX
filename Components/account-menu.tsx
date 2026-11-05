@@ -27,7 +27,8 @@ export function initialsFor(name: string) {
 
 function AccountAvatar({ identity, size }: { identity: AccountIdentity; size: 36 | 44 }) {
   return <span aria-hidden="true" className={cx(
-    'flex shrink-0 items-center justify-center bg-[var(--ax-accent)] text-[var(--ax-on-accent)]',
+    'flex shrink-0 items-center justify-center text-[var(--ax-on-accent)]',
+    !identity.imageUrl && 'bg-[var(--ax-accent)]',
     size === 44 ? 'h-11 w-11 font-display text-xl' : 'h-9 w-9 text-[13px] font-bold',
     identity.round ? 'rounded-full' : size === 44 ? 'rounded-xl' : 'rounded-[10px]',
     'overflow-hidden',

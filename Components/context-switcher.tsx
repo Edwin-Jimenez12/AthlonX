@@ -42,7 +42,7 @@ export function ContextSwitcher({ contexts, activeContextId, onChange }: Context
       aria-haspopup="menu"
       className="group flex w-64 max-w-[calc(100vw-9rem)] cursor-pointer items-center gap-3 rounded-2xl border border-[#29485d] bg-[#0b1d2c]/80 py-2 pl-2 pr-3 text-left text-white transition-all duration-300 hover:border-[#b4ff45]/70 hover:bg-[#102536]"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#b4ff45] font-heading text-base font-bold text-[#07131e]">{activeContext.imageUrl ? <img src={activeContext.imageUrl} alt="" className="h-full w-full object-cover" /> : contextInitials(activeContext)}</span>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl font-heading text-base font-bold text-[#07131e] ${activeContext.imageUrl ? '' : 'bg-[#b4ff45]'}`}>{activeContext.imageUrl ? <img src={activeContext.imageUrl} alt="" className="h-full w-full object-cover" /> : contextInitials(activeContext)}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-body text-sm font-semibold leading-tight text-[#e8eef3]">{contextTitle(activeContext)}</span>
         <span className="block truncate font-body text-xs leading-tight text-[#91a8ba]">{contextDetail(activeContext) ?? 'Vista personal'}</span>
@@ -64,7 +64,7 @@ export function ContextSwitcher({ contexts, activeContextId, onChange }: Context
             style={{ animationDelay: `${index * 45}ms` }}
             className={`ax-option-in flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 ${isActive ? 'bg-[#b4ff45] text-[#07131e]' : 'text-[#e8eef3] hover:bg-white/[.06]'}`}
           >
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ${isActive ? 'bg-[#07131e]/10' : 'bg-[#b4ff45]/10 text-[#b4ff45]'}`}>{context.imageUrl ? <img src={context.imageUrl} alt="" className="h-full w-full object-cover" /> : <Icon size={17} />}</span>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ${context.imageUrl ? '' : isActive ? 'bg-[#07131e]/10' : 'bg-[#b4ff45]/10 text-[#b4ff45]'}`}>{context.imageUrl ? <img src={context.imageUrl} alt="" className="h-full w-full object-cover" /> : <Icon size={17} />}</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-body text-sm font-semibold">{contextTitle(context)}</span>
               <span className={`block truncate font-body text-xs ${isActive ? 'text-[#07131e]/70' : 'text-[#91a8ba]'}`}>{contextDetail(context) ?? 'Vista personal'}</span>

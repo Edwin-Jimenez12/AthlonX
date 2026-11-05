@@ -7,7 +7,7 @@ export const imageBucket = 'avatars'
 export async function uploadProfileImage(file: File, kind: ImageKind, folder: string, slot: string, crop?: SourceCrop) {
   if (!supabase) throw new Error('La conexión no está disponible.')
   const image = await compressImage(file, kind, crop)
-  const extension = image.mime === 'image/webp' ? 'webp' : 'jpg'
+  const extension = image.mime === 'image/webp' ? 'webp' : image.mime === 'image/png' ? 'png' : 'jpg'
   const path = `${folder}/${slot}.${extension}`
   const { error } = await supabase.storage.from(imageBucket).upload(path, image.blob, {
     upsert: true,

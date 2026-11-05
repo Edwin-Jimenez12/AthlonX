@@ -255,7 +255,7 @@ export function OrganizationProfileView({
               <ReadValue label="Código AthlonX" value={organization.athlonxCode} copyable />
             </FieldGrid>
             <div className="flex items-center gap-4 border-t border-[var(--ax-line)] pt-4">
-              <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[var(--ax-accent)] font-display text-[28px] text-[var(--ax-on-accent)]">{organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-full w-full object-cover" /> : (initialsOf(name) || 'AX')}</span>
+              <span aria-hidden="true" className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[14px] font-display text-[28px] text-[var(--ax-on-accent)] ${organization.logoUrl ? '' : 'bg-[var(--ax-accent)]'}`}>{organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-full w-full object-cover" /> : (initialsOf(name) || 'AX')}</span>
               <div className="min-w-0 space-y-2">
                 <ImageUploadField label="Logotipo" value={organization.logoUrl} kind="avatar" folder={imageFolders.organizacion(organization.id)} slot="logo" disabled={!canEdit} hint="Cuadrado. Se comprime en tu navegador antes de subirlo." onChange={(url) => void changeLogo(url)} />
               </div>

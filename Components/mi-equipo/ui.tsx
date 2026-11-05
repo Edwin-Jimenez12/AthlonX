@@ -117,7 +117,7 @@ export function initialsOf(name: string) {
 
 export function Avatar({ name, src, size = 36 }: { name: string; src?: string | null; size?: 32 | 36 | 40 | 44 }) {
   const dimension = size === 32 ? 'h-8 w-8 text-xs' : size === 40 ? 'h-10 w-10 text-sm' : size === 44 ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-[13px]'
-  return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ax-accent)] font-bold text-[var(--ax-on-accent)]', dimension)}>
+  return <span className={cx('flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-[var(--ax-on-accent)]', !src && 'bg-[var(--ax-accent)]', dimension)}>
     {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : initialsOf(name)}
   </span>
 }

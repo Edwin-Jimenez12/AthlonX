@@ -158,6 +158,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Imágenes sin fondo: transparencia respetada
+
+**Qué se hizo**
+- Los recuadros de foto, escudo y logotipo tenían el verde de la marca de fondo, que se veía a través de las partes transparentes. Ahora el fondo de color solo se usa cuando no hay imagen (iniciales). Aplica a: encabezado de Mi perfil, listas de Mi perfil, `Avatar` compartido, menú de cuenta, selector de vistas, Mi equipo, tarjeta del logotipo de la organización, panel del atleta y perfiles públicos (persona, equipo, organización).
+- Compresión (`lib/image-compress.ts`): si el navegador no genera WebP (Safari), se usa PNG antes de JPEG, para conservar la transparencia. `lib/image-upload.ts` guarda la extensión `.png`.
+
+**Verificación**: `npm run build` sin errores; 56 pruebas correctas. No se probó en navegador.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Foto, escudo y logotipo en todos los lugares donde aparece la cuenta
 
 **Qué se hizo**: revisión de todos los lugares que dibujaban iniciales en vez de la imagen de la cuenta. Ahora usan la foto (persona), el escudo (equipo) o el logotipo (organización) cuando existe:

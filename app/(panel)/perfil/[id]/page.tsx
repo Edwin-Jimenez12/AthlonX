@@ -122,7 +122,7 @@ export default function PublicPersonaPage() {
           {watermark && <span aria-hidden="true" className="pointer-events-none absolute -right-6 top-8 font-display text-[200px] font-bold uppercase leading-none text-[var(--ax-watermark)] sm:text-[280px]">{watermark}</span>}
           <div aria-hidden="true" className="absolute -left-16 bottom-16 h-2 w-[120%] -rotate-[9deg] bg-[var(--ax-accent)]" />
           <div className="relative flex flex-col gap-8 md:flex-row md:items-center">
-            <div className="flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-[32px] bg-[var(--ax-accent)] text-[var(--ax-on-accent)]">
+            <div className={`flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-[32px] text-[var(--ax-on-accent)] ${profile.avatar_url ? '' : 'bg-[var(--ax-accent)]'}`}>
               {profile.avatar_url ? <img src={profile.avatar_url} alt={`Foto de ${profile.full_name}`} className="h-full w-full object-cover" /> : <span className="font-display text-6xl font-bold">{initials}</span>}
             </div>
             <div className="min-w-0 flex-1 space-y-4">

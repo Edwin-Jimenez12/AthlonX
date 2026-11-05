@@ -173,7 +173,7 @@ export function Hero({
   return (
     <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
       <div className="flex min-w-0 items-center gap-3.5 sm:gap-5">
-        <span aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden bg-[var(--ax-accent)] font-display text-[24px] text-[var(--ax-on-accent)] sm:h-[72px] sm:w-[72px] sm:text-[30px] lg:h-20 lg:w-20 lg:text-[34px]', round ? 'rounded-full' : 'rounded-[14px] lg:rounded-[18px]')}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : (initials || 'AX')}</span>
+        <span aria-hidden="true" className={cx('flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden font-display text-[24px] text-[var(--ax-on-accent)] sm:h-[72px] sm:w-[72px] sm:text-[30px] lg:h-20 lg:w-20 lg:text-[34px]', !image && 'bg-[var(--ax-accent)]', round ? 'rounded-full' : 'rounded-[14px] lg:rounded-[18px]')}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : (initials || 'AX')}</span>
         <div className="min-w-0 space-y-2">
           <h1 className="font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] [overflow-wrap:anywhere] sm:text-[40px] sm:leading-[42px] lg:text-[48px] lg:leading-[50px]">{title}</h1>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -651,7 +651,7 @@ export function ListRow({ initials, image, icon: Icon, round = false, title, met
     <div className="py-3">
       <div className="flex items-center gap-3.5">
         {Icon ? <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)]"><Icon size={18} /></span>
-          : (initials || image) && <span aria-hidden="true" className={cx('flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden text-[13px] font-bold', round ? 'rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : initials}</span>}
+          : (initials || image) && <span aria-hidden="true" className={cx('flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden text-[13px] font-bold', round ? cx('rounded-full text-[var(--ax-on-accent)]', !image && 'bg-[var(--ax-accent)]') : cx('rounded-[10px] border border-[var(--ax-line)] text-[var(--ax-text)]', !image && 'bg-[var(--ax-surface-raised)]'))}>{image ? <img src={image} alt="" className="h-full w-full object-cover" /> : initials}</span>}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-[var(--ax-text)]">{title}</p>
           {meta && <p className="mt-0.5 truncate text-[13px] text-[var(--ax-muted)]">{meta}</p>}
