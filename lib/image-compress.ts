@@ -36,11 +36,27 @@ export function frameScale(imgWidth: number, imgHeight: number, frameWidth: numb
   return Math.max(frameWidth / imgWidth, frameHeight / imgHeight) * zoom
 }
 
-// La imagen nunca puede dejar un hueco dentro del marco.
+// Zoom mínimo: el que muestra la imagen completa dentro del marco (sin recortar los lados).
+export function fitZoom(imgWidth: number, imgHeight: number, frameWidth: number, frameHeight: number) {
+  const fit = Math.min(frameWidth / imgWidth, frameHeight / imgHeight)
+  const cover = Math.max(frameWidth / imgWidth, frameHeight / imgHeight)
+  return fit / cover
+}
+
+// Si la imagen es más grande que el marco, no puede dejar huecos; si es más pequeña, se centra.
 export function clampFrameOffset(x: number, y: number, imgWidth: number, imgHeight: number, frameWidth: number, frameHeight: number, scale: number) {
   const minX = frameWidth - imgWidth * scale
   const minY = frameHeight - imgHeight * scale
-  return { x: Math.min(0, Math.max(minX, x)), y: Math.min(0, Math.max(minY, y)) }
+  const clampAxis = (value: number, min: number) => (min >= 0 ? min / 2 : Math.min(0, Math.max(min, value)))
+  return { x: clampAxis(x, minX), y: clampAxis(y, minY) }
+}
+
+// Encuadre final: escala y posición de la imagen dentro del marco (en píxeles del marco).
+export type FrameView = { scale: number; x: number; y: number; frameWidth: number; frameHeight: number }
+
+export function defaultFrameView(imgWidth: number, imgHeight: number, frameWidth: number, frameHeight: number): FrameView {
+  const scale = Math.max(frameWidth / imgWidth, frameHeight / imgHeight)
+  return { scale, x: (frameWidth - imgWidth * scale) / 2, y: (frameHeight - imgHeight * scale) / 2, frameWidth, frameHeight }
 }
 
 // Traduce el encuadre visible (zoom y desplazamiento en pantalla) a la zona de la imagen original.
@@ -60,7 +76,8 @@ export type CompressedImage = { blob: Blob; width: number; height: number; mime:
 // Margen: fracción del tamaño de salida que queda vacía alrededor de la imagen (0 a 0.3).
 export const maxMargin = 0.3
 
-function render(bitmap: ImageBitmap, width: number, height: number, crop: SourceCrop, margin = 0) {
+// Dibuja la imagen completa según el encuadre, dentro del área que deja el margen (lo demás queda transparente).
+function render(bitmap: ImageBitmap, width: number, height: number, view: FrameView, margin = 0) {
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -68,7 +85,18 @@ function render(bitmap: ImageBitmap, width: number, height: number, crop: Source
   if (!context) throw new Error('El navegador no permite procesar imágenes.')
   context.imageSmoothingQuality = 'high'
   const inset = Math.min(Math.max(margin, 0), maxMargin)
-  context.drawImage(bitmap, crop.sx, crop.sy, crop.sw, crop.sh, width * inset, height * inset, width * (1 - 2 * inset), height * (1 - 2 * inset))
+  const innerX = width * inset
+  const innerY = height * inset
+  const innerW = width * (1 - 2 * inset)
+  const innerH = height * (1 - 2 * inset)
+  const kx = innerW / view.frameWidth
+  const ky = innerH / view.frameHeight
+  context.save()
+  context.beginPath()
+  context.rect(innerX, innerY, innerW, innerH)
+  context.clip()
+  context.drawImage(bitmap, innerX + view.x * kx, innerY + view.y * ky, bitmap.width * view.scale * kx, bitmap.height * view.scale * ky)
+  context.restore()
   return canvas
 }
 
@@ -77,20 +105,20 @@ function encode(canvas: HTMLCanvasElement, mime: string, quality: number): Promi
 }
 
 // Recorta (centrado o con el encuadre dado) y baja calidad o tamaño hasta quedar bajo el límite del destino.
-export async function compressImage(file: File, kind: ImageKind, crop?: SourceCrop, margin = 0): Promise<CompressedImage> {
+export async function compressImage(file: File, kind: ImageKind, view?: FrameView, margin = 0): Promise<CompressedImage> {
   if (!file.type.startsWith('image/')) throw new Error('Elige un archivo de imagen.')
   if (file.size > maxInputBytes) throw new Error('La imagen supera los 25 MB.')
   const target = imageTargets[kind]
   const bitmap = await createImageBitmap(file).catch(() => {
     throw new Error('No se pudo leer esa imagen. Prueba con JPG, PNG o WebP.')
   })
-  const region = crop ?? coverCropRect(bitmap.width, bitmap.height, target.width, target.height)
+  const frame = view ?? defaultFrameView(bitmap.width, bitmap.height, target.width, target.height)
   let smallest = { width: target.width, height: target.height }
   try {
     for (const scale of [1, 0.75, 0.5]) {
       const width = Math.round(target.width * scale)
       const height = Math.round(target.height * scale)
-      const canvas = render(bitmap, width, height, region, margin)
+      const canvas = render(bitmap, width, height, frame, margin)
       smallest = { width, height }
       for (const quality of [0.85, 0.75, 0.6, 0.45]) {
         const blob = await encode(canvas, 'image/webp', quality)
@@ -103,11 +131,11 @@ export async function compressImage(file: File, kind: ImageKind, crop?: SourceCr
     for (const scale of [1, 0.75, 0.5]) {
       const width = Math.round(target.width * scale)
       const height = Math.round(target.height * scale)
-      const png = await encode(render(bitmap, width, height, region, margin), 'image/png', 1)
+      const png = await encode(render(bitmap, width, height, frame, margin), 'image/png', 1)
       if (png && png.type === 'image/png' && png.size <= target.maxBytes) return { blob: png, width, height, mime: 'image/png' }
     }
     // Último recurso: JPEG en el tamaño más pequeño, ya dentro del límite.
-    const canvas = render(bitmap, smallest.width, smallest.height, region, margin)
+    const canvas = render(bitmap, smallest.width, smallest.height, frame, margin)
     const blob = await encode(canvas, 'image/jpeg', 0.6)
     if (!blob) throw new Error('No se pudo comprimir la imagen.')
     if (blob.size > target.maxBytes) throw new Error('La imagen sigue siendo muy pesada después de comprimirla. Prueba con otra.')

@@ -52,3 +52,27 @@ test('el zoom acerca la zona visible y mantiene el centro', () => {
   near(crop.sw, 1666.67)
   near(crop.sh, 500)
 })
+
+// Encuadre: zoom mínimo que muestra la imagen completa, centrado y sin huecos.
+const frameModule = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+
+test('el zoom mínimo muestra la imagen completa (un logo ancho entra entero)', () => {
+  const z = frameModule.fitZoom(800, 400, 240, 240)
+  const scale = frameModule.frameScale(800, 400, 240, 240, z)
+  assert.ok(Math.abs(scale * 800 - 240) < 1e-6)
+  assert.ok(z < 1)
+})
+
+test('una imagen más pequeña que el marco se centra', () => {
+  const scale = frameModule.frameScale(100, 100, 240, 240, 1)
+  const p = frameModule.clampFrameOffset(0, 0, 100, 100, 240, 240, scale)
+  assert.equal(p.x, (240 - 100 * scale) / 2)
+  assert.equal(p.y, (240 - 100 * scale) / 2)
+})
+
+test('una imagen más grande que el marco no deja huecos', () => {
+  const scale = frameModule.frameScale(800, 800, 240, 240, 1)
+  const p = frameModule.clampFrameOffset(50, -999, 800, 800, 240, 240, scale)
+  assert.equal(p.x, 0)
+  assert.equal(p.y, 240 - 800 * scale)
+})

@@ -1,12 +1,12 @@
-import { compressImage, type ImageKind, type SourceCrop } from './image-compress'
+import { compressImage, type FrameView, type ImageKind } from './image-compress'
 import { supabase } from './supabase'
 
 export const imageBucket = 'avatars'
 
 // Comprime en el navegador y sube a una ruta fija: al cambiar la imagen se reemplaza, sin archivos huérfanos.
-export async function uploadProfileImage(file: File, kind: ImageKind, folder: string, slot: string, crop?: SourceCrop, margin = 0) {
+export async function uploadProfileImage(file: File, kind: ImageKind, folder: string, slot: string, view?: FrameView, margin = 0) {
   if (!supabase) throw new Error('La conexión no está disponible.')
-  const image = await compressImage(file, kind, crop, margin)
+  const image = await compressImage(file, kind, view, margin)
   const extension = image.mime === 'image/webp' ? 'webp' : image.mime === 'image/png' ? 'png' : 'jpg'
   const path = `${folder}/${slot}.${extension}`
   const { error } = await supabase.storage.from(imageBucket).upload(path, image.blob, {

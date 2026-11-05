@@ -158,6 +158,20 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Imagen completa al subir (sin recorte de los lados)
+
+**Causa**: el encuadre inicial cubría todo el recuadro (como una foto), así que un logo ancho perdía los lados al guardarse. El margen se aplicaba bien, pero la imagen ya llegaba recortada.
+**Qué se hizo**:
+- El encuadre inicial muestra la imagen completa, con el margen alrededor (`fitZoom`). El zoom puede bajar hasta ese punto y subir hasta 3.
+- Si la imagen es más pequeña que el marco, se centra. Si es más grande, no deja huecos (`clampFrameOffset`).
+- El archivo se dibuja a partir del encuadre visible (`FrameView` en `lib/image-compress.ts`), recortado al área del margen. Ya no se usa el recorte a partir de la imagen original.
+- El recuadro de edición y "Así se verá" recortan la imagen al área del margen.
+**Archivos**: `lib/image-compress.ts`, `lib/image-upload.ts`, `Components/image-upload-field.tsx`, `tests/image-compress.test.mjs` (3 pruebas nuevas, las anteriores se conservan).
+**Verificación**: `npm run build` sin errores; 59 pruebas correctas. No se probó en navegador.
+**Nota**: las imágenes ya subidas siguen recortadas; hay que volver a subirlas.
+
+---
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Margen para fotos, escudos y logotipos
 
 **Qué se hizo**: al subir una imagen aparece el control "Margen (espacio alrededor)" (0 a 30 %, por defecto 10 %). Deja espacio vacío alrededor de la imagen para que no toque el borde. Se aplica igual en el recuadro de edición, en "Así se verá" y en el archivo que se guarda (`lib/image-compress.ts` → `render` dibuja en un área reducida; `lib/image-upload.ts` recibe el margen).
