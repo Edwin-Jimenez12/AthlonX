@@ -52,7 +52,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Planes por perfil: atleta y entrenador con planes Free y Pro (y Élite después); staff y directivo quedan en Free por ahora.
 - [x] Excel de planes de atleta y entrenador (Free y Pro): marcado por Edwin y guardado en `documentos/PLANES_ATLETA_ENTRENADOR_APROBADO.xlsx` (entrada del 2026-11-05, "Figma de atleta y entrenador").
 - [ ] Revisar y aprobar en Figma los 4 sets de la cuenta personal (Atleta Free y Pro, Entrenador Free y Pro); después, pasarlos a código.
-- [ ] Modo claro y versión móvil de los 4 sets de la cuenta personal.
+- [x] Modo claro y versión móvil de los 4 sets de la cuenta personal (entrada del 2026-11-05, "Modo claro y móvil de la cuenta personal"). Pendiente: versión de tableta y revisión de Edwin.
 - [ ] Recordatorios por correo: el recordatorio de un evento llega también al correo de la cuenta (personal, equipo u organización). Requiere un proveedor de correo.
 - [ ] Estadísticas por año en vez de temporada, en todas las cuentas: vista por semana, mes y año; Free ve el año actual y Pro los años anteriores. Quitar la tarjeta "Temporada" de Configuración del equipo y de la organización, y cambiar `team_season`, `team_set_season` y las vistas de Estadísticas y Finanzas.
 - [ ] Atleta Free: 1 actividad personal repetida al mes; la repetición se desactiva al terminar el mes.
@@ -90,6 +90,32 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Modo claro y móvil de la cuenta personal
+
+**Qué se hizo**: en la página REDISEÑO se agregaron, para los 4 sets de la cuenta personal (Atleta Free y Pro, Entrenador Free y Pro):
+- **Escritorio en modo claro**: copia de cada pantalla oscura con el modo de variables `Claro` (`960:1`). Nombre `Persona · <Rol> · <Plan> · <Pantalla> · Claro`. Filas en y=100000 (Atleta Free), 104000 (Atleta Pro), 108000 (Entrenador Free) y 112000 (Entrenador Pro).
+- **Móvil (390 px) oscuro y claro**: copia de cada pantalla con el menú lateral arriba (en varias líneas), contenido en una sola columna con 16 px a cada lado, y columnas, tarjetas y filas apiladas. Las tablas pasan a una celda por línea. Nombre `... · Móvil · Oscuro` o `... · Móvil · Claro`. Móviles oscuros en x=20000 y claros en x=26000, en la misma fila que su escritorio.
+- Los colores fijos del diseño oscuro (textos y fondos que no estaban ligados a variables) se pasaron a colores del tema claro del equipo. Los elementos en lima no cambian.
+- Las conexiones de prototipo de cada variante apuntan a su propia variante (menú lateral, selector Free/Pro, Mi perfil y Mejorar plan).
+
+**Limitaciones conocidas**:
+- Versión de tableta (834 px) no hecha; el equipo sí la tiene.
+- En el móvil, la cuadrícula del calendario queda compacta: las celdas del mes son muy angostas. Conviene una vista de agenda en móvil antes de pasar a código.
+- En el móvil del entrenador, la plantilla usa una lista simple (nombre, posición y estado) en vez de la tabla completa.
+- Los móviles tienen altura variable (por ejemplo, la búsqueda con 14 resultados mide ~6300 px).
+- La adaptación móvil es automática sobre el diseño de escritorio; no se revisó cada pantalla a detalle.
+
+**Archivos**: ninguno del repositorio (solo Figma). Esta entrada.
+
+**Verificación**: se revisaron capturas de escritorio claro y móvil (oscuro y claro) de Atleta Free, Atleta Pro, Entrenador Free y Entrenador Pro. Se corrigieron filas comprimidas, texto cortado, tarjetas oscuras en modo claro y títulos ilegibles.
+
+**Pendiente**:
+- Versión de tableta de los 4 sets.
+- Vista de agenda para el calendario en móvil.
+- Revisión y aprobación de Edwin antes de pasar a código.
 
 ---
 
