@@ -50,7 +50,15 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 **Cuenta personal y staff**
 - [ ] Planes por perfil: atleta y entrenador con planes Free y Pro (y Élite después); staff y directivo quedan en Free por ahora.
-- [ ] Excel de planes de atleta y entrenador (Free y Pro), con todas sus funciones, incluidas las pendientes. Se genera después de definir los puntos de esta sección.
+- [x] Excel de planes de atleta y entrenador (Free y Pro): marcado por Edwin y guardado en `documentos/PLANES_ATLETA_ENTRENADOR_APROBADO.xlsx` (entrada del 2026-11-05, "Figma de atleta y entrenador").
+- [ ] Revisar y aprobar en Figma los 4 sets de la cuenta personal (Atleta Free y Pro, Entrenador Free y Pro); después, pasarlos a código.
+- [ ] Modo claro y versión móvil de los 4 sets de la cuenta personal.
+- [ ] Recordatorios por correo: el recordatorio de un evento llega también al correo de la cuenta (personal, equipo u organización). Requiere un proveedor de correo.
+- [ ] Estadísticas por año en vez de temporada, en todas las cuentas: vista por semana, mes y año; Free ve el año actual y Pro los años anteriores. Quitar la tarjeta "Temporada" de Configuración del equipo y de la organización, y cambiar `team_season`, `team_set_season` y las vistas de Estadísticas y Finanzas.
+- [ ] Atleta Free: 1 actividad personal repetida al mes; la repetición se desactiva al terminar el mes.
+- [ ] Entrenador Free: 5 eventos del equipo al mes (hoy el límite del equipo Free es 10). Definir cómo conviven el límite del entrenador y el del equipo.
+- [ ] El entrenador no crea eventos Amistoso ni torneos, y no da permisos de edición por evento: eso lo hace un directivo. Solo edita un evento si un directivo le da permiso como staff.
+- [ ] Confirmar que "Equipos que entrena" (Free 1, Pro 3) cuenta los equipos donde tiene el cargo de entrenador.
 - [ ] Pro completo: construir entrenamientos, asistencia, formaciones y anuncios antes de vender Pro al entrenador.
 - [ ] Carga de trabajo semanal del atleta: la ven el atleta y el médico por defecto; el médico da permiso al entrenador o a la cuenta de equipo.
 - [ ] Seguimiento de salud centralizado: un registro por atleta con acceso por cargo y por equipo (tabla de vistas en la entrada del 2026-11-05). Confirmar con un médico y un fisioterapeuta profesionales antes de construirlo.
@@ -82,6 +90,37 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Bug del botón pausa en la UI de básquet: falta el error de consola.
 - [ ] Repositorio: quitar de Git `.next` y `tsconfig.tsbuildinfo` (pesan unos 282 MiB en el historial; el build de la plataforma se agotó una vez).
 - [ ] Probar en navegador el flujo completo de eliminación de cuenta y recuperación dentro de los 15 días.
+
+---
+
+## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Figma de atleta y entrenador (Free y Pro)
+
+**Qué se hizo**: con el Excel marcado por Edwin (`documentos/PLANES_ATLETA_ENTRENADOR_APROBADO.xlsx`) se diseñaron en Figma, página REDISEÑO, cuatro sets de la cuenta personal en tema oscuro, con datos ficticios. Están debajo de los diseños de equipo, desde y=85000, con el rótulo "Cuenta personal · Atleta y Entrenador". Los frames se llaman `Persona · <Atleta|Entrenador> · <Free|Pro> · <pantalla>`.
+- Atleta (9 pantallas, y=85400 Free y y=87600 Pro): Búsqueda, Notificaciones, Mi equipo (equipos, convocatorias y mi cuota), Calendario, Nueva actividad, Estadísticas, Entrenamientos, Carga y salud, Mi perfil (plan y tabla Free/Pro).
+- Entrenador (12 pantallas, y=89800 Free y y=92000 Pro): Búsqueda, Notificaciones, Mi equipo (equipos que entrena y plantilla), Convocatoria, Calendario, Nuevo evento, Estadísticas (con historial por jugador y reportes), Entrenamientos (sesiones, plantillas y asignación), Carga y salud (con permiso del médico), Formaciones, Anuncios, Mi perfil.
+- En Free, lo que es de Pro aparece como "Disponible en Pro" con el botón Mejorar plan.
+- Prototipo: el menú lateral navega entre pantallas del mismo set. El selector Free/Pro salta a la misma pantalla del otro plan. "Mejorar plan" y el avatar abren Mi perfil.
+
+**Qué no se incluyó**:
+- Lo marcado [POR DEFINIR]: asistencia en cancha, reporte de molestia al médico y diagnóstico visible para el entrenador. También quedó fuera el reporte de asistencia por jugador, porque depende de la asistencia en cancha.
+- Lo rechazado: Amistoso y torneos para el entrenador, y que el entrenador dé permisos de edición por evento (lo hace un directivo).
+
+**Decisiones del Excel**:
+- Los recordatorios también llegan por correo.
+- Las estadísticas van por año (semana, mes y año), no por temporada, también para equipo y organización.
+- Atleta Free: 1 actividad repetida al mes, que se desactiva al terminar el mes.
+- Entrenador Free: 5 eventos al mes.
+- Sincronización, historial y comparar años: solo en Pro.
+- Entrenamientos, carga semanal y disponibilidad están en Free y en Pro. Formaciones, anuncios, historial por jugador y reportes son solo de Pro.
+
+Todo está agregado en Pendientes.
+
+**Verificación**: se revisaron capturas de las pantallas de los cuatro sets. Se corrigieron filas vacías que quedaban muy altas, tablas en media columna, la altura de la plantilla y el botón "Añadir jugador" en la plantilla del entrenador.
+
+**Pendiente**:
+- Que Edwin apruebe el diseño.
+- Modo claro y móvil.
+- Pasar a código, incluido el cambio de temporada a año en equipo y organización.
 
 ---
 
