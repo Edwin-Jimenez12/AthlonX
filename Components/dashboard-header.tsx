@@ -7,7 +7,6 @@ import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
 import { useThemeMode, type ThemeMode } from '../lib/theme'
 import { AccountMenu, AccountTrigger, type AccountIdentity } from './account-menu'
-import { ContextSwitcher } from './context-switcher'
 import { NotificationsMenu } from './notifications-menu'
 import { announceHeaderMenu, useDismissableMenu } from './header-menu-dismiss'
 
@@ -163,16 +162,14 @@ export function DashboardHeader() {
   const key = pathname?.startsWith('/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
   const activeContext = contexts.find((context) => context.id === activeContextId)
   const selectableContexts = contexts
-  const canSwitchContexts = selectableContexts.length > 1
   return <header className="relative z-50 px-6 pt-6 text-white print:hidden lg:ml-64 md:px-10 md:pt-10">
     <div className="flex justify-end">
       <div ref={menuClusterRef} className="relative flex min-w-0 flex-wrap items-center justify-end gap-4">
-        {canSwitchContexts && <ContextSwitcher contexts={selectableContexts} activeContextId={activeContextId} onChange={selectContext} />}
         <NotificationsMenu />
         <span className="hidden h-7 w-px bg-[#294052] sm:block" />
         <div className="ax-v2 relative">
           <AccountTrigger identity={identity} open={profileOpen} onClick={() => { if (!profileOpen) announceHeaderMenu('account'); setProfileOpen(!profileOpen) }} />
-          {profileOpen && <AccountMenu identity={identity} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}
+          {profileOpen && <AccountMenu identity={identity} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} contexts={selectableContexts} activeContextId={activeContextId} onSelectContext={selectContext} />}
         </div>
       </div>
     </div>

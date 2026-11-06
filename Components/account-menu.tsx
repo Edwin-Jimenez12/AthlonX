@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Check, ChevronDown, Copy, ExternalLink, LogOut, Moon, SlidersHorizontal, Sun, UserRound } from 'lucide-react'
+import { Building2, Check, ChevronDown, Copy, ExternalLink, LogOut, Moon, Shield, SlidersHorizontal, Sun, UserRound } from 'lucide-react'
 import type { ThemeMode } from '../lib/theme'
+import { AccountContext, contextDetail, contextTitle } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 import { Badge, cx } from './mi-equipo/ui'
 
@@ -63,7 +64,55 @@ function ItemIcon({ icon: Icon, danger = false }: { icon: LucideIcon; danger?: b
   return <span aria-hidden="true" className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', danger ? 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}><Icon size={15} /></span>
 }
 
-export function AccountMenu({ identity, theme, onTheme, onClose }: { identity: AccountIdentity; theme: ThemeMode; onTheme: (mode: ThemeMode) => void; onClose: () => void }) {
+function contextIcon(context: AccountContext) {
+  if (context.contextType === 'organization') return Building2
+  if (context.contextType === 'team') return Shield
+  return UserRound
+}
+
+// Subtítulo de cada rol: la cuenta personal dice que es personal; equipos y organizaciones dicen su tipo.
+function contextSubtitle(context: AccountContext) {
+  if (context.contextType === 'personal') return 'Cuenta personal'
+  return contextDetail(context) ?? (context.contextType === 'team' ? 'Equipo' : 'Organización')
+}
+
+// Sección Roles: al abrirla lista los roles de la cuenta; elegir uno cambia de vista.
+function RolesSection({ contexts, activeContextId, onSelect }: { contexts: AccountContext[]; activeContextId: string; onSelect: (context: AccountContext) => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const active = contexts.find((context) => context.id === activeContextId) ?? contexts[0]
+  if (!contexts.length) return null
+  return <div>
+    <button type="button" role="menuitem" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className={cx(itemClass, 'justify-between')}>
+      <span className="flex min-w-0 items-center gap-2.5">
+        <ItemIcon icon={Shield} />
+        <span className="flex min-w-0 flex-col items-start leading-tight">
+          <span>Roles</span>
+          {active && <span className="max-w-full truncate text-xs font-normal text-[var(--ax-muted)]">Actual: {contextTitle(active)}</span>}
+        </span>
+      </span>
+      <ChevronDown size={16} aria-hidden="true" className={cx('shrink-0 text-[var(--ax-muted)] transition-transform duration-150', expanded && 'rotate-180')} />
+    </button>
+    {expanded && <div role="menu" aria-label="Roles" className="ax-drop-in mb-1 mt-0.5 space-y-0.5 pl-2">
+      {contexts.map((context) => {
+        const isActive = context.id === activeContextId
+        const Icon = contextIcon(context)
+        return <button key={context.id} type="button" role="menuitemradio" aria-checked={isActive} onClick={() => onSelect(context)} className={cx(
+          'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-colors duration-100 focus-visible:outline-none',
+          isActive ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)]' : 'border-transparent hover:bg-[var(--ax-hover)] focus-visible:bg-[var(--ax-hover)]',
+        )}>
+          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--ax-surface-sunken)] text-[var(--ax-accent-text)]">{context.imageUrl ? <img src={context.imageUrl} alt="" className="h-full w-full object-cover" /> : <Icon size={15} />}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-[var(--ax-text)]">{contextTitle(context)}</span>
+            <span className="block truncate text-xs text-[var(--ax-muted)]">{contextSubtitle(context)}</span>
+          </span>
+          {isActive && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]" aria-label="Vista actual"><Check size={12} aria-hidden="true" /></span>}
+        </button>
+      })}
+    </div>}
+  </div>
+}
+
+export function AccountMenu({ identity, theme, onTheme, onClose, contexts = [], activeContextId = '', onSelectContext }: { identity: AccountIdentity; theme: ThemeMode; onTheme: (mode: ThemeMode) => void; onClose: () => void; contexts?: AccountContext[]; activeContextId?: string; onSelectContext?: (context: AccountContext) => void }) {
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -105,6 +154,7 @@ export function AccountMenu({ identity, theme, onTheme, onClose }: { identity: A
 
     <div className="my-1.5 h-px bg-[var(--ax-line)]" />
     <Link role="menuitem" href="/mi-perfil" onClick={onClose} className={itemClass}><ItemIcon icon={UserRound} />Mi perfil</Link>
+    {onSelectContext && <RolesSection contexts={contexts} activeContextId={activeContextId} onSelect={(context) => { onClose(); onSelectContext(context) }} />}
     {identity.publicHref && <Link role="menuitem" href={identity.publicHref} onClick={onClose} className={itemClass}><ItemIcon icon={ExternalLink} />Ver perfil público</Link>}
     <Link role="menuitem" href="/mi-perfil?seccion=configuracion" onClick={onClose} className={itemClass}><ItemIcon icon={SlidersHorizontal} />Configuración</Link>
     <div className="flex items-center justify-between gap-3 py-1.5 pl-3 pr-2.5">
