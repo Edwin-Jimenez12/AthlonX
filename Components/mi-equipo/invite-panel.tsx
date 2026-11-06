@@ -23,6 +23,9 @@ export function InvitePanel({ teamId, divisions, members, title, roles = invitab
   const [sending, setSending] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
   const needsDivision = role !== 'directivo'
+  // A un jugador de la plantilla no se le pide cargo: siempre es Jugador. Los demás roles sí tienen cargo visible.
+  const showRoleLabel = role !== 'atleta'
+  const columns = (roles.length > 1 ? 1 : 0) + 1 + (showRoleLabel ? 1 : 0)
 
   useEffect(() => { setRoleLabel(roleNames[role]) }, [role])
 
@@ -65,13 +68,13 @@ export function InvitePanel({ teamId, divisions, members, title, roles = invitab
       <p className="text-[15px] font-semibold text-[var(--ax-text)]">{title}</p>
       <button type="button" onClick={onClose} aria-label="Cerrar" className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-muted)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]"><X size={16} /></button>
     </div>
-    <div className={cx('mt-4 grid gap-3', roles.length > 1 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+    <div className={cx('mt-4 grid gap-3', columns === 3 ? 'sm:grid-cols-3' : columns === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
       {roles.length > 1 && <Select label="Rol" value={role} onChange={(value) => setRole(value as MemberRole)} options={roles.map((item) => ({ value: item, label: roleNames[item] }))} />}
       {needsDivision ? <Select label="División" value={divisionId} onChange={setDivisionId} placeholder="Sin divisiones" disabled={!divisions.length} options={divisions.map((division) => ({ value: division.id, label: division.name }))} /> : <div className="hidden sm:block" />}
-      <label className="block min-w-0">
+      {showRoleLabel && <label className="block min-w-0">
         <FieldLabel>Cargo visible</FieldLabel>
         <input value={roleLabel} onChange={(event) => setRoleLabel(event.target.value)} placeholder="Ej. Preparador físico" className={inputClass} />
-      </label>
+      </label>}
     </div>
     <div className="relative mt-3">
       <label className="block">

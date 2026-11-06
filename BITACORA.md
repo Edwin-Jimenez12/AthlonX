@@ -101,6 +101,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Añadir jugador sin "Cargo visible"
+
+**Qué se hizo**: en `Components/mi-equipo/invite-panel.tsx`, el campo "Cargo visible" ya no aparece cuando el rol es atleta (Añadir jugador desde la plantilla); la invitación se envía con el cargo "Jugador". Para entrenador, staff y directivo el campo sigue, para cargos como "Preparador físico".
+
+**Verificación**: `tsc` sin errores fuera de `.next`. Falta revisar en navegador.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Planes de persona por perfil y página de planes con pestañas
 
 **Decisión de Edwin**: la cuenta persona se vende en cuatro planes: **Free**, **Atleta Pro**, **Entrenador Pro** y **Pro Completo** (atleta + entrenador, con descuento). Cualquier Pro desbloquea el calendario personal (sincronización, actividades y repeticiones sin límite, recordatorios personalizados). Staff y directivo son gratis; sus herramientas vienen del plan de su equipo u organización. La página de planes se organiza en pestañas: Para ti, Para tu equipo y Para tu organización.
