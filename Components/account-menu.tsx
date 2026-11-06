@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Building2, Check, ChevronDown, Copy, ExternalLink, LogOut, Moon, Shield, SlidersHorizontal, Sun, UserRound } from 'lucide-react'
+import { Briefcase, Building2, Check, ChevronDown, ClipboardList, Copy, ExternalLink, LogOut, Moon, Shield, SlidersHorizontal, Sun, Trophy, UserRound, Wrench } from 'lucide-react'
 import type { ThemeMode } from '../lib/theme'
 import { AccountContext, contextDetail, contextTitle } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
@@ -64,15 +64,18 @@ function ItemIcon({ icon: Icon, danger = false }: { icon: LucideIcon; danger?: b
   return <span aria-hidden="true" className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', danger ? 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}><Icon size={15} /></span>
 }
 
-function contextIcon(context: AccountContext) {
+// Icono de cada rol: atleta, entrenador, staff y directivo en la cuenta personal; equipo y organización por tipo.
+const personalRoleIcons: Record<string, LucideIcon> = { atleta: Trophy, entrenador: ClipboardList, staff: Wrench, directivo: Briefcase }
+
+function contextIcon(context: AccountContext): LucideIcon {
   if (context.contextType === 'organization') return Building2
   if (context.contextType === 'team') return Shield
-  return UserRound
+  return personalRoleIcons[context.role] ?? UserRound
 }
 
-// Subtítulo de cada rol: la cuenta personal dice que es personal; equipos y organizaciones dicen su tipo.
+// Equipos y organizaciones muestran su tipo debajo del nombre; los roles personales solo su nombre.
 function contextSubtitle(context: AccountContext) {
-  if (context.contextType === 'personal') return 'Cuenta personal'
+  if (context.contextType === 'personal') return null
   return contextDetail(context) ?? (context.contextType === 'team' ? 'Equipo' : 'Organización')
 }
 
@@ -100,10 +103,10 @@ function RolesSection({ contexts, activeContextId, onSelect }: { contexts: Accou
           'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border px-2.5 py-2 text-left transition-colors duration-100 focus-visible:outline-none',
           isActive ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)]' : 'border-transparent hover:bg-[var(--ax-hover)] focus-visible:bg-[var(--ax-hover)]',
         )}>
-          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--ax-surface-sunken)] text-[var(--ax-accent-text)]">{context.imageUrl ? <img src={context.imageUrl} alt="" className="h-full w-full object-cover" /> : <Icon size={15} />}</span>
+          <span aria-hidden="true" className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', isActive ? 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)]' : 'bg-[var(--ax-surface-sunken)] text-[var(--ax-accent-text)]')}><Icon size={15} /></span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-[var(--ax-text)]">{contextTitle(context)}</span>
-            <span className="block truncate text-xs text-[var(--ax-muted)]">{contextSubtitle(context)}</span>
+            {contextSubtitle(context) && <span className="block truncate text-xs text-[var(--ax-muted)]">{contextSubtitle(context)}</span>}
           </span>
           {isActive && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--ax-accent)] text-[var(--ax-on-accent)]" aria-label="Vista actual"><Check size={12} aria-hidden="true" /></span>}
         </button>
