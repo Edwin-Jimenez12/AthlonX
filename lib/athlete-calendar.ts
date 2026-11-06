@@ -21,6 +21,9 @@ export type FeedItem = {
   repeat_until?: string | null
   reminder_minutes?: number[] | null
   division_id?: string | null
+  type_id?: string | null
+  type_label?: string | null
+  type_color?: string | null
 }
 
 export type CalendarView = 'mes' | 'semana' | 'dia' | 'agenda' | 'linea'

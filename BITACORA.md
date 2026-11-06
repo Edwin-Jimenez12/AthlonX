@@ -101,6 +101,27 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Tipos de evento personalizables (calendario personal)
+
+**Decisiones de Edwin**:
+- **Opción B**: cada evento guarda una categoría interna (training, match, meeting, personal, other) que usan límites, filtros y reglas de plan. El nombre que se ve es de cada persona.
+- **Paleta fija de 12 colores** (`#b4ff45`, `#4ea8ff`, `#a78bfa`, `#ff9f43`, `#ff6b6b`, `#2dd4bf`, `#facc15`, `#f472b6`, `#22c55e`, `#7dd3fc`, `#818cf8`, `#94a3b8`).
+- **5 predefinidos**: Entrenamiento, Partido, Reunión, Personal y Otro. No se borran; sus nombres se cambian, y "Restablecer nombres predefinidos" pide confirmación.
+- **Tipos propios**: la persona los agrega y los borra (solo los suyos). Un tipo propio nunca llega a los eventos del equipo.
+- **Amistoso**: no es un tipo. Es un partido con título "Amistoso".
+
+**SQL aplicado** (`supabase/personal-event-types-migration.sql`, HTTP 201, verificado):
+- Tabla `personal_event_types` con RLS solo para el dueño, nombre único por persona, color limitado a la paleta, y borrado solo de tipos propios.
+- `personal_types_ensure()` crea los predefinidos si no existen; `personal_types_reset_defaults()` restablece los nombres.
+- `personal_activities.type_id` (al borrar un tipo, la actividad conserva su categoría). Categorías de actividades personales: personal, training, match, meeting, other.
+- `calendar_save_personal_activity` acepta `p_type_id`. `calendar_my_feed` devuelve el tipo de cada actividad personal. Probado con sesión simulada en un bloque revertido: 9 elementos.
+
+**Código**: `Components/calendario/personal-types-sheet.tsx` (hoja con renombrar, color, agregar, borrar y restablecer) y `Components/calendario/athlete-calendar.tsx` (selector de tipo con punto de color y lápiz en el formulario, colores por tipo en las actividades, nombre del tipo en el detalle). Móvil: la hoja sube desde abajo; la paleta es de 6 columnas y botones de 44 px.
+
+**Pendiente**: tipos personalizables en los eventos del equipo (hoy usan las categorías del equipo). Verificar en navegador. Los puntos 3 a 7 quedan para después.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Añadir jugador sin "Cargo visible"
 
 **Qué se hizo**: en `Components/mi-equipo/invite-panel.tsx`, el campo "Cargo visible" ya no aparece cuando el rol es atleta (Añadir jugador desde la plantilla); la invitación se envía con el cargo "Jugador". Para entrenador, staff y directivo el campo sigue, para cargos como "Preparador físico".

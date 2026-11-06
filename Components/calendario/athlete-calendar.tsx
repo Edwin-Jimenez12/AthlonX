@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, ChevronUp, Info, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Info, Pencil, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
@@ -11,6 +11,7 @@ import {
 import Link from 'next/link'
 import { LockedFeature, downloadCsv, printReport, upgradeHref } from '../organizacion/plan-ui'
 import { Button, ButtonLink, Card, CardHeader, FieldLabel, Notice, PageHeader, Segment, inputClass } from '../mi-equipo/ui'
+import { PersonalType, PersonalTypesSheet } from './personal-types-sheet'
 
 const views: Array<{ id: CalendarView; label: string }> = [
   { id: 'mes', label: 'Mes' },
@@ -48,6 +49,7 @@ const teamEventTypes = [
 type Editor = {
   scope: string
   eventType: string
+  typeId: string | null
   id: string | null
   title: string
   description: string
@@ -62,6 +64,12 @@ type Editor = {
 }
 
 // Colores de Figma: Partido lima, Entrenamiento azul, Torneo naranja, Convocatoria violeta, Personal gris, Organización blanco.
+// Color de cada evento: en actividades personales, el del tipo que eligió la persona; si no, el de su categoría.
+function colorOf(item: FeedItem) {
+  if (item.source === 'personal' && item.type_color) return item.type_color
+  return kindColor[itemKind(item)]
+}
+
 const kindColor: Record<string, string> = {
   partido: '#b4ff45',
   entrenamiento: '#7fc8ff',
@@ -128,6 +136,7 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
   return {
     scope: item?.source === 'team' || item?.source === 'organization' ? (item.owner_id ?? 'personal') : 'personal',
     eventType: item?.source === 'team' || item?.source === 'organization' ? item.event_type : 'training',
+    typeId: item?.source === 'personal' ? item.type_id ?? null : null,
     id: item ? item.id : null,
     title: item?.title ?? '',
     description: item?.description ?? '',
@@ -165,6 +174,9 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [selected, setSelected] = useState<FeedItem | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
   const [editorMinimized, setEditorMinimized] = useState(false)
+  const [types, setTypes] = useState<PersonalType[]>([])
+  const [typesOpen, setTypesOpen] = useState(false)
+  const defaultPersonalId = types.find((type) => type.default_key === 'personal')?.id ?? null
   // Al abrir el formulario (nuevo o editar) siempre aparece completo.
   const editorOpen = editor !== null
   useEffect(() => { if (editorOpen) setEditorMinimized(false) }, [editorOpen, editor?.id])
@@ -189,11 +201,19 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     return editingRepeat || (orgUsage?.usage?.eventos_repetidos ?? 0) < lim
   }
 
+  // Tipos de evento de la persona. Si no tiene, se crean los 5 predefinidos.
+  async function loadTypes() {
+    if (!supabase) return
+    const { data } = await supabase.rpc('personal_types_ensure')
+    setTypes((data ?? []) as PersonalType[])
+  }
+
   async function loadAccount() {
     if (!supabase) return
     const { data } = await supabase.auth.getUser()
     if (!data.user) return
     setUserId(data.user.id)
+    void loadTypes()
     if (team) {
       setPlan(await loadAccountPlan('equipo', team.id))
       const { data: usageData } = await supabase.rpc('platform_team_usage', { p_team: team.id })
@@ -414,7 +434,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
       p_title: editor.title.trim(),
       p_description: editor.description,
       p_location: editor.location,
-      p_event_type: 'personal',
+      p_event_type: types.find((type) => type.id === (editor.typeId ?? defaultPersonalId))?.category ?? 'personal',
+      p_type_id: editor.typeId ?? defaultPersonalId,
       p_starts: starts.toISOString(),
       p_ends: ends.toISOString(),
       p_all_day: false,
@@ -461,7 +482,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         onClick={() => { setEditor(null); setSelected(item) }}
         className="flex w-full flex-col gap-0.5 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] px-3 py-2 text-left hover:border-[var(--ax-line-strong)]"
       >
-        <span className="text-[11px] font-semibold uppercase tracking-[.12em]" style={{ color: kindColor[itemKind(item)] }}>{time}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[.12em]" style={{ color: colorOf(item) }}>{time}</span>
         <span className="text-sm font-semibold text-[var(--ax-text)]">{item.title}</span>
       </button>
     )
@@ -469,7 +490,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
 
   // Chip de evento: color del tipo, fondo tintado y hora.
   function EventChip({ item }: { item: FeedItem }) {
-    const color = kindColor[itemKind(item)]
+    const color = colorOf(item)
     return (
       <button
         type="button"
@@ -563,7 +584,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         <ol className="relative flex flex-col gap-4 border-l border-[var(--ax-line)] pl-6">
           {visible.map((item) => (
             <li key={item.id + item.starts_at} className="relative">
-              <span className="absolute -left-[31px] top-2 h-3 w-3 rounded-full" style={{ background: kindColor[itemKind(item)] }} aria-hidden="true" />
+              <span className="absolute -left-[31px] top-2 h-3 w-3 rounded-full" style={{ background: colorOf(item) }} aria-hidden="true" />
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">
                 {new Date(item.starts_at).toLocaleDateString('es-PA', { weekday: 'short', day: 'numeric', month: 'short' })} · {formatTime(item.starts_at)}
               </p>
@@ -671,7 +692,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
             <p>{selected.all_day ? 'Todo el día' : `${formatDayLabel(new Date(selected.starts_at))} · ${formatTime(selected.starts_at)} – ${formatTime(selected.ends_at)}`}</p>
             {selected.location && <p className="text-[var(--ax-muted)]">{selected.location}</p>}
             {selected.description && <p className="whitespace-pre-line text-[var(--ax-muted)]">{selected.description}</p>}
-            <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? 'Actividad personal' : selected.owner_name ?? ''}</p>
+            <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? (selected.type_label ?? 'Actividad personal') : selected.owner_name ?? ''}</p>
           </div>
           {!isMgmt && (selected.source === 'team' || selected.source === 'organization') && (
             <div className="mt-5">
@@ -754,6 +775,31 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                   {managedTeams.map((team) => (
                     <Segment key={team.id} active={editor.scope === team.id} label={team.name} onClick={() => setEditor({ ...editor, scope: team.id })} />
                   ))}
+                </div>
+              </div>
+            )}
+            {editor.scope === 'personal' && (
+              <div className="md:col-span-2">
+                <FieldLabel>Tipo de evento</FieldLabel>
+                <div className="flex flex-wrap items-center gap-2">
+                  {types.map((type) => {
+                    const active = (editor.typeId ?? defaultPersonalId) === type.id
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setEditor({ ...editor, typeId: type.id })}
+                        className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition-colors ${active ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] text-[var(--ax-text)]' : 'border-[var(--ax-line-strong)] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)]'}`}
+                      >
+                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: type.color }} />
+                        {type.label}
+                      </button>
+                    )
+                  })}
+                  <button type="button" onClick={() => setTypesOpen(true)} aria-label="Editar tipos de evento" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--ax-line-strong)] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
+                    <Pencil size={15} aria-hidden="true" />
+                  </button>
                 </div>
               </div>
             )}
@@ -889,6 +935,15 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         </section>
       )}
 
+      {typesOpen && userId && (
+        <PersonalTypesSheet
+          types={types}
+          userId={userId}
+          onChanged={async () => { await loadTypes(); await loadFeed() }}
+          onClose={() => setTypesOpen(false)}
+        />
+      )}
+
       {showConnections && (
         <Card>
           <CardHeader id="conexiones" title="Conexiones" />
@@ -928,7 +983,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                 {nextActivities.map((item) => (
                   <li key={item.id + item.starts_at}>
                     <button type="button" onClick={() => { setEditor(null); setSelected(item) }} className="flex w-full gap-3 text-left">
-                      <span className="w-[3px] shrink-0 rounded-full" style={{ background: kindColor[itemKind(item)] }} aria-hidden="true" />
+                      <span className="w-[3px] shrink-0 rounded-full" style={{ background: colorOf(item) }} aria-hidden="true" />
                       <span className="flex min-w-0 flex-col">
                         <span className="text-[11px] text-[var(--ax-muted)]">
                           {new Date(item.starts_at).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' })} · {item.source === 'personal' ? 'Personal' : item.event_type === 'training' ? 'Entrenamiento' : item.event_type === 'match' ? 'Partido' : 'Actividad'}
