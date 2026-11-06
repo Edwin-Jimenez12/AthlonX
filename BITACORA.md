@@ -101,6 +101,28 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Planes de persona por perfil y página de planes con pestañas
+
+**Decisión de Edwin**: la cuenta persona se vende en cuatro planes: **Free**, **Atleta Pro**, **Entrenador Pro** y **Pro Completo** (atleta + entrenador, con descuento). Cualquier Pro desbloquea el calendario personal (sincronización, actividades y repeticiones sin límite, recordatorios personalizados). Staff y directivo son gratis; sus herramientas vienen del plan de su equipo u organización. La página de planes se organiza en pestañas: Para ti, Para tu equipo y Para tu organización.
+
+**SQL aplicado** (`supabase/persona-plans-by-profile-migration.sql`, HTTP 201, verificado con solo lectura):
+- Columnas nuevas en `plans`: `tagline` (frase de la tarjeta) e `includes_plan` (plan base para "Todo lo de X, más:").
+- Planes `atleta_pro`, `entrenador_pro` y `pro_completo`, con precio por definir, flags (`calendario_pro`, `atleta_pro`, `entrenador_pro`) y límites (`equipos_entrenador`, `eventos_equipo_mes`, `recordatorios_evento`). `libre` pasa a llamarse Free.
+- Los planes persona `pro` y `elite` quedan inactivos. La única cuenta con `pro` pasó a `pro_completo`. Los códigos promocionales que aplicaban a Pro o Élite ahora también aplican a los tres planes nuevos.
+- Funciones internas `persona_flag` y `persona_limit`. Las reglas ya no comparan el código del plan: años anteriores de estadísticas = flag `atleta_pro`; formaciones y anuncios = flag `entrenador_pro`; eventos de equipo al mes = límite `eventos_equipo_mes`.
+- `platform_save_plan_v2`: el panel guarda nombre, frase, plan base, orden, precio por definir, funciones y límites.
+
+**Código**:
+- `app/planes/page.tsx`: pestañas Para ti / Para tu equipo / Para tu organización (enlazables con `#personas`, `#equipos`, `#organizaciones`), ayuda para elegir, tarjetas con frase, precio o "Precio por definir", "Todo lo de X, más:" y la nota de staff y directivo.
+- `app/(admin)/panel-admin/planes/page.tsx`: catálogo por pestañas y editor con los campos nuevos, funciones (Sí/No) y límites (vacío = sin límite).
+- `lib/account-plans.ts` (`planFlag`, `planLimit`); entrenador, estadísticas personales, formaciones y anuncios leen flags y límites; promociones ofrece los planes nuevos.
+
+**Pendiente**: Edwin ingresa precios y textos de cada plan en el panel. El límite de 1 evento de equipo repetido para el entrenador Free no está aplicado.
+
+**Verificación**: `tsc` sin errores fuera de `.next`; `npm run build` correcto. Falta revisar en navegador.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Formulario del calendario flotante y minimizable
 
 **Qué se hizo**: el formulario de Nueva actividad / Nuevo evento (`Components/calendario/athlete-calendar.tsx`) ya no aparece debajo del calendario. Ahora es un panel flotante, como un borrador de Gmail:

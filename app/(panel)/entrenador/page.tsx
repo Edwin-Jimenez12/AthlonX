@@ -3,7 +3,7 @@
 import { ArrowUpRight, Megaphone } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { loadAccountPlan, AccountPlan } from '../../../lib/account-plans'
+import { loadAccountPlan, AccountPlan, planLimit } from '../../../lib/account-plans'
 import { loadManagedTeams, ManagedTeam } from '../../../lib/team-access'
 import { supabase } from '../../../lib/supabase'
 import { PersonaViewSwitcher } from '../../../Components/persona-view-switcher'
@@ -15,11 +15,10 @@ import { Badge, ButtonLink, Card, CardHeader, EntityMark, Notice, PageHeader, Se
 import { Chip, LockedFeature } from '../../../Components/organizacion/plan-ui'
 
 // Equipos que la persona entrena por cargo de entrenador (Figma: Entrenador · Free y Pro · Mi equipo).
-// Free: 1 equipo a cargo. Pro: hasta 3.
+// Equipos a cargo según el plan (límite equipos_entrenador del catálogo): Free 1, Entrenador Pro y Pro Completo 3.
 function teamLimit(plan: AccountPlan | null) {
-  if (!plan || plan.code === 'libre') return 1
-  if (plan.code === 'pro') return 3
-  return null
+  const limit = planLimit(plan, 'equipos_entrenador')
+  return limit === undefined ? 1 : limit
 }
 
 export default function TrainerTeamPage() {

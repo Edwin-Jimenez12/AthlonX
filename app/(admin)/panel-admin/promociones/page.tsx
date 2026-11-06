@@ -21,8 +21,9 @@ type Promo = {
 
 // Planes a los que puede aplicar un código. El servidor valida que existan en el catálogo.
 const planOptions = [
-  { code: 'pro', name: 'Pro' },
-  { code: 'elite', name: 'Élite' },
+  { code: 'atleta_pro', name: 'Atleta Pro' },
+  { code: 'entrenador_pro', name: 'Entrenador Pro' },
+  { code: 'pro_completo', name: 'Pro Completo' },
   { code: 'club_pro', name: 'Club Pro' },
   { code: 'club_elite', name: 'Club Élite' },
   { code: 'libre', name: 'Libre' },
@@ -56,7 +57,7 @@ export default function PromocionesPage() {
   const [code, setCode] = useState('')
   const [type, setType] = useState<'percent' | 'fixed'>('percent')
   const [amount, setAmount] = useState('')
-  const [plans, setPlans] = useState<string[]>(['pro'])
+  const [plans, setPlans] = useState<string[]>(['pro_completo'])
   const [maxUses, setMaxUses] = useState('')
   const [starts, setStarts] = useState(() => new Date().toISOString().slice(0, 10))
   const [ends, setEnds] = useState('')
@@ -82,7 +83,7 @@ export default function PromocionesPage() {
     setCode('')
     setType('percent')
     setAmount('')
-    setPlans(['pro'])
+    setPlans(['pro_completo'])
     setMaxUses('')
     setStarts(new Date().toISOString().slice(0, 10))
     setEnds('')

@@ -3,7 +3,7 @@
 import { Map as MapIcon, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AccountContext, loadAccountContexts } from '../../lib/account-contexts'
-import { AccountPlan, loadAccountPlan } from '../../lib/account-plans'
+import { AccountPlan, loadAccountPlan, planFlag } from '../../lib/account-plans'
 import { supabase } from '../../lib/supabase'
 import { Button, Card, CardHeader, EmptyState, Notice, PageHeader, Segment, inputClass, FieldLabel } from '../mi-equipo/ui'
 import { useTeamRoster } from '../mi-equipo/use-team-roster'
@@ -35,7 +35,7 @@ export function FormationsPanel() {
   const [message, setMessage] = useState('')
   const [userId, setUserId] = useState('')
   const roster = useTeamRoster(teamId || undefined)
-  const isPro = Boolean(plan && plan.code !== 'libre')
+  const isPro = planFlag(plan, 'entrenador_pro')
   const players = roster.members.map((m) => m.full_name)
 
   useEffect(() => {

@@ -22,11 +22,24 @@ export type AccountPlan = {
 export type CatalogPlan = {
   code: string
   name: string
+  tagline?: string | null
+  includes_plan?: string | null
   price_pending: boolean
   monthly_price: number
   annual_enabled: boolean
   annual_price: number | null
   features: string[]
+}
+
+// Flag del plan (calendario_pro, atleta_pro, entrenador_pro…). Sin plan o sin flag: falso.
+export function planFlag(plan: AccountPlan | null | undefined, key: string) {
+  return plan?.feature_flags?.[key] === true
+}
+
+// Límite del plan. null = sin límite; undefined = el plan no define ese límite.
+export function planLimit(plan: AccountPlan | null | undefined, key: string): number | null | undefined {
+  if (!plan?.limits || !(key in plan.limits)) return undefined
+  return plan.limits[key] ?? null
 }
 
 async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
@@ -49,14 +62,15 @@ export function redeemPlanCode(accountType: AccountType, accountId: string, plan
   })
 }
 
-// Planes que se ofrecen según el tipo de cuenta: persona (Libre, Pro y Élite), equipo u organización (Free, Pro y Élite).
+// Planes que se ofrecen según el tipo de cuenta: persona (Free, Atleta Pro, Entrenador Pro y Pro Completo),
+// equipo u organización (Free, Pro y Élite).
 // Los planes de grupo se venden aparte.
 export async function loadUpgradePlans(accountType: AccountType): Promise<CatalogPlan[]> {
   if (!supabase) return []
   const catalog = accountType
   const { data, error } = await supabase
     .from('plans')
-    .select('code, name, monthly_price, price_pending, annual_enabled, annual_price, features')
+    .select('code, name, tagline, includes_plan, monthly_price, price_pending, annual_enabled, annual_price, features')
     .eq('is_active', true)
     .eq('kind', 'individual')
     .eq('account_type', catalog)

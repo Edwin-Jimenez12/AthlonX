@@ -3,7 +3,7 @@
 import { Megaphone, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AccountContext, loadAccountContexts } from '../../lib/account-contexts'
-import { AccountPlan, loadAccountPlan } from '../../lib/account-plans'
+import { AccountPlan, loadAccountPlan, planFlag } from '../../lib/account-plans'
 import { supabase } from '../../lib/supabase'
 import { Badge, Button, Card, CardHeader, EmptyState, Notice, PageHeader, Segment, inputClass, FieldLabel } from '../mi-equipo/ui'
 import { LockedFeature } from '../organizacion/plan-ui'
@@ -26,7 +26,7 @@ export function AnnouncementsPanel() {
   const [form, setForm] = useState({ title: '', body: '', division: '' })
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const isPro = Boolean(plan && plan.code !== 'libre')
+  const isPro = planFlag(plan, 'entrenador_pro')
   const isCoach = role === 'entrenador'
 
   useEffect(() => {

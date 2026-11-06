@@ -2,7 +2,7 @@
 
 import { Info } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { AccountPlan, loadAccountPlan } from '../../lib/account-plans'
+import { AccountPlan, loadAccountPlan, planFlag } from '../../lib/account-plans'
 import { supabase } from '../../lib/supabase'
 import { isoDate, PeriodControls, PeriodMode, rangeFor, yearsFor } from '../estadisticas/periodo'
 import { Card, CardHeader, Notice } from '../mi-equipo/ui'
@@ -25,7 +25,7 @@ export function PersonaStatsView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const isPro = Boolean(plan && plan.code !== 'libre')
+  const isPro = planFlag(plan, 'atleta_pro')
   const years = yearsFor(isPro, currentYear)
   const range = useMemo(() => rangeFor(mode, anchor, year), [mode, anchor, year])
   const periodYear = mode === 'anio' ? year : Number(anchor.slice(0, 4))
@@ -73,7 +73,7 @@ export function PersonaStatsView() {
       <PersonaViewSwitcher active="atleta" />
       <header className="space-y-1">
         <h1 className="font-display text-[34px] uppercase leading-[36px] tracking-[.02em] text-[var(--ax-text)] sm:text-[40px] sm:leading-[42px]">Estadísticas</h1>
-        <p className="text-sm text-[var(--ax-muted)]">{isPro ? 'Plan Pro: puedes ver los años anteriores.' : `Plan ${plan?.name ?? 'Libre'}: estadísticas del año actual.`}</p>
+        <p className="text-sm text-[var(--ax-muted)]">{isPro ? `Plan ${plan?.name ?? 'Pro'}: puedes ver los años anteriores.` : `Plan ${plan?.name ?? 'Free'}: estadísticas del año actual. Los años anteriores son de Atleta Pro.`}</p>
       </header>
 
       <PeriodControls mode={mode} onMode={setMode} anchor={anchor} onAnchor={setAnchor} year={year} onYear={setYear} years={years} />
