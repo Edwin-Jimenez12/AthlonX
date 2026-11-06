@@ -1,6 +1,6 @@
 'use client'
 
-import { Info } from 'lucide-react'
+import { ChevronDown, ChevronUp, Info, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
@@ -164,6 +164,10 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [items, setItems] = useState<FeedItem[]>([])
   const [selected, setSelected] = useState<FeedItem | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [editorMinimized, setEditorMinimized] = useState(false)
+  // Al abrir el formulario (nuevo o editar) siempre aparece completo.
+  const editorOpen = editor !== null
+  useEffect(() => { if (editorOpen) setEditorMinimized(false) }, [editorOpen, editor?.id])
   const [showConnections, setShowConnections] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
@@ -692,9 +696,30 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
       )}
 
       {editor && (
-        <Card>
-          <CardHeader id="actividad-editor" title={isMgmt ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')} actions={<Button variant="secondary" onClick={() => setEditor(null)}>Cancelar</Button>} />
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
+        // Panel flotante tipo borrador: abajo a la derecha en escritorio y como hoja inferior en móvil.
+        // Se puede minimizar a su barra de título sin perder lo escrito.
+        <section
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="actividad-editor"
+          className="ax-drop-in fixed inset-x-0 bottom-0 z-40 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[14px] border border-b-0 border-[var(--ax-line-strong)] bg-[var(--ax-surface)] shadow-[var(--ax-shadow-pop)] sm:inset-x-auto sm:right-6 sm:w-[560px] sm:max-h-[min(80vh,720px)]"
+        >
+          <header className="flex shrink-0 items-center gap-2 border-b border-[var(--ax-line)] bg-[var(--ax-surface-raised)] py-2 pl-4 pr-2">
+            <button type="button" onClick={() => setEditorMinimized(!editorMinimized)} aria-expanded={!editorMinimized} className="flex min-w-0 flex-1 cursor-pointer items-center text-left">
+              <h2 id="actividad-editor" className="truncate font-display text-[22px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">
+                {isMgmt ? (editor.id ? 'Editar evento' : 'Nuevo evento') : (editor.id ? 'Editar actividad' : 'Nueva actividad')}
+                {editorMinimized && editor.title.trim() ? <span className="ml-2 font-sans text-sm normal-case tracking-normal text-[var(--ax-muted)]">· {editor.title.trim()}</span> : null}
+              </h2>
+            </button>
+            <button type="button" onClick={() => setEditorMinimized(!editorMinimized)} aria-label={editorMinimized ? 'Expandir formulario' : 'Minimizar formulario'} className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
+              {editorMinimized ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
+            </button>
+            <button type="button" onClick={() => setEditor(null)} aria-label="Cerrar formulario" className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
+              <X size={18} aria-hidden="true" />
+            </button>
+          </header>
+          <div hidden={editorMinimized} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+          <div className="mt-5 grid gap-5 md:grid-cols-2">
             {isOrg && organization && (
               <div className="md:col-span-2">
                 {orgEventLimit !== null && editor.scope === organization.id && !editor.id && (
@@ -860,7 +885,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               <Button variant="primary" disabled={saving} onClick={() => void saveEditor()}>{saving ? 'Guardando…' : isMgmt ? 'Guardar evento' : 'Guardar actividad'}</Button>
             </div>
           </div>
-        </Card>
+          </div>
+        </section>
       )}
 
       {showConnections && (

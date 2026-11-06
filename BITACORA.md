@@ -101,6 +101,19 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Formulario del calendario flotante y minimizable
+
+**Qué se hizo**: el formulario de Nueva actividad / Nuevo evento (`Components/calendario/athlete-calendar.tsx`) ya no aparece debajo del calendario. Ahora es un panel flotante, como un borrador de Gmail:
+- Escritorio: abajo a la derecha, 560 px de ancho, con desplazamiento propio (alto máximo 80 % de la pantalla).
+- Móvil: hoja inferior a todo el ancho (alto máximo 88 %), con margen para el área segura.
+- Barra de título con botones Minimizar/Expandir y Cerrar. Minimizado queda solo la barra, con el título escrito; lo escrito no se pierde. Al abrir un formulario nuevo o editar, aparece completo.
+
+**Pendiente**: Edwin indicó que el formulario de Nueva actividad "hay que definirlo mejor" (campos y orden). Revisar en navegador, tema claro y oscuro, y en móvil.
+
+**Verificación**: `tsc` sin errores fuera de `.next`; `npm run build` correcto.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Roles dentro del menú de cuenta
 
 **Qué se hizo**: se quitó el selector de vista de la barra superior (`Components/context-switcher.tsx`, eliminado). El menú de la cuenta (`Components/account-menu.tsx`) tiene ahora una sección **Roles**, debajo de Mi perfil. Muestra el rol actual y, al abrirla, lista los roles de la cuenta. Elegir uno cambia de vista y cierra el menú. `Components/dashboard-header.tsx` ya no renderiza el selector y le pasa las vistas al menú.
