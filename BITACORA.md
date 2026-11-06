@@ -105,7 +105,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 **Qué se hizo**: se quitó el selector de vista de la barra superior (`Components/context-switcher.tsx`, eliminado). El menú de la cuenta (`Components/account-menu.tsx`) tiene ahora una sección **Roles**, debajo de Mi perfil. Muestra el rol actual y, al abrirla, lista los roles de la cuenta. Elegir uno cambia de vista y cierra el menú. `Components/dashboard-header.tsx` ya no renderiza el selector y le pasa las vistas al menú.
 
-Ajuste del mismo día: cada rol muestra solo su nombre y un icono propio (atleta: trofeo, entrenador: tablilla, staff: llave, directivo: maletín, equipo: escudo, organización: edificio), sin foto ni "Cuenta personal". El icono del rol activo va en verde lima.
+Ajuste del mismo día: cada rol muestra solo su nombre y un icono propio (atleta: trofeo, entrenador: tablilla, staff: llave, directivo: maletín), sin foto ni "Cuenta personal". Si el rol está ligado a un equipo u organización (por ejemplo, entrenador de Titanes RC), lleva el mismo icono del rol y el nombre del equipo debajo. El icono del rol activo va en verde lima.
 
 **Verificación**: `npm run build` correcto; `tsc` sin errores fuera de `.next`. Falta revisar en navegador, tema claro y oscuro, y con varias vistas.
 

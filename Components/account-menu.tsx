@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Briefcase, Building2, Check, ChevronDown, ClipboardList, Copy, ExternalLink, LogOut, Moon, Shield, SlidersHorizontal, Sun, Trophy, UserRound, Wrench } from 'lucide-react'
+import { Briefcase, Check, ChevronDown, ClipboardList, Copy, ExternalLink, LogOut, Moon, Shield, SlidersHorizontal, Sun, Trophy, UserRound, Wrench } from 'lucide-react'
 import type { ThemeMode } from '../lib/theme'
 import { AccountContext, contextDetail, contextTitle } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
@@ -64,19 +64,17 @@ function ItemIcon({ icon: Icon, danger = false }: { icon: LucideIcon; danger?: b
   return <span aria-hidden="true" className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', danger ? 'bg-[var(--ax-danger-soft)] text-[var(--ax-danger-text)]' : 'bg-[var(--ax-surface-raised)] text-[var(--ax-text)]')}><Icon size={15} /></span>
 }
 
-// Icono de cada rol: atleta, entrenador, staff y directivo en la cuenta personal; equipo y organización por tipo.
-const personalRoleIcons: Record<string, LucideIcon> = { atleta: Trophy, entrenador: ClipboardList, staff: Wrench, directivo: Briefcase }
+// Icono de cada rol. Si el rol está ligado a un equipo u organización, el icono sigue siendo el del rol.
+const roleIcons: Record<string, LucideIcon> = { atleta: Trophy, entrenador: ClipboardList, staff: Wrench, directivo: Briefcase }
 
 function contextIcon(context: AccountContext): LucideIcon {
-  if (context.contextType === 'organization') return Building2
-  if (context.contextType === 'team') return Shield
-  return personalRoleIcons[context.role] ?? UserRound
+  return roleIcons[context.role] ?? UserRound
 }
 
-// Equipos y organizaciones muestran su tipo debajo del nombre; los roles personales solo su nombre.
+// Un rol ligado a un equipo u organización muestra su nombre debajo (por ejemplo, Titanes RC).
 function contextSubtitle(context: AccountContext) {
   if (context.contextType === 'personal') return null
-  return contextDetail(context) ?? (context.contextType === 'team' ? 'Equipo' : 'Organización')
+  return contextDetail(context)
 }
 
 // Sección Roles: al abrirla lista los roles de la cuenta; elegir uno cambia de vista.
