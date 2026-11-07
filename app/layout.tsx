@@ -41,7 +41,17 @@ export default function RootLayout({children}: {children: ReactNode}) {
   return (
     <html lang="es">
       <body className={`${inter.variable} ${bebasNeue.variable} ${oswald.variable} ${barlowCondensed.variable}`}>
+        <div className="ax-boot" role="status" aria-live="polite">
+          <span>Cargando</span>
+          <span className="ax-boot-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
+        </div>
         <SiteChrome>{children}</SiteChrome>
+        {/* Oculta el indicador cuando la página termina de cargar (un instante después del evento load). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "(function(){var d=document.documentElement;function done(){setTimeout(function(){d.classList.add('ax-ready')},300)}if(document.readyState==='complete')done();else window.addEventListener('load',done)})();",
+          }}
+        />
       </body>
     </html>
   )

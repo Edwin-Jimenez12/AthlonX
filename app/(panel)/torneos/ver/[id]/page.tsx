@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useLiveRefresh } from '../../../../../lib/live-refresh'
 import { LocationFields } from '../../../../../Components/location-fields'
 import { QuickTournamentTeamsSection } from '../../../../../Components/quick-tournament-teams-section'
 import { TournamentTeamsSection } from '../../../../../Components/torneo/teams-section'
@@ -339,6 +340,10 @@ export default function PublicTournamentPage() {
   const [editMode, setEditMode] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [loading, setLoading] = useState(true)
+  // Después de la primera carga, las recargas son silenciosas: no se vuelve a mostrar el esqueleton.
+  const loadedRef = useRef(false)
+  // Partidos del torneo; el canal en tiempo real los usa para filtrar los cambios que sí son de esta pantalla.
+  const matchIdsRef = useRef<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isFootball, setIsFootball] = useState(false)
@@ -372,7 +377,7 @@ export default function PublicTournamentPage() {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (!loadedRef.current) setLoading(true)
     const [{ data: response, error: tournamentError }, { data: historyRows }, { data: ownerRow }, { data: userData }, { data: disciplineRows }, { data: modalityRows }, { data: teamRows }, { data: teamDivisionRows }, { data: playerRows }, { data: adjustmentRows }, { data: fixtureRows }] = await Promise.all([
       supabase.rpc('get_public_tournament_profile', { p_tournament_id: params.id }),
       supabase.from('tournament_edit_history').select('id, edited_by, changes, created_at').eq('tournament_id', params.id).order('created_at', { ascending: false }),
@@ -447,6 +452,7 @@ export default function PublicTournamentPage() {
           .maybeSingle()
       : { data: null }
     const matchIds = (normalizedPayload.matches ?? []).map((match) => match.id)
+    matchIdsRef.current = new Set(matchIds)
     const { data: courtRows } = matchIds.length
       ? await supabase
         .from('matches')
@@ -467,6 +473,7 @@ export default function PublicTournamentPage() {
       court_number: courtByMatch.get(match.id) ?? null,
     })) as Match[]
     setData(normalizedPayload)
+    loadedRef.current = true
     const basketballTournament = normalizedPayload.tournament?.discipline?.code === 'baloncesto' && normalizedPayload.tournament?.modality?.code === '3x3'
     setMaxTeamsLimit(basketballTournament ? basketball.teams : Number(competitionSettings?.max_teams) || null)
     setMaxRosterLimit(basketballTournament ? basketball.maxRoster : Number(competitionSettings?.max_roster_size) || null)
@@ -577,7 +584,20 @@ export default function PublicTournamentPage() {
     setLoading(false)
   }
 
-  useEffect(() => { void loadTournament() }, [params.id])
+  useEffect(() => {
+    loadedRef.current = false
+    void loadTournament()
+  }, [params.id])
+
+  // Marcadores y eventos en vivo: cuando otro dispositivo cambia un partido de este torneo, se vuelven a leer los datos sin recargar la página.
+  useLiveRefresh(
+    `tournament-live-${params.id}`,
+    [
+      { table: 'matches', belongs: (row) => matchIdsRef.current.has(String(row.id)) },
+      { table: 'match_events', belongs: (row) => !row.match_id || matchIdsRef.current.has(String(row.match_id)) },
+    ],
+    () => window.dispatchEvent(new CustomEvent('athlonx-tournament-updated')),
+  )
 
   // Limpia modales y operaciones temporales al cambiar de torneo o abrir la ruta.
   useEffect(() => {
@@ -1072,7 +1092,7 @@ export default function PublicTournamentPage() {
     const operation: PendingOperation = { id: crypto.randomUUID(), title: 'Agregar jugador temporal', kind: 'add-quick-player', payload: { teamId, name: values.name.trim(), shirtNumber: values.shirtNumber.trim(), position: values.position.trim() }, changes: [{ label: 'Jugador temporal', before: 'No registrado', after: `${values.name.trim()} · ${team.name}`, beforeValue: null, afterValue: values.name.trim() }] }
     const error = await applyOperation(operation, currentUserId)
     if (error) return setMessage(error)
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   async function requestAddExistingPlayer(teamId: string, playerId: string) {
@@ -1082,7 +1102,7 @@ export default function PublicTournamentPage() {
     const operation: PendingOperation = { id: crypto.randomUUID(), title: 'Agregar jugador registrado', kind: 'add-existing-player', payload: { teamId, playerId }, changes: [{ label: 'Jugador registrado', before: 'No inscrito', after: `${player.full_name} · ${team.name}`, beforeValue: null, afterValue: playerId }] }
     const error = await applyOperation(operation, currentUserId)
     if (error) return setMessage(error)
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   function requestClaimGuestPlayer(guestPlayerId: string, guestPlayerName: string) {
@@ -1610,7 +1630,7 @@ function TeamFixtureCallupDates({ team, fixtureDates, callups, callupPlayers, ro
     const { error } = await supabase.rpc('set_tournament_fixture_callup_non_participant_by_organizer', { p_callup_id: callupId, p_player_id: playerId })
     setSaving(false)
     if (error) return window.alert(error.message)
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   return (
@@ -1722,7 +1742,7 @@ function LegacyFixtureListSection({ tournament, teams, dates, matches }: { tourn
     setDeletedMatchIds([])
     setEditingDate(null)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.setTimeout(() => window.location.reload(), 250)
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('athlonx-tournament-updated')), 250)
   }
 
   async function deleteDate(date: number) {
@@ -1733,7 +1753,7 @@ function LegacyFixtureListSection({ tournament, teams, dates, matches }: { tourn
     if (matchesError) return setMessage(matchesError.message)
     const { error } = await supabase.from('fixtures').delete().in('id', fixtureIds)
     if (error) return setMessage(error.message)
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   async function deleteMatch(matchId: string) {
@@ -1850,7 +1870,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     setMessage(`Enfrentamiento añadido a la Fecha ${date}.`)
     setAddingDate(null)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.setTimeout(() => window.location.reload(), 250)
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('athlonx-tournament-updated')), 250)
   }
 
   async function saveDate(date: number) {
@@ -1892,7 +1912,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     setDeletedMatchIds([])
     setEditingDate(null)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.setTimeout(() => window.location.reload(), 250)
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('athlonx-tournament-updated')), 250)
   }
 
   async function deleteDate(date: number) {
@@ -1915,7 +1935,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     if (error) return setMessage(error.message)
     setMessage(`Fecha ${date} eliminada correctamente.`)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   async function deleteMatch(matchId: string) {
@@ -1927,7 +1947,7 @@ function FixtureListSection({ tournament, teams, dates, matches }: { tournament:
     }
     setMessage('Enfrentamiento eliminado correctamente.')
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.setTimeout(() => window.location.reload(), 250)
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('athlonx-tournament-updated')), 250)
   }
 
   // Escapa valores dinámicos antes de insertarlos en el documento de impresión.
@@ -2706,7 +2726,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     setSaving(false)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   async function basketballPeriodAction() {
     if (!match.is_paused) return basketballAction('pause')
@@ -2723,7 +2743,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     setSaving(false)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   async function transitionPeriod(earlyFinishApproved = false) {
     if (!supabase || !canManage || match.status !== 'live') return
@@ -2831,7 +2851,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       const { error } = await supabase.from('matches').update(next).eq('id', match.id)
       setSaving(false)
       if (error) return setActionError(error.message)
-      window.location.reload()
+      window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
       return
     }
     const currentPeriod = String(match.period || 'first_half')
@@ -2875,7 +2895,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     const { error } = await supabase.from('matches').update(next).eq('id', match.id)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   async function togglePause() {
     if (!supabase || !canManage || match.status !== 'live') return
@@ -2883,7 +2903,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     const { error } = await supabase.from('matches').update({ is_paused: paused, elapsed_seconds: secondsRef.current, started_at: paused ? match.started_at : new Date().toISOString() }).eq('id', match.id)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   async function registerShootout() {
@@ -2906,7 +2926,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     }).eq('id', match.id)
     if (error) return setActionError(error.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
 
   // Registra un tiro y deja que Supabase determine si ya existe un ganador.
@@ -2942,7 +2962,7 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
 
     const resultData = data as { finished?: boolean }
-    if (resultData?.finished) window.location.reload()
+    if (resultData?.finished) window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   async function recordEvent(
     teamId: string,
@@ -3415,12 +3435,12 @@ function MatchHighlight({ match, events: initialEvents = [], corrections = [], r
       visitorTeam={visitorTeam}
       onOvertimeStarted={async () => {
         window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-        window.location.reload()
+        window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
       }}
       onOvertimeFinished={async () => {
         setOvertimeFinished(true)
         window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-        window.location.reload()
+        window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
       }}
     />}
 
@@ -3585,7 +3605,7 @@ function TournamentImagesPanel({ tournamentId, logoUrl, coverUrl }: { tournament
     const { error: updateError } = await supabase.from('tournaments').update({ [column]: url }).eq('id', tournamentId)
     if (updateError) return setError(updateError.message)
     window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
-    window.location.reload()
+    window.dispatchEvent(new CustomEvent('athlonx-tournament-updated'))
   }
   return <div className="mt-5 grid gap-6 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-5 md:grid-cols-2">
     <ImageUploadField label="Imagen de perfil del torneo" value={logoUrl} kind="avatar" folder={imageFolders.torneo(tournamentId)} slot="logo" hint="Cuadrada. Se muestra junto al nombre del torneo." onChange={(url) => void save('logo_url', url)} />

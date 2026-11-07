@@ -93,6 +93,20 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Marcadores en vivo y aviso de carga al recargar
+
+- **Qué se hizo**
+  - Torneo (gestión, `app/(panel)/torneos/ver/[id]`): las recargas completas de la página (`window.location.reload()`, 19 puntos) se cambiaron por una relectura silenciosa de los datos (evento `athlonx-tournament-updated`). Después de la primera carga ya no vuelve el esqueleton.
+  - Tiempo real: el torneo escucha cambios en `matches` y `match_events` (Realtime `postgres_changes`) y, si el cambio pertenece a un partido de ese torneo, vuelve a leer los datos con un antirrebote de 350 ms. Así un marcador cambiado en otro dispositivo aparece sin recargar.
+  - Indicador de carga: al recargar la página aparece arriba un cuadro "Cargando" con los puntos animados (`.`, `..`, `...`). Se oculta 300 ms después del evento `load`. Funciona sin JavaScript de React (HTML y CSS en el servidor, un script mínimo marca `html.ax-ready`).
+- **Archivos clave**: `lib/live-refresh.ts` (hook `useLiveRefresh`, reutilizable), `app/(panel)/torneos/ver/[id]/page.tsx`, `app/layout.tsx`, `app/globals.css` (bloque `.ax-boot`).
+- **Verificación**: `npx tsc --noEmit` sin errores propios (solo los errores preexistentes de `.next/types`); `npm run build` correcto; en navegador (`next start`, 390 px) el cuadro aparece al cargar y queda oculto al terminar.
+- **Pendiente**
+  - Probar en navegador con dos sesiones (un marcador cambia en una y se refleja en la otra). Sin datos reales de prueba no se verificó.
+  - El canal recibe los eventos de todos los partidos de la plataforma y filtra en el cliente; con mucho volumen conviene un filtro por torneo (exige columna `tournament_id` en `match_events` o una vista).
+  - Extender el mismo patrón al resto de la plataforma (calendario, notificaciones, plantillas, convocatorias, cuotas). Los recargos de otras pantallas siguen pendientes.
+  - El indicador "Cargando" se oculta al terminar la carga del documento, no cuando terminan los datos de cada pantalla.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

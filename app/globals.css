@@ -596,3 +596,64 @@ html[data-theme='light'] .athlonx-dashboard {
 .ax-scroll-x::-webkit-scrollbar {
   display: none;
 }
+
+/* Indicador de carga al recargar la página: aparece arriba y se oculta cuando termina la carga (html.ax-ready). */
+.ax-boot {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 50%;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 8px 16px;
+  border: 1px solid var(--ax-line);
+  border-radius: 10px;
+  background: var(--ax-surface);
+  color: var(--ax-text);
+  font: 600 13px/1 var(--font-inter, Inter), system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0s;
+}
+
+.ax-boot-dots i {
+  font-style: normal;
+  color: var(--ax-accent);
+}
+
+.ax-boot-dots i:nth-child(2) {
+  animation: ax-boot-dot 1.2s step-end infinite;
+  opacity: 0;
+}
+
+.ax-boot-dots i:nth-child(3) {
+  animation: ax-boot-dot-late 1.2s step-end infinite;
+  opacity: 0;
+}
+
+@keyframes ax-boot-dot {
+  0%, 33% { opacity: 0; }
+  34%, 100% { opacity: 1; }
+}
+
+@keyframes ax-boot-dot-late {
+  0%, 66% { opacity: 0; }
+  67%, 100% { opacity: 1; }
+}
+
+html.ax-ready .ax-boot {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-boot-dots i:nth-child(2),
+  .ax-boot-dots i:nth-child(3) {
+    animation: none;
+    opacity: 1;
+  }
+}
