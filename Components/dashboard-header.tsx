@@ -99,6 +99,20 @@ export function DashboardHeader() {
     }
   }, [])
 
+  // Entrada con Google: el acceso con correo cancela una eliminación programada en el formulario; con Google se hace aquí.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('acceso') !== 'google') return
+    params.delete('acceso')
+    // Se conserva el resto de la URL (código o fragmento de Google) para que Supabase complete la sesión.
+    window.history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}${window.location.hash}`)
+    void (async () => {
+      if (!supabase) return
+      const { data } = await supabase.auth.getSession()
+      if (data.session) await supabase.rpc('cancel_account_deletion')
+    })()
+  }, [])
+
   useEffect(() => {
     const syncProfileName = (event: Event) => {
       const detail = (event as CustomEvent<{ full_name?: string; avatar_url?: string | null; logo_url?: string | null; kind?: 'Persona' | 'Equipo' | 'Organización' }>).detail

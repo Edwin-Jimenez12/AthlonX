@@ -296,6 +296,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` y `npm run build` correctos. Capturas en escritorio (1280) y móvil (390): inicio de sesión, tipo de cuenta, registro de persona, equipo y organización con un selector abierto. Solo tema oscuro (el acceso siempre es oscuro).
 - **Pendiente**: ninguno.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Eliminar una cuenta que entra con Google
+
+- **Qué pasó**: la eliminación de cuenta pide la contraseña, pero una cuenta creada con Google no tiene contraseña de AthlonX ("La contraseña no es correcta").
+- **Qué se hizo**
+  - Migración `supabase/delete-account-google-migration.sql` (aplicada, HTTP 201): `request_account_deletion_google(p_email)`. Solo para cuentas sin contraseña; exige un inicio de sesión de hace menos de 10 minutos y que el correo escrito coincida. Mismo periodo de 15 días.
+  - `Components/mi-perfil/delete-account-card.tsx`: si la cuenta entra solo con Google, la confirmación pide "Confirmar con Google" (vuelve a `/mi-perfil?seccion=cuenta&eliminar=1` y abre la confirmación) y luego escribir el correo. Con contraseña, igual que antes. El texto de "Sesión" ya no menciona la contraseña.
+  - Entrar con Google en los 15 días cancela la eliminación programada (antes solo lo hacía el acceso con correo): el botón de Google vuelve a `/busqueda?acceso=google` y el encabezado llama a `cancel_account_deletion`. La confirmación de eliminación usa otra dirección, así que no la cancela.
+- **Archivos**: `Components/mi-perfil/delete-account-card.tsx`, `Components/auth-panel.tsx`, `Components/dashboard-header.tsx`.
+- **Verificación**: `tsc` sin errores. Consulta de solo lectura: la cuenta de Google no tiene contraseña y su proveedor es `google`. Falta probarlo en athlonx.world con la cuenta de Google.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

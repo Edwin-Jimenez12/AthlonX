@@ -93,7 +93,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     setMessage('')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/busqueda`, queryParams: { prompt: 'select_account' } },
+      options: { redirectTo: `${window.location.origin}/busqueda?acceso=google`, queryParams: { prompt: 'select_account' } },
     })
     if (error) {
       setMessage(error.message.toLowerCase().includes('provider is not enabled') ? 'El acceso con Google todavía no está activado.' : error.message)

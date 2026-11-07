@@ -1,7 +1,7 @@
 'use client'
 
-import { AlertTriangle, LogOut, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, LogIn, LogOut, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { formatLongDate } from '../../lib/mi-perfil'
 import { Button } from '../mi-equipo/ui'
@@ -16,19 +16,58 @@ export function SessionCard() {
     window.location.href = '/'
   }
   return (
-    <Card title="Sesión" description="Cierra tu sesión en este dispositivo. Podrás volver a entrar con tu correo y contraseña.">
+    <Card title="Sesión" description="Cierra tu sesión en este dispositivo. Podrás volver a entrar cuando quieras.">
       <div><Button icon={LogOut} onClick={() => void signOut()} disabled={busy}>{busy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button></div>
     </Card>
   )
 }
 
 // Eliminación de cuenta: confirmación inline con contraseña y periodo de recuperación de 15 días calendario.
+// Cuenta que entra con Google (sin contraseña de AthlonX): se confirma volviendo a entrar con Google y escribiendo el correo.
+const RECENT_MS = 10 * 60 * 1000
+
 export function DeleteAccountCard({ warning }: { warning?: string } = {}) {
   const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [scheduledAt, setScheduledAt] = useState<string | null>(null)
+  const [googleOnly, setGoogleOnly] = useState(false)
+  const [recentGoogle, setRecentGoogle] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void supabase?.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return
+      const providers = (data.user.app_metadata?.providers as string[] | undefined) ?? [data.user.app_metadata?.provider as string]
+      const onlyGoogle = providers.includes('google') && !providers.includes('email')
+      setGoogleOnly(onlyGoogle)
+      const lastSignIn = data.user.last_sign_in_at ? new Date(data.user.last_sign_in_at).getTime() : 0
+      const recent = Date.now() - lastSignIn < RECENT_MS
+      setRecentGoogle(recent)
+      // Vuelve de confirmar con Google: abre directamente la confirmación.
+      const params = new URLSearchParams(window.location.search)
+      if (onlyGoogle && params.get('eliminar') === '1') {
+        setOpen(true)
+        params.delete('eliminar')
+        window.history.replaceState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}`)
+      }
+    })
+    return () => { active = false }
+  }, [])
+
+  async function reauthWithGoogle() {
+    if (!supabase) return
+    setBusy(true)
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/mi-perfil?seccion=cuenta&eliminar=1`, queryParams: { prompt: 'select_account' } },
+    })
+    if (oauthError) {
+      setBusy(false)
+      setError(oauthError.message)
+    }
+  }
 
   function close() {
     if (busy) return
@@ -39,9 +78,11 @@ export function DeleteAccountCard({ warning }: { warning?: string } = {}) {
 
   async function confirmDeletion() {
     if (!supabase) return
-    if (!password) return setError('Escribe tu contraseña para continuar.')
+    if (!password) return setError(googleOnly ? 'Escribe el correo de tu cuenta para continuar.' : 'Escribe tu contraseña para continuar.')
     setBusy(true)
-    const { data, error: rpcError } = await supabase.rpc('request_account_deletion', { p_password: password })
+    const { data, error: rpcError } = googleOnly
+      ? await supabase.rpc('request_account_deletion_google', { p_email: password })
+      : await supabase.rpc('request_account_deletion', { p_password: password })
     setBusy(false)
     if (rpcError) return setError(rpcError.message)
     setOpen(false)
@@ -78,7 +119,18 @@ export function DeleteAccountCard({ warning }: { warning?: string } = {}) {
           onConfirm={() => void confirmDeletion()}
           onCancel={close}
         >
-          <Field label="Confirma con tu contraseña" type="password" value={password} onChange={(value) => { setPassword(value); setError('') }} autoComplete="current-password" />
+          {googleOnly ? (
+            recentGoogle ? (
+              <Field label="Confirma escribiendo el correo de tu cuenta" type="email" value={password} onChange={(value) => { setPassword(value); setError('') }} autoComplete="off" />
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[13px] leading-5 text-[var(--ax-text-secondary)]">Tu cuenta entra con Google. Por seguridad, vuelve a entrar con Google para confirmar que eres tú.</p>
+                <Button icon={LogIn} onClick={() => void reauthWithGoogle()} disabled={busy}>{busy ? 'Abriendo Google…' : 'Confirmar con Google'}</Button>
+              </div>
+            )
+          ) : (
+            <Field label="Confirma con tu contraseña" type="password" value={password} onChange={(value) => { setPassword(value); setError('') }} autoComplete="current-password" />
+          )}
         </InlineConfirm>
       ) : (
         <div><Button variant="danger" icon={Trash2} onClick={() => setOpen(true)}>Eliminar cuenta</Button></div>
