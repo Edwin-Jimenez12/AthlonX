@@ -336,6 +336,11 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Archivos**: `Components/auth-panel.tsx`, `app/privacidad/page.tsx`, `app/terminos/page.tsx`.
 - **Verificación**: `tsc` sin errores; capturas del registro de persona (escritorio) y del inicio de sesión (móvil).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menores de edad: responsabilidad del representante
+
+- **Qué se hizo**: Privacidad (Menores de edad) y Términos (Cuentas y Limitación de responsabilidad) dicen que la supervisión del menor corresponde a su representante legal y que AthlonX no se hace responsable del mal uso que un menor haga de la plataforma sin esa supervisión. Archivos: `app/privacidad/page.tsx`, `app/terminos/page.tsx`.
+- **Verificación**: `tsc` sin errores.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

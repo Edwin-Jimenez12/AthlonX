@@ -171,6 +171,7 @@ const sections: LegalSection[] = [
       <>
         <p>Las personas menores de 18 años solo pueden usar AthlonX con el consentimiento y la supervisión de su madre, padre o tutor legal, quien es responsable del uso que el menor haga de la plataforma.</p>
         <p>Los equipos y organizaciones que registren a menores en sus plantillas o torneos deben contar con la autorización de sus representantes legales. Si un representante nos pide eliminar los datos de un menor registrado sin su consentimiento, los eliminaremos.</p>
+        <p>La supervisión del menor corresponde a su madre, padre, tutor o representante legal. Por eso, <Strong>AthlonX no se hace responsable del mal uso que un menor haga de la plataforma sin esa supervisión</Strong>, ni de las consecuencias que de ello se deriven.</p>
       </>
     ),
   },

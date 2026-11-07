@@ -52,7 +52,7 @@ const sections: LegalSection[] = [
         ]} />
         <p>Puedes registrarte con tu correo o con tu cuenta de Google. Si usas Google, también se aplican las condiciones de Google para ese servicio.</p>
         <p>
-          <Strong>Menores de edad.</Strong> Las personas menores de 18 años solo pueden usar AthlonX con el consentimiento y la supervisión de su madre, padre o tutor legal, quien acepta estos términos en su nombre y responde por su uso.
+          <Strong>Menores de edad.</Strong> Las personas menores de 18 años solo pueden usar AthlonX con el consentimiento y la supervisión de su madre, padre o tutor legal, quien acepta estos términos en su nombre y responde por su uso. AthlonX no se hace responsable del mal uso que un menor haga de la plataforma sin la supervisión de su representante, ni de las consecuencias que de ello se deriven.
         </p>
       </>
     ),
@@ -160,6 +160,7 @@ const sections: LegalSection[] = [
           'Las lesiones, accidentes o daños ocurridos durante actividades deportivas organizadas o registradas en la plataforma.',
           'Las decisiones de equipos, organizaciones, árbitros u organizadores, ni los datos que ellos ingresen.',
           'Pérdidas causadas por el uso indebido de tu cuenta o por no mantener segura tu contraseña.',
+          'El mal uso que un menor de edad haga de la plataforma sin la supervisión de su madre, padre, tutor o representante legal.',
           'Interrupciones o fallas causadas por terceros, por fuerza mayor o por caso fortuito.',
         ]} />
         <p>Nada de lo anterior limita los derechos que te reconoce la Ley 45 de 2007 como consumidor.</p>
