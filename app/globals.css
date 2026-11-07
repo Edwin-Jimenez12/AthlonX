@@ -694,3 +694,13 @@ html.ax-ready .ax-boot {
   --ax-card-yellow-line: rgba(255, 210, 63, .45);
   --ax-card-red: #ff5f6d;
 }
+
+/* Acceso y registro: el autocompletado del navegador no cambia el fondo del campo. */
+.ax-auth input:-webkit-autofill,
+.ax-auth input:-webkit-autofill:hover,
+.ax-auth input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ax-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--ax-surface-sunken) inset;
+  caret-color: var(--ax-text);
+  transition: background-color 9999s ease-out 0s;
+}

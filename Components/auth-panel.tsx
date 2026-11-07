@@ -296,9 +296,11 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }
   }
 
-  const activeTabClass = 'border-[#B4FF45] bg-[#B4FF45]/10 text-[#D9FFB1]'
-  const inactiveTabClass = 'border-transparent text-slate-400 hover:border-white/30 hover:text-white'
-  const fieldClass = 'h-11 w-full rounded-[5px] border border-white/15 bg-white/[.04] px-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#B4FF45] focus:bg-white/[.06]'
+  // Mismo lenguaje que el panel: selector segmentado, campos de 10 px y tokens --ax-*.
+  const activeTabClass = 'bg-[var(--ax-accent)] text-[var(--ax-on-accent)] shadow-[0_6px_18px_-10px_rgba(180,255,69,.7)]'
+  const inactiveTabClass = 'text-[var(--ax-text-secondary)] hover:text-[var(--ax-text)]'
+  const fieldClass = 'h-11 w-full rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] px-3 text-sm text-[var(--ax-text)] outline-none transition-colors duration-150 placeholder:text-[var(--ax-muted)] focus:border-[var(--ax-accent-text)]'
+  const labelClass = 'block text-[13px] font-semibold text-[var(--ax-text-secondary)]'
 
   const headline = view === 'forgot'
     ? 'Recupera tu acceso'
@@ -327,7 +329,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
   // Campos de acceso: correo y contraseña. Se usan en todas las vistas.
   const accessFields = (
     <>
-      {view !== 'reset' && <FieldWithIcon icon={<Mail size={17} />}><input required name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder="Correo electrónico" /></FieldWithIcon>}
+      {view !== 'reset' && <FieldWithIcon icon={<Mail size={17} />}><input required name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 w-full bg-transparent text-sm text-[var(--ax-text)] outline-none placeholder:text-[var(--ax-muted)]" placeholder="Correo electrónico" /></FieldWithIcon>}
       {isRegister ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <PasswordField name="password" placeholder="Contraseña" visible={showPassword} onToggle={() => setShowPassword((current) => !current)} />
@@ -345,7 +347,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
           )}
           {view === 'login' && (
             <div className="-mt-1 text-right">
-              <button type="button" disabled={loading} onClick={() => { setView('forgot'); setMessage('') }} className="text-sm font-semibold text-[#B4FF45] transition hover:text-white">¿Olvidaste tu contraseña?</button>
+              <button type="button" disabled={loading} onClick={() => { setView('forgot'); setMessage('') }} className="cursor-pointer text-[13px] font-semibold text-[var(--ax-accent-text)] underline-offset-4 transition hover:underline">¿Olvidaste tu contraseña?</button>
             </div>
           )}
         </>
@@ -355,10 +357,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
 
   // Nombre de usuario: común a las tres cuentas.
   const identityField = (
-    <label className="block text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
+    <label className={labelClass}>
       Nombre de usuario
-      <div className="relative mt-2">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-bold text-[#B4FF45]">@</span>
+      <div className="relative mt-1.5">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center font-bold text-[var(--ax-accent-text)]">@</span>
         <input
           required
           name="publicUsername"
@@ -378,43 +380,41 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
   )
 
   return (
-    <div className="flex max-h-[min(860px,calc(100dvh-2rem))] min-h-0 w-full flex-col overflow-hidden rounded-[5px] border border-white/15 bg-[#0b141e]/95 shadow-2xl backdrop-blur-xl">
+    <div className="ax-tokens ax-auth flex max-h-[min(860px,calc(100dvh-2rem))] min-h-0 w-full flex-col overflow-hidden rounded-[20px] border border-[var(--ax-line)] bg-[var(--ax-surface)]/95 text-[var(--ax-text)] shadow-[var(--ax-shadow-pop)] backdrop-blur-xl">
       <style>{STEP_STYLES}</style>
-      <div className="shrink-0 border-b border-white/10 px-4 pt-4 sm:px-7 sm:pt-5">
-        <div className="mb-4 flex items-center justify-between gap-4 pr-10">
-          <div>
-            <p className="font-heading text-lg uppercase tracking-[.25em] text-[#B4FF45]">AthlonX</p>
-          </div>
+      <div className="shrink-0 border-b border-[var(--ax-line)] px-4 pb-4 pt-5 sm:px-7">
+        <div className="mb-5 flex items-center pr-12">
+          <img src="/MarcaAthlonX/Wordmark.svg" alt="AthlonX" width={128} height={19} className="h-[19px] w-auto" />
         </div>
         {(view === 'login' || view === 'register') && (
-          <nav aria-label="Acceso a AthlonX" className="grid grid-cols-2">
-            <button type="button" disabled={loading} onClick={() => { setView('login'); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${view === 'login' ? activeTabClass : inactiveTabClass}`}>Iniciar sesión</button>
-            <button type="button" disabled={loading} onClick={() => { setView('register'); setRegisterStep('type'); setStepLeaving(false); setMessage('') }} className={`border-b-2 px-2 py-3 text-xs font-semibold transition sm:text-sm ${view === 'register' ? activeTabClass : inactiveTabClass}`}>Registrarse</button>
+          <nav aria-label="Acceso a AthlonX" className="grid grid-cols-2 gap-1 rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] p-1">
+            <button type="button" disabled={loading} aria-pressed={view === 'login'} onClick={() => { setView('login'); setMessage('') }} className={`h-9 cursor-pointer rounded-lg px-2 text-sm font-semibold transition-colors duration-150 ${view === 'login' ? activeTabClass : inactiveTabClass}`}>Iniciar sesión</button>
+            <button type="button" disabled={loading} aria-pressed={view === 'register'} onClick={() => { setView('register'); setRegisterStep('type'); setStepLeaving(false); setMessage('') }} className={`h-9 cursor-pointer rounded-lg px-2 text-sm font-semibold transition-colors duration-150 ${view === 'register' ? activeTabClass : inactiveTabClass}`}>Registrarse</button>
           </nav>
         )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-6 sm:px-7 sm:pb-8 sm:pt-7">
         <div className="max-w-xl">
-          <h2 className="font-display text-4xl uppercase leading-none text-white sm:text-5xl">{headline}</h2>
-          <p className="max-w-lg text-sm leading-6 text-slate-400">{description}</p>
+          <h2 className="font-display text-[40px] uppercase leading-none tracking-[.01em] text-[var(--ax-text)] sm:text-[48px]">{headline}</h2>
+          <p className="mt-2 max-w-lg text-sm leading-6 text-[var(--ax-muted)]">{description}</p>
         </div>
 
         {isRegister && (
           <div className="mt-6 space-y-3">
             <div className="flex min-h-8 items-center justify-between gap-3">
               {registerStep === 'form' ? (
-                <button type="button" disabled={loading || stepLeaving} onClick={() => changeRegisterStep('type')} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-300 transition hover:text-white">
+                <button type="button" disabled={loading || stepLeaving} onClick={() => changeRegisterStep('type')} className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold text-[var(--ax-text-secondary)] transition hover:text-[var(--ax-text)]">
                   <ChevronLeft size={16} aria-hidden="true" />
                   Cambiar tipo
                 </button>
               ) : <span />}
-              <span className="text-xs font-semibold uppercase tracking-[.14em] text-[#B4FF45]">
+              <span className="text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-accent-text)]">
                 Paso {registerStep === 'type' ? 1 : 2} de 2 · {registerStep === 'type' ? 'Tipo de cuenta' : ACCOUNT_LABEL[accountType]}
               </span>
             </div>
-            <div className="h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
-              <div className={`h-full rounded-full bg-[#B4FF45] transition-[width] duration-500 ease-out ${registerStep === 'type' ? 'w-1/2' : 'w-full'}`} />
+            <div className="h-1 overflow-hidden rounded-full bg-[var(--ax-line)]" aria-hidden="true">
+              <div className={`h-full rounded-full bg-[var(--ax-accent)] transition-[width] duration-500 ease-out ${registerStep === 'type' ? 'w-1/2' : 'w-full'}`} />
             </div>
           </div>
         )}
@@ -435,7 +435,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                     <FormSection>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="relative block">
-                          <UserRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#B4FF45]" size={17} />
+                          <UserRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ax-accent-text)]" size={17} />
                           <input required name="firstName" autoComplete="given-name" className={`${fieldClass} pl-10`} placeholder="Nombre" aria-label="Nombre" />
                         </label>
                         <input required name="lastName" autoComplete="family-name" className={fieldClass} placeholder="Apellido" aria-label="Apellido" />
@@ -451,13 +451,13 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                   <>
                     <FormSection>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-bold text-slate-200">
+                        <label className={labelClass}>
                           Nombre del equipo
-                          <input required name="teamName" className={`${fieldClass} mt-2 font-normal`} placeholder="Escribe el nombre" />
+                          <input required name="teamName" className={`${fieldClass} mt-1.5 font-normal`} placeholder="Escribe el nombre" />
                         </label>
-                        <StyledSelect label="Disciplina" name="teamDiscipline" value={teamDiscipline} onChange={setTeamDiscipline} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder={disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'} required />
+                        <StyledSelect label="Disciplina" name="teamDiscipline" value={teamDiscipline} onChange={setTeamDiscipline} options={disciplines.map((discipline) => ({ value: discipline.id, label: discipline.name }))} placeholder={disciplineError ? 'Disciplinas no disponibles' : 'Seleccionar disciplina'} required variant="panel" />
                       </div>
-                      <LocationFields country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
+                      <LocationFields variant="panel" country={teamCountry} city={teamCity} onCountryChange={setTeamCountry} onCityChange={setTeamCity} />
                       {identityField}
                     </FormSection>
                   </>
@@ -467,9 +467,9 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                   <>
                     <FormSection>
                       <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block text-sm font-bold text-slate-200">
+                      <label className={labelClass}>
                         Nombre de la organización
-                        <input required name="organizationName" className={`${fieldClass} mt-2 font-normal`} placeholder="Escribe el nombre" />
+                        <input required name="organizationName" className={`${fieldClass} mt-1.5 font-normal`} placeholder="Escribe el nombre" />
                       </label>
                       <StyledSelect label="Tipo de organización" name="organizationType" value={organizationType} onChange={setOrganizationType} options={[
                         { value: 'organizacion_deportiva', label: 'Organización deportiva' },
@@ -479,9 +479,9 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                         { value: 'union', label: 'Unión' },
                         { value: 'liga', label: 'Liga' },
                         { value: 'otro', label: 'Otro' },
-                      ]} />
+                      ]} variant="panel" />
                       </div>
-                      <LocationFields country={organizationCountry} city={organizationCity} onCountryChange={setOrganizationCountry} onCityChange={setOrganizationCity} />
+                      <LocationFields variant="panel" country={organizationCountry} city={organizationCity} onCountryChange={setOrganizationCountry} onCityChange={setOrganizationCity} />
                       <DisciplinePicker disciplines={disciplines} selected={organizationDisciplines} onChange={setOrganizationDisciplines} emptyMessage={disciplineError || 'Cargando disciplinas...'} />
                       {identityField}
                     </FormSection>
@@ -490,19 +490,19 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
 
                 {isRegister ? <FormSection>{accessFields}</FormSection> : accessFields}
 
-                <button type="submit" disabled={loading} aria-busy={loading} className="font-heading inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[5px] bg-[#B4FF45] px-4 text-base font-bold text-[#10151b] transition hover:bg-[#C8FF7A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] disabled:cursor-wait disabled:opacity-60 sm:text-lg">
+                <button type="submit" disabled={loading} aria-busy={loading} className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-4 text-[15px] font-semibold text-[var(--ax-on-accent)] transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-accent)] active:scale-[.99] disabled:cursor-wait disabled:opacity-60">
                   {loading && <LoaderCircle size={17} className="animate-spin" aria-hidden="true" />}
                   {loading ? (isRegister ? 'Creando cuenta' : 'Procesando') : view === 'forgot' ? 'Enviar enlace' : view === 'reset' ? 'Guardar contraseña' : isRegister ? 'Crear cuenta' : 'Entrar a mi cuenta'}
                 </button>
                 {(view === 'forgot' || view === 'reset') && (
-                  <button type="button" disabled={loading} onClick={() => { setView('login'); setMessage('') }} className="mx-auto block text-sm font-semibold text-slate-300 transition hover:text-white">← Volver a iniciar sesión</button>
+                  <button type="button" disabled={loading} onClick={() => { setView('login'); setMessage('') }} className="mx-auto flex cursor-pointer items-center gap-1 text-sm font-semibold text-[var(--ax-text-secondary)] transition hover:text-[var(--ax-text)]"><ChevronLeft size={16} aria-hidden="true" />Volver a iniciar sesión</button>
                 )}
               </div>
             </form>
           )}
         </div>
 
-        {message && <p role="status" aria-live="polite" className="mt-4 rounded-[5px] border border-[#B4FF45]/30 bg-[#B4FF45]/10 p-3 text-sm leading-5 text-[#D9FFB1]">{message}</p>}
+        {message && <p role="status" aria-live="polite" className="mt-4 rounded-[10px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] px-3.5 py-3 text-sm leading-5 text-[var(--ax-text)]">{message}</p>}
       </div>
     </div>
   )
@@ -512,12 +512,12 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
 function GoogleButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
   return (
     <div className="space-y-5">
-      <button type="button" disabled={disabled} onClick={onClick} className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-[5px] border border-white/15 bg-white text-base font-semibold text-[#1f1f1f] transition hover:bg-[#f2f4f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] disabled:cursor-wait disabled:opacity-60">
+      <button type="button" disabled={disabled} onClick={onClick} className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-[10px] border border-[var(--ax-line-strong)] bg-white text-[15px] font-semibold text-[#1f1f1f] transition hover:bg-[#f2f4f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-accent)] active:scale-[.99] disabled:cursor-wait disabled:opacity-60">
         <FcGoogle size={20} aria-hidden="true" />
         {label}
       </button>
-      <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[.14em] text-slate-500">
-        <span className="h-px flex-1 bg-white/10" />o con tu correo<span className="h-px flex-1 bg-white/10" />
+      <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">
+        <span className="h-px flex-1 bg-[var(--ax-line)]" />o con tu correo<span className="h-px flex-1 bg-[var(--ax-line)]" />
       </div>
     </div>
   )
@@ -544,16 +544,16 @@ function AccountTypeStep({ onSelect, direction, disabled }: { onSelect: (type: A
             type="button"
             disabled={disabled}
             onClick={() => onSelect(type)}
-            className="group flex items-center gap-4 rounded-[5px] border border-white/15 bg-white/[.03] p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[#B4FF45] hover:bg-[#B4FF45]/[.07] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] active:scale-[.99] disabled:pointer-events-none"
+            className="group flex cursor-pointer items-center gap-4 rounded-[14px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] p-4 text-left transition-colors duration-200 hover:border-[var(--ax-accent-line)] hover:bg-[var(--ax-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-accent)] active:scale-[.99] disabled:pointer-events-none"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] border border-[#B4FF45]/40 text-[#B4FF45] transition duration-300 group-hover:scale-105 group-hover:bg-[#B4FF45] group-hover:text-[#10151b]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[var(--ax-accent-soft)] text-[var(--ax-accent-text)] transition-colors duration-200 group-hover:bg-[var(--ax-accent)] group-hover:text-[var(--ax-on-accent)]">
               <Icon size={22} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="font-heading block text-lg font-bold text-white">{title}</span>
-              <span className="mt-1 block text-sm leading-5 text-slate-400">{text}</span>
+              <span className="block text-[15px] font-semibold text-[var(--ax-text)]">{title}</span>
+              <span className="mt-0.5 block text-[13px] leading-[18px] text-[var(--ax-muted)]">{text}</span>
             </span>
-            <ChevronLeft size={18} aria-hidden="true" className="shrink-0 rotate-180 text-slate-500 transition duration-300 group-hover:translate-x-1 group-hover:text-[#B4FF45]" />
+            <ChevronLeft size={18} aria-hidden="true" className="shrink-0 rotate-180 text-[var(--ax-muted)] transition duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--ax-accent-text)]" />
           </button>
         ))}
       </div>
@@ -574,16 +574,16 @@ function DisciplinePicker({ disciplines, selected, onChange, emptyMessage }: { d
 
   return (
     <fieldset className="space-y-3">
-      <legend className="text-xs font-semibold uppercase tracking-[.12em] text-slate-300">
-        Disciplinas que representa <span className="normal-case tracking-normal text-slate-500">({selected.length} seleccionadas)</span>
+      <legend className="text-[13px] font-semibold text-[var(--ax-text-secondary)]">
+        Disciplinas que representa <span className="font-normal text-[var(--ax-muted)]">({selected.length} seleccionadas)</span>
       </legend>
 
       {selectedDisciplines.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedDisciplines.map((discipline) => (
-            <span key={discipline.id} className="inline-flex items-center gap-1 rounded-full border border-[#B4FF45]/50 bg-[#B4FF45]/10 py-1 pl-3 pr-1 text-xs font-semibold text-[#D9FFB1]">
+            <span key={discipline.id} className="inline-flex items-center gap-1 rounded-full border border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] py-1 pl-3 pr-1 text-xs font-semibold text-[var(--ax-text)]">
               {discipline.name}
-              <button type="button" aria-label={`Quitar ${discipline.name}`} onClick={() => toggle(discipline.id)} className="inline-flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-white/10">
+              <button type="button" aria-label={`Quitar ${discipline.name}`} onClick={() => toggle(discipline.id)} className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full transition hover:bg-[var(--ax-hover)]">
                 <X size={12} aria-hidden="true" />
               </button>
             </span>
@@ -593,20 +593,20 @@ function DisciplinePicker({ disciplines, selected, onChange, emptyMessage }: { d
 
       {disciplines.length > 6 && (
         <div className="relative">
-          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#B4FF45]" />
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar disciplina" aria-label="Buscar disciplina" className="h-10 w-full rounded-[5px] border border-white/15 bg-white/[.04] pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#B4FF45]" />
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ax-accent-text)]" />
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar disciplina" aria-label="Buscar disciplina" className="h-10 w-full rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] pl-9 pr-3 text-sm text-[var(--ax-text)] outline-none transition placeholder:text-[var(--ax-muted)] focus:border-[var(--ax-accent-text)]" />
         </div>
       )}
 
-      <div className="max-h-56 overflow-y-auto overscroll-contain rounded-[5px] border border-white/10 bg-black/20 p-1.5">
-        {!disciplines.length && <p className="px-2 py-3 text-xs leading-5 text-amber-200">{emptyMessage}</p>}
-        {disciplines.length > 0 && !visible.length && <p className="px-2 py-3 text-xs text-slate-400">No encontramos disciplinas con ese nombre.</p>}
+      <div className="max-h-56 overflow-y-auto overscroll-contain rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-sunken)] p-1.5">
+        {!disciplines.length && <p className="px-2 py-3 text-xs leading-5 text-[var(--ax-warning-text)]">{emptyMessage}</p>}
+        {disciplines.length > 0 && !visible.length && <p className="px-2 py-3 text-xs text-[var(--ax-muted)]">No encontramos disciplinas con ese nombre.</p>}
         <div className="grid gap-1.5 sm:grid-cols-2">
           {visible.map((discipline) => {
             const checked = selected.includes(discipline.id)
             return (
-              <label key={discipline.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-[5px] border px-3 text-sm transition ${checked ? 'border-[#B4FF45]/60 bg-[#B4FF45]/10 text-white' : 'border-white/10 text-slate-300 hover:border-[#B4FF45]/40'}`}>
-                <input type="checkbox" checked={checked} onChange={() => toggle(discipline.id)} className="accent-[#B4FF45]" />
+              <label key={discipline.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm transition-colors ${checked ? 'border-[var(--ax-accent-line)] bg-[var(--ax-accent-soft)] text-[var(--ax-text)]' : 'border-[var(--ax-line)] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)]'}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggle(discipline.id)} className="accent-[var(--ax-accent)]" />
                 {discipline.name}
               </label>
             )
@@ -622,10 +622,10 @@ function normalizeText(text: string) {
 }
 
 function FieldWithIcon({ icon, children }: { icon: ReactNode; children: ReactNode }) {
-    return <div className="flex min-h-11 items-center gap-3 rounded-[5px] border border-white/15 bg-white/[.04] px-3 focus-within:border-[#B4FF45]"><span className="shrink-0 text-[#B4FF45]">{icon}</span>{children}</div>
+  return <div className="flex min-h-11 items-center gap-3 rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-sunken)] px-3 transition-colors duration-150 focus-within:border-[var(--ax-accent-text)]"><span className="shrink-0 text-[var(--ax-accent-text)]">{icon}</span>{children}</div>
 }
 
 function PasswordField({ name, placeholder, visible, onToggle }: { name: string; placeholder: string; visible: boolean; onToggle: () => void }) {
-  return <FieldWithIcon icon={<LockKeyhole size={17} />}><input required name={name} type={visible ? 'text' : 'password'} className="h-11 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder={placeholder} /><button type="button" aria-label={visible ? `Ocultar ${placeholder.toLowerCase()}` : `Mostrar ${placeholder.toLowerCase()}`} onClick={onToggle} className="shrink-0 text-slate-400 transition hover:text-[#B4FF45]">{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button></FieldWithIcon>
+  return <FieldWithIcon icon={<LockKeyhole size={17} />}><input required name={name} type={visible ? 'text' : 'password'} className="h-11 w-full bg-transparent text-sm text-[var(--ax-text)] outline-none placeholder:text-[var(--ax-muted)]" placeholder={placeholder} /><button type="button" aria-label={visible ? `Ocultar ${placeholder.toLowerCase()}` : `Mostrar ${placeholder.toLowerCase()}`} onClick={onToggle} className="shrink-0 cursor-pointer text-[var(--ax-muted)] transition hover:text-[var(--ax-accent-text)]">{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button></FieldWithIcon>
 }
 

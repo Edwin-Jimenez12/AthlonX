@@ -19,7 +19,8 @@ type StyledSelectProps = {
   placeholder?: string
   disabled?: boolean
   required?: boolean
-  variant?: 'dark' | 'light'
+  // panel: tokens del sistema (--ax-*), para pantallas nuevas como el registro.
+  variant?: 'dark' | 'light' | 'panel'
   className?: string
 }
 
@@ -58,6 +59,22 @@ export function StyledSelect({ label, value, options, onChange, name, id, placeh
       setOpen(true)
     }
   }
+
+  if (variant === 'panel') return <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+    <label className="block text-[13px] font-semibold text-[var(--ax-text-secondary)]">
+      {label}
+      <button id={id} type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-controls={listboxId} onClick={() => setOpen((current) => !current)} onKeyDown={handleKeyDown} className={`mt-1.5 flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-[10px] border bg-[var(--ax-surface-sunken)] px-3 text-left text-sm text-[var(--ax-text)] outline-none transition-colors duration-150 hover:border-[var(--ax-accent-line)] disabled:cursor-not-allowed disabled:opacity-50 ${open ? 'border-[var(--ax-accent-text)]' : 'border-[var(--ax-line-strong)]'}`}>
+        <span className={selectedOption ? '' : 'text-[var(--ax-muted)]'}>{selectedOption?.label || placeholder}</span>
+        <ChevronDown size={16} className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180 text-[var(--ax-accent-text)]' : 'text-[var(--ax-muted)]'}`} />
+      </button>
+    </label>
+    {(required || name) && <input type="text" name={name} tabIndex={-1} aria-hidden="true" required={required} readOnly value={value} className="pointer-events-none absolute h-px w-px opacity-0" />}
+    {open && !disabled && <div id={listboxId} role="listbox" aria-label={label} className="ax-drop-in absolute left-0 right-0 z-[70] mt-2 max-h-64 overflow-y-auto rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface-raised)] p-1 shadow-[var(--ax-shadow-pop)]">
+      {options.length ? options.map((option) => <button key={option.value} type="button" role="option" disabled={option.disabled} aria-disabled={option.disabled || undefined} aria-selected={option.value === value} onClick={() => selectOption(option.value)} className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${option.disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} ${option.value === value ? 'bg-[var(--ax-accent)] font-semibold text-[var(--ax-on-accent)]' : 'text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]'}`}>
+        <span>{option.label}</span>{option.value === value && <Check size={15} />}
+      </button>) : <p className="px-3 py-3 text-sm text-[var(--ax-muted)]">No hay opciones disponibles</p>}
+    </div>}
+  </div>
 
   return <div ref={containerRef} className={`relative min-w-0 ${className}`}>
     <label className={`block text-sm font-bold ${dark ? 'text-slate-200' : 'text-[#17212b]'}`}>

@@ -285,6 +285,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` y `npm run build` correctos. Alta de Google simulada en un bloque que se revierte: nombre "María José Núñez", nombre de pila "María", apellido "José Núñez", usuario `maria.jose.nunez`, foto sí, código AX-PER, sin roles. Capturas del panel de rol (escritorio y 390 px) y del botón de Google en el acceso. El salto real a Google no se pudo probar aquí (sin variables de Supabase en este entorno): probar en athlonx.world.
 - **Pendiente**: verificación del correo con código (necesita Resend como SMTP en Supabase); conexión con Google Calendar; páginas de privacidad y términos para publicar la app de Google.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Rediseño del inicio de sesión y el registro
+
+- **Qué se hizo** (mismo flujo, nuevo aspecto, con los tokens `--ax-*` vía `.ax-tokens`)
+  - Logotipo: el texto "ATHLONX" se reemplazó por el SVG de la marca que envió Edwin (`public/MarcaAthlonX/Wordmark.svg`).
+  - Tarjeta de 20 px; pestañas Iniciar sesión / Registrarse como selector segmentado (como el de Tema); títulos en Bebas Neue; etiquetas como en Mi perfil; campos y botones de 10 px; opciones de tipo de cuenta en tarjetas de 14 px; aviso con el estilo de los avisos del panel.
+  - Arreglo del fondo que pone el navegador al autocompletar el correo (`.ax-auth` en `app/globals.css`).
+  - `StyledSelect` tiene una variante nueva `panel` (tokens), usada solo en el registro (disciplina, tipo de organización, país y ciudad); `LocationFields` la acepta. Las demás pantallas no cambian.
+- **Archivos**: `Components/auth-panel.tsx`, `Components/styled-select.tsx`, `Components/location-fields.tsx`, `app/globals.css`, `public/MarcaAthlonX/Wordmark.svg`.
+- **Verificación**: `tsc` y `npm run build` correctos. Capturas en escritorio (1280) y móvil (390): inicio de sesión, tipo de cuenta, registro de persona, equipo y organización con un selector abierto. Solo tema oscuro (el acceso siempre es oscuro).
+- **Pendiente**: ninguno.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

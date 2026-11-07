@@ -8,7 +8,7 @@ type LocationFieldsProps = {
   city: string
   onCountryChange?: (value: string) => void
   onCityChange: (value: string) => void
-  variant?: 'dark' | 'light'
+  variant?: 'dark' | 'light' | 'panel'
   required?: boolean
   className?: string
 }
