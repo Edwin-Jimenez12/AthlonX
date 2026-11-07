@@ -122,6 +122,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Filtros del calendario según los tipos de la persona
+
+**Qué se hizo**: los filtros del calendario ya no son fijos (Partidos, Entrenamientos, Torneos, Convocatorias, Personales, Organización). Ahora son "Todos" y un botón por cada tipo de evento de la persona, con su color. Tocar un tipo filtra los eventos de ese tipo. Los eventos sin tipo propio cuentan con el predefinido de su categoría. Si se borra el tipo que estaba seleccionado, el filtro vuelve a "Todos". Se conserva "Todos los equipos" en organización cuando el plan lo incluye. Archivo: `Components/calendario/athlete-calendar.tsx`.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Añadir jugador sin "Cargo visible"
 
 **Qué se hizo**: en `Components/mi-equipo/invite-panel.tsx`, el campo "Cargo visible" ya no aparece cuando el rol es atleta (Añadir jugador desde la plantilla); la invitación se envía con el cargo "Jugador". Para entrenador, staff y directivo el campo sigue, para cargos como "Preparador físico".

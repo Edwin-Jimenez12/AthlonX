@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
 import {
-  addDays, dayKey, findClashes, formatDayLabel, formatTime, groupByDay, itemKind, matchesFilter, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
-  type CalendarFilter, type CalendarView, type FeedItem,
+  addDays, dayKey, findClashes, formatDayLabel, formatTime, groupByDay, itemKind, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
+  type CalendarView, type FeedItem,
 } from '../../lib/athlete-calendar'
 import Link from 'next/link'
 import { LockedFeature, downloadCsv, printReport, upgradeHref } from '../organizacion/plan-ui'
@@ -21,15 +21,6 @@ const views: Array<{ id: CalendarView; label: string }> = [
   { id: 'linea', label: 'Línea de tiempo' },
 ]
 
-const filters: Array<{ id: CalendarFilter; label: string }> = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'partidos', label: 'Partidos' },
-  { id: 'entrenamientos', label: 'Entrenamientos' },
-  { id: 'torneos', label: 'Torneos' },
-  { id: 'convocatorias', label: 'Convocatorias' },
-  { id: 'personales', label: 'Personales' },
-  { id: 'organizacion', label: 'Organización' },
-]
 
 const responses = [
   { id: 'voy', label: 'Voy' },
@@ -80,16 +71,6 @@ const kindColor: Record<string, string> = {
   otro: '#91a8ba',
 }
 
-const filterDot: Record<CalendarFilter, string> = {
-  todos: '#e8eef3',
-  partidos: '#b4ff45',
-  entrenamientos: '#7fc8ff',
-  torneos: '#ffb45c',
-  convocatorias: '#c9a7ff',
-  personales: '#91a8ba',
-  organizacion: '#e8eef3',
-  equipos: '#e8eef3',
-}
 
 function monthLabel(date: Date) {
   const name = date.toLocaleDateString('es-PA', { month: 'long' })
@@ -168,7 +149,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [syncOn, setSyncOn] = useState(false)
   const [usage, setUsage] = useState(0)
   const [view, setView] = useState<CalendarView>('mes')
-  const [filter, setFilter] = useState<CalendarFilter>('todos')
+  // Filtro: 'todos', el id de un tipo de evento de la persona, o 'equipos' (solo organización).
+  const [filter, setFilter] = useState<string>('todos')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [items, setItems] = useState<FeedItem[]>([])
   const [selected, setSelected] = useState<FeedItem | null>(null)
@@ -286,7 +268,18 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, anchor])
 
-  const visible = useMemo(() => items.filter((item) => matchesFilter(item, filter)), [items, filter])
+  // Tipo de cada evento: el propio (actividades personales) o el predefinido de su categoría.
+  const defaultTypeId = (category: string) => types.find((type) => type.default_key === category)?.id ?? null
+  const typeIdOf = (item: FeedItem) => (item.source === 'personal' && item.type_id ? item.type_id : defaultTypeId(item.event_type))
+  // Si se borra el tipo que estaba seleccionado, vuelve a Todos.
+  useEffect(() => {
+    if (filter !== 'todos' && filter !== 'equipos' && types.length && !types.some((type) => type.id === filter)) setFilter('todos')
+  }, [types, filter])
+  const visible = useMemo(
+    () => items.filter((item) => filter === 'todos' || (filter === 'equipos' ? item.source === 'team' : typeIdOf(item) === filter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, filter, types],
+  )
   const byDay = useMemo(() => groupByDay(visible), [visible])
 
   function moveAnchor(step: number) {
@@ -660,7 +653,11 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {[...filters, ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos' as CalendarFilter, label: 'Todos los equipos' }] : [])].filter((f) => !isMgmt || f.id !== 'personales').filter((f) => !isTeam || f.id !== 'organizacion').map((f) => {
+          {[
+            { id: 'todos', label: 'Todos', color: '#e8eef3' },
+            ...types.map((type) => ({ id: type.id, label: type.label, color: type.color })),
+            ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos', label: 'Todos los equipos', color: '' }] : []),
+          ].map((f) => {
             const on = filter === f.id
             return (
               <button
@@ -670,7 +667,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                 onClick={() => setFilter(f.id)}
                 className={`inline-flex h-[34px] items-center gap-2 rounded-full border px-4 text-[13px] font-medium text-[var(--ax-text)] ${on ? 'border-[var(--ax-accent)] bg-[var(--ax-surface-raised)]' : 'border-[var(--ax-line)] bg-[var(--ax-surface)]'}`}
               >
-                {f.id !== 'equipos' && <span className="h-2 w-2 rounded-full" style={{ background: filterDot[f.id] }} aria-hidden="true" />}
+                {f.color && <span className="h-2 w-2 rounded-full" style={{ background: f.color }} aria-hidden="true" />}
                 {f.label}
               </button>
             )
