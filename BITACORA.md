@@ -93,6 +93,12 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+**Calendario y tiempo real**
+- [ ] Regla de repetición en organización: definir cómo se repiten los eventos de la organización por plan (hoy Free tiene 2 repetidos; falta la regla completa). Pospuesto por decisión de Edwin (2026-11-07).
+- [ ] Sincronización real con Google y Outlook (OAuth y verificación de la app).
+- [ ] Recordatorios por correo (Resend y DNS de athlonx.world).
+- [ ] Tiempo real en el resto de la plataforma: el calendario y los marcadores ya se actualizan entre dispositivos; falta extenderlo a notificaciones, plantillas, convocatorias y cuotas.
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Marcadores en vivo y aviso de carga al recargar
 
 - **Qué se hizo**
@@ -145,6 +151,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
   - `Components/calendario/athlete-calendar.tsx`: `useLiveRefresh` (lib/live-refresh.ts) vuelve a leer el feed y la cuenta al haber cambios. El borrador abierto no se toca.
 - **Verificación**: consulta de solo lectura que confirma las cuatro tablas en la publicación. `tsc` sin errores propios. Falta probar con dos sesiones.
 - **Pendiente**: si la otra cuenta no es miembro del equipo, el evento no le aparecerá aunque el calendario esté en vivo (es por permisos, no por tiempo real). Probar también en el marcador de `/torneos/ver/[id]` con dos dispositivos.
+
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Destinatario de los eventos de equipo
+
+- **Qué se hizo**: al crear o editar un evento de equipo se elige a quién va dirigido: toda la plantilla, una división, el cuerpo técnico o una persona vinculada al equipo (directivo, cuerpo técnico o jugador con cuenta). Solo la ve ese destinatario, el cuerpo técnico y los directivos. Los eventos de equipo que ya tenían división pasaron a "división".
+- **Archivos clave**: `supabase/team-event-audience-migration.sql` (aplicada, HTTP 201): columnas `audience` y `audience_user_id`, función `calendar_team_event_visible`, `calendar_team_audience_options`, `calendar_save_team_event_v3` y el feed actualizado. `Components/calendario/athlete-calendar.tsx` (sección "Dirigido a", buscador de personas, guardado con v3). `lib/athlete-calendar.ts`.
+- **Verificación**: migración aplicada; backfill comprobado (5 eventos, todos "team" porque no tenían división). `tsc` sin errores propios. No pude probar el feed con un usuario real: la sesión de solo lectura no tiene permiso de ejecución. Falta probar en navegador con dos cuentas (una del equipo sin cargo, otra con cargo).
+- **Pendiente**: revisar si los jugadores sin cuenta vinculada pueden recibir eventos (hoy no aparecen en la lista).
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 

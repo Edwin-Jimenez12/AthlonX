@@ -55,8 +55,20 @@ type Editor = {
   repeat: 'none' | 'weekly' | 'monthly'
   repeatUntil: string
   division: string
+  // Destinatario de un evento de equipo: toda la plantilla, una división, el cuerpo técnico o una persona vinculada al equipo.
+  audience: 'team' | 'division' | 'staff' | 'person'
+  personId: string
   reminders: number[]
 }
+
+type AudienceOption = { user_id: string; name: string }
+type AudienceOptions = {
+  divisions: Array<{ id: string; name: string }>
+  staff: Array<AudienceOption & { role: string }>
+  players: AudienceOption[]
+}
+
+const audienceLabels: Record<string, string> = { division: 'División', staff: 'Cuerpo técnico', person: 'Persona específica' }
 
 // Colores de Figma: Partido lima, Entrenamiento azul, Torneo naranja, Convocatoria violeta, Personal gris, Organización blanco.
 // Color de cada evento: en actividades personales, el del tipo que eligió la persona; si no, el de su categoría.
@@ -133,6 +145,8 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
     repeatUntil: item?.repeat_until ? dayKey(new Date(item.repeat_until)) : '',
     reminders: item?.reminder_minutes?.length ? item.reminder_minutes : [240],
     division: item?.division_id ?? '',
+    audience: (item?.audience ?? 'team') as Editor['audience'],
+    personId: item?.audience_user_id ?? '',
   }
 }
 
@@ -157,6 +171,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [filter, setFilter] = useState<string>('todos')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [items, setItems] = useState<FeedItem[]>([])
+  const [audienceOptions, setAudienceOptions] = useState<AudienceOptions | null>(null)
+  const [personQuery, setPersonQuery] = useState('')
   // Cambios en vivo: si otra sesión crea, edita o elimina una actividad, o responde a una convocatoria, el calendario se actualiza solo.
   useLiveRefresh('calendar-live', [
     { table: 'personal_activities' },
@@ -201,6 +217,14 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     const editingRepeat = Boolean(ed.id) && items.some((i) => i.id === ed.id && i.repeat_rule !== 'none')
     return editingRepeat || (orgUsage?.usage?.eventos_repetidos ?? 0) < lim
   }
+
+  // Opciones de destinatario (divisiones, cuerpo técnico y jugadores con cuenta) del equipo que se gestiona.
+  useEffect(() => {
+    if (!supabase || !team) return setAudienceOptions(null)
+    void supabase.rpc('calendar_team_audience_options', { p_team: team.id }).then(({ data }) => {
+      setAudienceOptions((data ?? null) as AudienceOptions | null)
+    })
+  }, [team?.id])
 
   // Tipos de evento de la persona. Si no tiene, se crean los 5 predefinidos.
   async function loadTypes() {
@@ -357,7 +381,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     setMessage(null)
     if (team) {
       const teamRepeat = canRepeat(editor) ? editor.repeat : 'none'
-      const { error: teamError } = await supabase.rpc('calendar_save_team_event_v2', {
+      const { error: teamError } = await supabase.rpc('calendar_save_team_event_v3', {
         p_id: editor.id,
         p_team: team.id,
         p_title: editor.title.trim(),
@@ -366,7 +390,9 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         p_event_type: editor.eventType,
         p_starts: starts.toISOString(),
         p_ends: ends.toISOString(),
-        p_division: editor.division || null,
+        p_division: editor.audience === 'division' ? editor.division || null : null,
+        p_audience: editor.audience,
+        p_audience_user: editor.audience === 'person' ? editor.personId || null : null,
         p_repeat: teamRepeat,
         p_repeat_until: teamRepeat === 'none' || !editor.repeatUntil ? null : new Date(`${editor.repeatUntil}T23:59:59`).toISOString(),
         p_reminders: orgReminderLimit === 1 ? [240] : editor.reminders,
@@ -729,6 +755,9 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
             <p>{selected.all_day ? 'Todo el día' : `${formatDayLabel(new Date(selected.starts_at))} · ${formatTime(selected.starts_at)} – ${formatTime(selected.ends_at)}`}</p>
             {selected.location && <p className="text-[var(--ax-muted)]">{selected.location}</p>}
             {selected.description && <p className="whitespace-pre-line text-[var(--ax-muted)]">{selected.description}</p>}
+            {selected.source === 'team' && selected.audience && selected.audience !== 'team' && (
+              <p className="text-xs text-[var(--ax-muted)]">Dirigido a: {audienceLabels[selected.audience] ?? 'equipo'}</p>
+            )}
             <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? (selected.type_label ?? 'Actividad personal') : selected.owner_name ?? ''}</p>
           </div>
           {!isMgmt && (selected.source === 'team' || selected.source === 'organization') && (
@@ -808,11 +837,30 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                 {orgEventLimit !== null && !editor.id && (
                   <div className="mb-5"><Notice tone="neutral" icon={Info}>Plan {plan?.name}: te quedan {Math.max(0, orgEventLimit - orgEventsUsed)} de {orgEventLimit} eventos este mes.</Notice></div>
                 )}
-                <FieldLabel>División</FieldLabel>
+                <FieldLabel>Dirigido a</FieldLabel>
                 <div className="flex flex-wrap gap-2">
-                  <Segment active={!editor.division} label="Todo el equipo" onClick={() => setEditor({ ...editor, division: '' })} />
-                  {divisions.map((d) => <Segment key={d.id} active={editor.division === d.id} label={d.name} onClick={() => setEditor({ ...editor, division: d.id })} />)}
+                  <Segment active={editor.audience === 'team'} label="Todo el equipo" onClick={() => setEditor({ ...editor, audience: 'team', division: '', personId: '' })} />
+                  {divisions.map((d) => <Segment key={d.id} active={editor.audience === 'division' && editor.division === d.id} label={d.name} onClick={() => setEditor({ ...editor, audience: 'division', division: d.id, personId: '' })} />)}
+                  <Segment active={editor.audience === 'staff'} label="Cuerpo técnico" onClick={() => setEditor({ ...editor, audience: 'staff', division: '', personId: '' })} />
+                  <Segment active={editor.audience === 'person'} label="Persona" onClick={() => setEditor({ ...editor, audience: 'person', division: '' })} />
                 </div>
+                {editor.audience === 'person' && (
+                  <div className="mt-3">
+                    <input className={inputClass} placeholder="Buscar jugador, directivo o staff" value={personQuery} onChange={(e) => setPersonQuery(e.target.value)} />
+                    {editor.personId && (
+                      <p className="mt-2 text-xs text-[var(--ax-muted)]">Seleccionado: {[...(audienceOptions?.staff ?? []), ...(audienceOptions?.players ?? [])].find((o) => o.user_id === editor.personId)?.name ?? 'persona'}</p>
+                    )}
+                    <div className="mt-2 flex flex-col gap-1">
+                      {[...(audienceOptions?.staff ?? []), ...(audienceOptions?.players ?? [])]
+                        .filter((o, i, all) => all.findIndex((x) => x.user_id === o.user_id) === i)
+                        .filter((o) => !personQuery.trim() || o.name.toLowerCase().includes(personQuery.trim().toLowerCase()))
+                        .slice(0, 6)
+                        .map((o) => (
+                          <button key={o.user_id} type="button" onClick={() => { setEditor({ ...editor, personId: o.user_id }); setPersonQuery('') }} className={`cursor-pointer rounded-[10px] px-3 py-2 text-left text-sm ${editor.personId === o.user_id ? 'bg-[var(--ax-hover)] font-semibold text-[var(--ax-text)]' : 'text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)]'}`}>{o.name}</button>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {!isMgmt && managedTeams.length > 0 && (
