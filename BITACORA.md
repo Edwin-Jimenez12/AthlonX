@@ -117,6 +117,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios. Falta probarlo en navegador: crear un borrador, eliminar otro evento y comprobar que el borrador sigue.
 - **Pendiente**: la sincronización de cambios del borrador entre pestañas no existe; el borrador vive solo en la pantalla abierta.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Aclarar "Repetir hasta" en el calendario
+
+- **Qué pasó**: un evento semanal se veía solo en dos fechas. No era la expansión: sin fecha de fin, el feed genera hasta 300 repeticiones. El evento "dad" tenía guardado `repeat_until` = 13 nov, así que se repitió dos veces.
+- **Qué se hizo**: el campo ahora dice "Repetir hasta (vacío = sin fin)" en el formulario de equipo/organización y en el personal. No se cambió la lógica ni los datos.
+- **Archivos**: `Components/calendario/athlete-calendar.tsx`.
+- **Verificación**: `tsc` sin errores propios. Consulta de solo lectura sobre `team_calendar_events` para el evento "dad".
+- **Pendiente**: quitar la fecha de fin del evento "dad" si se quiere que se repita siempre (acción sobre datos, pendiente de confirmar con Edwin).
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

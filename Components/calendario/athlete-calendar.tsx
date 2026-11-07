@@ -887,7 +887,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                       </div>
                       {editor.repeat !== 'none' && (
                         <label className="mt-3 block">
-                          <FieldLabel>Repetir hasta</FieldLabel>
+                          <FieldLabel>Repetir hasta (vacío = sin fin)</FieldLabel>
                           <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
                         </label>
                       )}
@@ -940,7 +940,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               )}
               {unlimited && editor.repeat !== 'none' && (
                 <label className="mt-3 block">
-                  <FieldLabel>Repetir hasta</FieldLabel>
+                  <FieldLabel>Repetir hasta (vacío = sin fin)</FieldLabel>
                   <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
                 </label>
               )}
