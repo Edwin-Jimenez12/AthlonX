@@ -19,7 +19,7 @@ const sections: LegalSection[] = [
         <p>
           Estos Términos y condiciones regulan el uso de AthlonX ({LEGAL_ENTITY.site}), plataforma operada por <Strong>{LEGAL_ENTITY.name}</Strong>{operatorText()}.
         </p>
-        <p>Al crear una cuenta o usar AthlonX aceptas estos términos y nuestra <Link className={link} href="/privacidad">Política de privacidad</Link>. Si no estás de acuerdo, no uses la plataforma.</p>
+        <p>Al crear una cuenta (marcando la casilla de aceptación o continuando con Google) o al usar AthlonX, aceptas estos términos y nuestra <Link className={link} href="/privacidad">Política de privacidad</Link>. Si no estás de acuerdo, no uses la plataforma.</p>
       </>
     ),
   },

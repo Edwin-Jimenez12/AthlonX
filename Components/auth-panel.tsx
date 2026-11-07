@@ -33,6 +33,8 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
   const [stepLeaving, setStepLeaving] = useState(false)
   const [stepDirection, setStepDirection] = useState<'forward' | 'back'>('forward')
   const [email, setEmail] = useState('')
+  // Registro: aceptación obligatoria de Términos y Política de privacidad.
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [message, setMessage] = useState('')
@@ -123,6 +125,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     const publicUsername = (form.elements.namedItem('publicUsername') as HTMLInputElement | null)?.value ?? ''
     const organizationName = (form.elements.namedItem('organizationName') as HTMLInputElement | null)?.value.trim() ?? ''
     const teamName = (form.elements.namedItem('teamName') as HTMLInputElement | null)?.value.trim() ?? ''
+    if (isRegister && !acceptedTerms) {
+      setMessage('Para crear tu cuenta debes aceptar los Términos y condiciones y la Política de privacidad.')
+      return
+    }
     if (isRegister && password !== confirmation) {
       setMessage('Las contraseñas no coinciden.')
       return
@@ -169,6 +175,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                 last_name: accountType === 'persona' ? lastName : null,
                 birth_date: null,
                 public_username: normalizedUsername,
+                terms_accepted_at: new Date().toISOString(),
                 roles: accountType === 'persona' ? [] : ['directivo'],
                 account_type: accountType,
                 organization_name: organizationName,
@@ -489,6 +496,15 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
 
                 {isRegister ? <FormSection>{accessFields}</FormSection> : accessFields}
 
+                {isRegister && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3.5 py-3 text-[13px] leading-5 text-[var(--ax-text-secondary)]">
+                    <input type="checkbox" required checked={acceptedTerms} onChange={(event) => { setAcceptedTerms(event.target.checked); setMessage('') }} className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--ax-accent)]" />
+                    <span>
+                      Acepto los <a href="/terminos" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--ax-accent-text)] underline-offset-4 hover:underline">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--ax-accent-text)] underline-offset-4 hover:underline">Política de privacidad</a> de AthlonX.
+                    </span>
+                  </label>
+                )}
+
                 <button type="submit" disabled={loading} aria-busy={loading} className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-[var(--ax-accent)] px-4 text-[15px] font-semibold text-[var(--ax-on-accent)] transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ax-accent)] active:scale-[.99] disabled:cursor-wait disabled:opacity-60">
                   {loading && <LoaderCircle size={17} className="animate-spin" aria-hidden="true" />}
                   {loading ? (isRegister ? 'Creando cuenta' : 'Procesando') : view === 'forgot' ? 'Enviar enlace' : view === 'reset' ? 'Guardar contraseña' : isRegister ? 'Crear cuenta' : 'Entrar a mi cuenta'}
@@ -515,6 +531,9 @@ function GoogleButton({ label, disabled, onClick }: { label: string; disabled: b
         <FcGoogle size={20} aria-hidden="true" />
         {label}
       </button>
+      <p className="-mt-2 text-center text-xs leading-5 text-[var(--ax-muted)]">
+        Al continuar con Google aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--ax-text-secondary)] underline underline-offset-2 hover:text-[var(--ax-accent-text)]">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--ax-text-secondary)] underline underline-offset-2 hover:text-[var(--ax-accent-text)]">Política de privacidad</a>.
+      </p>
       <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[var(--ax-muted)]">
         <span className="h-px flex-1 bg-[var(--ax-line)]" />o con tu correo<span className="h-px flex-1 bg-[var(--ax-line)]" />
       </div>

@@ -327,6 +327,15 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Qué se hizo**: correo de contacto de Términos y Privacidad: `athlonxteam@gmail.com`. Dirección: ciudad de Panamá. Responsable como persona natural mientras no exista empresa; el RUC solo se muestra si se completa (`LEGAL_ENTITY` y `operatorText()` en `Components/legal/legal-page.tsx`). El correo del pie de página no cambia.
 - **Actualización**: Edwin no quiere su nombre en las páginas. El responsable queda como "el equipo de AthlonX" (nombre comercial), con domicilio en la ciudad de Panamá. Cuando exista empresa: razón social y RUC en `LEGAL_ENTITY`.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Aceptación de Términos y Política en el registro
+
+- **Qué se hizo**
+  - Registro (persona, equipo y organización): casilla obligatoria "Acepto los Términos y condiciones y la Política de privacidad de AthlonX" con enlaces (se abren en otra pestaña). Sin marcarla no se crea la cuenta. La fecha de aceptación se guarda en los metadatos de la cuenta (`terms_accepted_at`).
+  - Botón de Google (registro e inicio de sesión): nota "Al continuar con Google aceptas los Términos y condiciones y la Política de privacidad".
+  - Privacidad: el consentimiento menciona la casilla y el acceso con Google; se quitó el párrafo sobre retirar el consentimiento (pedido por Edwin). Términos: la aceptación menciona la casilla y Google.
+- **Archivos**: `Components/auth-panel.tsx`, `app/privacidad/page.tsx`, `app/terminos/page.tsx`.
+- **Verificación**: `tsc` sin errores; capturas del registro de persona (escritorio) y del inicio de sesión (móvil).
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

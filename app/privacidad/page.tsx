@@ -92,11 +92,10 @@ const sections: LegalSection[] = [
       <>
         <p>Tratamos tus datos con base en:</p>
         <List items={[
-          <><Strong>Tu consentimiento</Strong>, que otorgas al crear tu cuenta y aceptar esta política, y al completar datos opcionales o conectar servicios como Google.</>,
+          <><Strong>Tu consentimiento</Strong>, que otorgas al crear tu cuenta y aceptar esta política (marcando la casilla de aceptación o continuando con Google), y al completar datos opcionales o conectar servicios como Google Calendar.</>,
           <><Strong>La prestación del servicio</Strong> que solicitaste, de acuerdo con los Términos y condiciones.</>,
           <><Strong>El cumplimiento de obligaciones legales.</Strong></>,
         ]} />
-        <p>Puedes retirar tu consentimiento en cualquier momento. Retirarlo no afecta lo realizado antes, pero puede impedir que sigamos prestándote algunas funciones.</p>
       </>
     ),
   },
