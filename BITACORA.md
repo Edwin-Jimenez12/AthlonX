@@ -97,6 +97,10 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Una sola cuenta de persona con varios roles y una sola vista (menú, entrada del 2026-11-07 "Menú unificado por roles"): el menú se arma con la unión de las secciones de cada rol (atleta, entrenador, staff, directivo), sin cambiar de vista. Quitar "Roles" del minimenú de perfil. En la búsqueda, los roles se ven como etiquetas. El plan se conserva por rol (persona, equipo, organización) dentro de la misma cuenta. Decidido por Edwin el 2026-11-07.
 - [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
 
+**Acceso con Google y verificación**
+- [ ] Páginas públicas de Política de privacidad y Términos y condiciones en athlonx.world (por ejemplo, `/privacidad` y `/terminos`). Las pide Google para publicar la app de inicio de sesión y para verificar el permiso de Google Calendar. El contenido legal lo revisa Edwin. Proyecto de Google Cloud: `athlonx`.
+- [ ] Publicar la app de Google Auth Platform ("In production") cuando existan esas páginas. Mientras tanto queda en "Testing" con usuarios de prueba (máximo 100).
+
 **Calendario y tiempo real**
 - [x] Regla de repetición en organización: es la misma que para persona y equipo (Free: 5 eventos al mes, 2 repetidos; Pro: sin límite). Ya aplicada en `calendar-free-limits-migration.sql`. Confirmado por Edwin (2026-11-07).
 - [ ] Sincronización real con Google y Outlook (OAuth y verificación de la app).
