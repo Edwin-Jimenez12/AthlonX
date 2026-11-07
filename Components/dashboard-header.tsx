@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { AccountContext, loadAccountContexts } from '../lib/account-contexts'
 import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
@@ -31,7 +31,6 @@ const titles: Record<string, string> = {
 
 export function DashboardHeader() {
   const pathname = usePathname()
-  const router = useRouter()
   const [profileOpen, setProfileOpen] = useState(false)
   const menuClusterRef = useRef<HTMLDivElement>(null)
   useDismissableMenu(menuClusterRef, 'account', profileOpen, () => setProfileOpen(false))
@@ -123,45 +122,8 @@ export function DashboardHeader() {
     void setThemeMode(mode)
   }
 
-  function selectContext(context: AccountContext) {
-    setActiveContextId(context.id)
-    window.localStorage.setItem('athlonx-active-context-id', context.id)
-    if (context.teamId) window.localStorage.setItem('athlonx-active-team-id', context.teamId)
-    window.dispatchEvent(new CustomEvent('athlonx-context-change', { detail: context }))
-    void (async () => {
-      const { data } = (await supabase?.auth.getUser()) ?? { data: { user: null } }
-      if (!data.user) return
-      const accountIdentity = await loadIdentity(data.user.user_metadata?.account_type, context, { userId: data.user.id, email: data.user.email ?? '', name: identity.kind === 'Persona' ? identity.name : data.user.user_metadata?.full_name || 'Usuario AthlonX', code: identity.kind === 'Persona' ? identity.code : '', imageUrl: identity.kind === 'Persona' ? identity.imageUrl ?? null : context.contextType === 'personal' ? context.imageUrl ?? null : null })
-      setIdentity(accountIdentity)
-    })()
-    if (context.teamId) window.dispatchEvent(new CustomEvent('athlonx-team-change', { detail: context.teamId }))
-
-    const destination = context.contextType === 'personal'
-      ? context.role === 'entrenador'
-        ? '/entrenador'
-        : context.role === 'staff'
-          ? '/staff'
-          : context.role === 'atleta'
-            ? '/atleta'
-            : '/organizaciones'
-      : context.contextType === 'organization'
-      ? '/organizaciones'
-      : context.role === 'entrenador'
-        ? '/entrenador'
-        : context.role === 'staff'
-          ? '/staff'
-          : context.role === 'atleta'
-            ? '/atleta'
-            : context.contextType === 'team'
-              ? '/equipo'
-              : '/mi-perfil'
-
-    if (pathname !== destination) router.push(destination)
-  }
-
   const key = pathname?.startsWith('/perfil/') ? 'perfil-publico' : pathname?.split('/').filter(Boolean).pop() || 'dashboard'
   const activeContext = contexts.find((context) => context.id === activeContextId)
-  const selectableContexts = contexts
   return <header className="relative z-50 px-6 pt-6 text-white print:hidden lg:ml-64 md:px-10 md:pt-10">
     <div className="flex justify-end">
       <div ref={menuClusterRef} className="relative flex min-w-0 flex-wrap items-center justify-end gap-4">
@@ -169,7 +131,7 @@ export function DashboardHeader() {
         <span className="hidden h-7 w-px bg-[#294052] sm:block" />
         <div className="ax-v2 relative">
           <AccountTrigger identity={identity} open={profileOpen} onClick={() => { if (!profileOpen) announceHeaderMenu('account'); setProfileOpen(!profileOpen) }} />
-          {profileOpen && <AccountMenu identity={identity} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} contexts={selectableContexts} activeContextId={activeContextId} onSelectContext={selectContext} />}
+          {profileOpen && <AccountMenu identity={identity} theme={theme} onTheme={changeTheme} onClose={() => setProfileOpen(false)} />}
         </div>
       </div>
     </div>

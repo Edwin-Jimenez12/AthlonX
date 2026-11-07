@@ -217,6 +217,12 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios. Capturas con `next dev` en escritorio (1280) y móvil (390): lista de años y mes de 1998 con fondo, borde y colores del panel; aviso "Cargando" con fondo y borde. Solo tema oscuro (el registro siempre es oscuro).
 - **Pendiente**: ninguno.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Quitar "Roles" del minimenú de perfil
+
+- **Qué se hizo**: se quitó la sección "Roles" (cambio de vista entre atleta, entrenador, staff y directivo) del minimenú de perfil. Los roles se gestionan en Mi perfil → Equipos y roles. Se borró el código que solo servía para ese selector (`RolesSection` en `Components/account-menu.tsx`; `selectContext` en `Components/dashboard-header.tsx`).
+- **Verificación**: `tsc` sin errores propios.
+- **Pendiente**: sin el selector, la vista se queda en el último rol elegido (guardado en el navegador). Hasta que exista la vista única con el menú armado por roles (ver pendientes "Cuenta única con roles"), no hay forma de cambiar a las secciones de otro rol desde el menú.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
