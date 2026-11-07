@@ -308,9 +308,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     ? 'Crea una nueva contraseña'
     : showTypeStep
     ? 'Elige tu cuenta'
-    : isRegister
-    ? 'Crea tu cuenta'
-    : 'Bienvenido'
+    : 'Crea tu cuenta'
 
   const description = view === 'forgot'
     ? 'Te enviaremos un enlace a tu correo para crear una nueva contraseña.'
@@ -322,9 +320,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     ? 'Crea el perfil de tu equipo para organizar su actividad deportiva.'
     : isRegister && accountType === 'organizacion'
     ? 'Registra tu organización para gestionar torneos y demás actividades.'
-    : isRegister
-    ? 'Crea tu cuenta para participar, seguir torneos y conectarte con equipos y organizaciones.'
-    : 'Accede a tu perfil'
+    : 'Crea tu cuenta para participar, seguir torneos y conectarte con equipos y organizaciones.'
 
   // Campos de acceso: correo y contraseña. Se usan en todas las vistas.
   const accessFields = (
@@ -395,10 +391,13 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-6 sm:px-7 sm:pb-8 sm:pt-7">
-        <div className="max-w-xl">
-          <h2 className="font-display text-[40px] uppercase leading-none tracking-[.01em] text-[var(--ax-text)] sm:text-[48px]">{headline}</h2>
-          <p className="mt-2 max-w-lg text-sm leading-6 text-[var(--ax-muted)]">{description}</p>
-        </div>
+        {/* Iniciar sesión va directo al formulario, sin título ni descripción. */}
+        {view !== 'login' && (
+          <div className="max-w-xl">
+            <h2 className="font-display text-[40px] uppercase leading-none tracking-[.01em] text-[var(--ax-text)] sm:text-[48px]">{headline}</h2>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-[var(--ax-muted)]">{description}</p>
+          </div>
+        )}
 
         {isRegister && (
           <div className="mt-6 space-y-3">
@@ -420,7 +419,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
         )}
 
         {/* El contenido del paso sale hacia el lado contrario y el siguiente entra por el otro. */}
-        <div className={`transition duration-200 ease-in-out ${stepLeaving ? `opacity-0 ${stepDirection === 'forward' ? '-translate-x-6' : 'translate-x-6'}` : 'translate-x-0 opacity-100'} ${isRegister ? 'mt-6' : 'mt-6'}`}>
+        <div className={`transition duration-200 ease-in-out ${stepLeaving ? `opacity-0 ${stepDirection === 'forward' ? '-translate-x-6' : 'translate-x-6'}` : 'translate-x-0 opacity-100'} ${view === 'login' ? '' : 'mt-6'}`}>
           {showTypeStep ? (
             <AccountTypeStep direction={stepDirection} disabled={stepLeaving} onSelect={(type) => changeRegisterStep('form', type)} />
           ) : (

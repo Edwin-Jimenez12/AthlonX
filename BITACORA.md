@@ -306,6 +306,11 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Archivos**: `Components/mi-perfil/delete-account-card.tsx`, `Components/auth-panel.tsx`, `Components/dashboard-header.tsx`.
 - **Verificación**: `tsc` sin errores. Consulta de solo lectura: la cuenta de Google no tiene contraseña y su proveedor es `google`. Falta probarlo en athlonx.world con la cuenta de Google.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Iniciar sesión sin título
+
+- **Qué se hizo**: en la pestaña Iniciar sesión se quitaron "Bienvenido" y "Accede a tu perfil"; el formulario empieza con "Continuar con Google". Registro, recuperar y nueva contraseña conservan su título. Archivo: `Components/auth-panel.tsx`.
+- **Verificación**: `tsc` sin errores; captura en escritorio.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
