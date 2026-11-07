@@ -98,7 +98,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
 
 **Acceso con Google y verificación**
-- [ ] Páginas públicas de Política de privacidad y Términos y condiciones en athlonx.world (por ejemplo, `/privacidad` y `/terminos`). Las pide Google para publicar la app de inicio de sesión y para verificar el permiso de Google Calendar. El contenido legal lo revisa Edwin. Proyecto de Google Cloud: `athlonx`.
+- [x] Páginas públicas de Política de privacidad y Términos y condiciones: `/privacidad` y `/terminos` (entrada del 2026-11-07). Falta que Edwin revise el texto y complete razón social, RUC y dirección (`LEGAL_ENTITY` en `Components/legal/legal-page.tsx`). Las pide Google para publicar la app de inicio de sesión y para verificar el permiso de Google Calendar. El contenido legal lo revisa Edwin. Proyecto de Google Cloud: `athlonx`.
 - [ ] Publicar la app de Google Auth Platform ("In production") cuando existan esas páginas. Mientras tanto queda en "Testing" con usuarios de prueba (máximo 100).
 
 **Calendario y tiempo real**
@@ -310,6 +310,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 - **Qué se hizo**: en la pestaña Iniciar sesión se quitaron "Bienvenido" y "Accede a tu perfil"; el formulario empieza con "Continuar con Google". Registro, recuperar y nueva contraseña conservan su título. Archivo: `Components/auth-panel.tsx`.
 - **Verificación**: `tsc` sin errores; captura en escritorio.
+
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Términos y condiciones y Política de privacidad
+
+- **Qué se hizo**
+  - Páginas públicas `/terminos` y `/privacidad` con diseño común (`Components/legal/legal-page.tsx`): índice lateral, resumen al inicio, secciones numeradas con anclas y bloque de contacto.
+  - Contenido según las normas de Panamá: Ley 81 de 2019 de Protección de Datos Personales y su reglamento (Decreto Ejecutivo 285 de 2021, ANTAI), Ley 45 de 2007 de protección al consumidor (ACODECO), Ley 51 de 2008 de documentos y firmas electrónicas, jurisdicción de los tribunales de la ciudad de Panamá. Incluye lo que pidió Edwin: los datos no se venden ni se usan para publicidad; solo se entregan por obligación legal o solicitud formal de autoridad competente (Ministerio Público, Órgano Judicial, Policía Nacional).
+  - Refleja cómo funciona AthlonX: base de datos en EE. UU. (Supabase us-west-2, transferencia internacional), proveedores (Supabase, Cloudflare, Google, correo), Google y Google Calendar (solo el calendario "AthlonX"), datos sensibles (tipo de sangre, salud), menores de edad con consentimiento de su representante, eliminación con 15 días, datos que ingresan equipos y organizaciones.
+  - Pie de página: enlaces "Términos y condiciones" y "Política de privacidad".
+- **Datos por completar** (marcados con corchetes en la página): razón social, RUC y dirección del responsable, en `LEGAL_ENTITY` de `Components/legal/legal-page.tsx`. Correo de contacto: el oficial del pie (`contacto@nexdigitaldev.com`).
+- **Verificación**: `tsc` y `npm run build` correctos; las dos páginas responden 200; capturas en escritorio (1280) y móvil (390), sin desplazamiento horizontal; enlaces del pie comprobados.
+- **Pendiente**: revisión legal del texto por Edwin (idealmente por un abogado en Panamá). Después: agregar `https://athlonx.world/privacidad` y `https://athlonx.world/terminos` en Google Auth Platform → Branding y publicar la app.
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 

@@ -92,7 +92,13 @@ export default function SiteFooter() {
       </div>
 
       <div className="mx-auto mt-12 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-6 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-        <p>© 2026 AthlonX · Panamá</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5">
+          <p>© 2026 AthlonX · Panamá</p>
+          <nav aria-label="Legal" className="flex items-center gap-4">
+            <Link href="/terminos" className="text-slate-400 transition hover:text-[#B4FF45]">Términos y condiciones</Link>
+            <Link href="/privacidad" className="text-slate-400 transition hover:text-[#B4FF45]">Política de privacidad</Link>
+          </nav>
+        </div>
         <div className="flex items-center gap-3">
           <span>Desarrollado por</span>
           <span className="text-white/25" aria-hidden="true">
