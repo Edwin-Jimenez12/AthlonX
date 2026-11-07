@@ -1,6 +1,6 @@
 'use client'
 
-import { Lock, ShieldCheck, Shield, SlidersHorizontal, UserCog, Users } from 'lucide-react'
+import { Link2, Lock, ShieldCheck, Shield, SlidersHorizontal, UserCog, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { ImageUploadField } from '../image-upload-field'
@@ -13,6 +13,7 @@ import { Badge, Button, buttonClass } from '../mi-equipo/ui'
 import { Card, CardRow, Chip, Field, FieldGrid, Hero, Hint, InlineConfirm, ListRow, Pending, PhoneField, ReadValue, RowList, SaveStatus, SelectField, SettingRow, Segmented, Shell, Switch, initialsOf, useSaveStatus } from './ui'
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
+import { ConnectionsSection } from './connections-section'
 import { DeleteAccountCard, SessionCard } from './delete-account-card'
 import { PlanCard } from './plan-card'
 import { savePreferences, themeOptions } from './persona-profile-view'
@@ -24,6 +25,7 @@ export const teamSections: SectionItem[] = [
   { id: 'identidad', label: 'Información del equipo', description: 'Datos, escudo y divisiones', icon: Shield },
   { id: 'roles', label: 'Roles', description: 'Entrenadores, staff y administración', icon: Users },
   { id: 'configuracion', label: 'Configuración', description: 'Visibilidad y preferencias', icon: SlidersHorizontal },
+  { id: 'conexiones', label: 'Conexiones', description: 'Google, Outlook y avisos', icon: Link2 },
   { id: 'seguridad', label: 'Seguridad', description: 'Contraseña y correo', icon: ShieldCheck },
   { id: 'cuenta', label: 'Cuenta', description: 'Correo, acceso y salida', icon: UserCog },
 ]
@@ -342,6 +344,8 @@ export function TeamProfileView({
           </Card>
         </CardRow>
       )}
+
+      {section === 'conexiones' && <ConnectionsSection accountType="equipo" accountId={team.id} />}
 
       {section === 'seguridad' && <SecurityCards email={meta.email} />}
 

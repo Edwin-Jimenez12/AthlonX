@@ -22,8 +22,9 @@ const providers = [
   { id: 'outlook', name: 'Outlook', description: 'Tus actividades y eventos de equipo en tu calendario de Outlook.', Icon: PiMicrosoftOutlookLogo },
 ]
 
-// Mi perfil · Conexiones: calendarios externos (Google y Outlook) y cómo le llegan los avisos a la persona.
-export function ConnectionsSection() {
+// Mi perfil · Conexiones: calendarios externos (Google y Outlook) y cómo le llegan los avisos.
+// Persona: la sincronización depende de su plan Pro (calendario_pro). Equipo y organización: de la función 'sincronizacion' de su plan.
+export function ConnectionsSection({ accountType = 'persona', accountId }: { accountType?: 'persona' | 'equipo' | 'organizacion'; accountId?: string }) {
   const [channel, setChannel] = useState<Channel>('app')
   const [syncAllowed, setSyncAllowed] = useState<boolean | null>(null)
   const status = useSaveStatus()
@@ -36,15 +37,15 @@ export function ConnectionsSection() {
       if (!data.user) return
       const [{ data: prefs }, plan] = await Promise.all([
         supabase.from('account_preferences').select('notification_channel').eq('user_id', data.user.id).maybeSingle(),
-        loadAccountPlan('persona', data.user.id).catch(() => null),
+        loadAccountPlan(accountType, accountId ?? data.user.id).catch(() => null),
       ])
       if (!active) return
       if (prefs?.notification_channel === 'app_email') setChannel('app_email')
-      setSyncAllowed(planFlag(plan, 'calendario_pro'))
+      setSyncAllowed(planFlag(plan, accountType === 'persona' ? 'calendario_pro' : 'sincronizacion'))
     }
     void load()
     return () => { active = false }
-  }, [])
+  }, [accountType, accountId])
 
   async function changeChannel(next: Channel) {
     const previous = channel
@@ -61,7 +62,7 @@ export function ConnectionsSection() {
 
   return (
     <CardRow>
-      <Card title="Calendarios" description="Conecta tu calendario para ver tus actividades de AthlonX junto a las tuyas.">
+      <Card title="Calendarios" description={accountType === 'persona' ? 'Conecta tu calendario para ver tus actividades de AthlonX junto a las tuyas.' : 'Conecta un calendario para publicar ahí los eventos de esta cuenta.'}>
         <RowList>
           {providers.map(({ id, name, description, Icon }) => (
             <div key={id} className="flex flex-wrap items-center gap-3.5 py-3.5">
@@ -71,7 +72,7 @@ export function ConnectionsSection() {
                 <p className="mt-0.5 text-[13px] leading-[18px] text-[var(--ax-muted)]">{description}</p>
               </div>
               {syncAllowed === false
-                ? <Link href="/planes#personas" className="text-[13px] font-semibold text-[var(--ax-accent-text)] underline-offset-4 hover:underline">Disponible en Pro</Link>
+                ? <Link href={accountType === 'persona' ? '/planes#personas' : accountType === 'equipo' ? '/planes#equipos' : '/planes#organizaciones'} className="text-[13px] font-semibold text-[var(--ax-accent-text)] underline-offset-4 hover:underline">Disponible en Pro</Link>
                 : <Button variant="secondary" disabled>{id === 'google' ? 'Conectar' : 'Próximamente'}</Button>}
             </div>
           ))}

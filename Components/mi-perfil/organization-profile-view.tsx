@@ -2,7 +2,7 @@
 
 import { ImageUploadField } from '../image-upload-field'
 import { imageFolders } from '../../lib/image-upload'
-import { Building2, CalendarDays, ExternalLink, Lock, ShieldCheck, SlidersHorizontal, Trophy, UserCog, Users } from 'lucide-react'
+import { Building2, CalendarDays, ExternalLink, Link2, Lock, ShieldCheck, SlidersHorizontal, Trophy, UserCog, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +13,7 @@ import { Badge, buttonClass, cx } from '../mi-equipo/ui'
 import { Card, CardRow, Chip, Field, FieldGrid, Hero, Hint, ListRow, Pending, PhoneField, ReadValue, RowList, SaveStatus, SelectField, SettingRow, Segmented, Shell, Switch, initialsOf, useSaveStatus } from './ui'
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
+import { ConnectionsSection } from './connections-section'
 import { SessionCard } from './delete-account-card'
 import { PlanCard } from './plan-card'
 import { OrgPlanLimits } from './org-plan-limits'
@@ -24,6 +25,7 @@ export const organizationSections: SectionItem[] = [
   { id: 'identidad', label: 'Información general', description: 'Datos, logotipo y disciplinas', icon: Building2 },
   { id: 'equipos', label: 'Equipos y roles', description: 'Equipos afiliados y administración', icon: Users },
   { id: 'configuracion', label: 'Configuración', description: 'Visibilidad, torneos y preferencias', icon: SlidersHorizontal },
+  { id: 'conexiones', label: 'Conexiones', description: 'Google, Outlook y avisos', icon: Link2 },
   { id: 'seguridad', label: 'Seguridad', description: 'Contraseña y correo', icon: ShieldCheck },
   { id: 'cuenta', label: 'Cuenta', description: 'Correo, acceso y salida', icon: UserCog },
 ]
@@ -336,6 +338,8 @@ export function OrganizationProfileView({
           </Card>
         </>
       )}
+
+      {section === 'conexiones' && <ConnectionsSection accountType="organizacion" accountId={organization.id} />}
 
       {section === 'seguridad' && <SecurityCards email={meta.email} />}
 

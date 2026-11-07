@@ -263,6 +263,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios. Columna nueva comprobada con consulta de solo lectura. No se probó en navegador con sesión.
 - **Pendiente**: OAuth de Google (proyecto en Google Cloud, pantalla de consentimiento, verificación y credenciales en Supabase o en el servidor). Envío de correos con Resend respetando `notification_channel`. Outlook después de Google.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Conexiones también en cuentas de equipo y organización
+
+- **Qué se hizo**: la sección "Conexiones" de Mi perfil aparece también en la cuenta de equipo y en la de organización. `ConnectionsSection` recibe `accountType` y `accountId`: en persona la sincronización depende de `calendario_pro`; en equipo y organización, de la función `sincronizacion` de su plan. El enlace "Disponible en Pro" lleva a la pestaña de planes de ese tipo de cuenta.
+- **Archivos**: `Components/mi-perfil/connections-section.tsx`, `team-profile-view.tsx`, `organization-profile-view.tsx`.
+- **Verificación**: `tsc` sin errores propios.
+- **Pendiente**: lo mismo de la entrada anterior (OAuth de Google y correos con Resend).
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
