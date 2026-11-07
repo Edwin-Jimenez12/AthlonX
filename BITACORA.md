@@ -166,6 +166,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios. Falta probarlo en navegador con una notificación nueva.
 - **Pendiente**: los botones Aceptar/Rechazar de solicitudes no marcan la notificación como leída por sí solos (ya se quita de la lista al responder).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Varias personas en el destinatario y nombres en el calendario
+
+- **Qué pasó**: al elegir "Persona" el nombre no se guardaba ni se mostraba (solo "Persona específica"); solo se podía elegir una persona; y el evento dirigido a un jugador no aparecía en su cuenta personal, porque el feed exigía cargo en el equipo.
+- **Qué se hizo**
+  - Destinatario "Persona": buscador, elegir una persona, "Agregar a la lista", y repetir con la siguiente. La lista se ve como chips con ✕. Hace falta al menos una persona para guardar.
+  - Se guarda la lista completa en `audience_user_ids` (uuid[]). Se reemplaza `audience_user_id`, que ya no existe.
+  - "Dirigido a:" muestra nombres (división, "Cuerpo técnico" o nombres de personas) en el detalle del evento. El nombre sale del feed (`audience_label`).
+  - El feed incluye también a jugadores vinculados a la plantilla (con cuenta), no solo a quienes tienen cargo.
+- **Archivos clave**: `supabase/team-event-audience-people-migration.sql` (aplicada, HTTP 201): `audience_user_ids`, `calendar_audience_label`, `calendar_team_event_visible` (con uuid[]), `calendar_save_team_event_v4`, feed actualizado. `Components/calendario/athlete-calendar.tsx`, `lib/athlete-calendar.ts`.
+- **Verificación**: migración aplicada; el evento "adf" quedó con `audience_user_ids` = Edwin Jiménez y etiqueta "Edwin Jiménez" (consulta de solo lectura). `tsc` sin errores propios. Falta probar en navegador con varias personas y con una cuenta de jugador.
+- **Pendiente**: hay tres perfiles llamados "Edwin Jiménez"; en el buscador aparecen los tres con el mismo nombre. Conviene mostrar un dato extra (cargo o correo) o unificar cuentas.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

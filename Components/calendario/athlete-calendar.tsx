@@ -57,7 +57,7 @@ type Editor = {
   division: string
   // Destinatario de un evento de equipo: toda la plantilla, una división, el cuerpo técnico o una persona vinculada al equipo.
   audience: 'team' | 'division' | 'staff' | 'person'
-  personId: string
+  personIds: string[]
   reminders: number[]
 }
 
@@ -146,7 +146,7 @@ function toEditor(item: FeedItem | null, anchor: Date): Editor {
     reminders: item?.reminder_minutes?.length ? item.reminder_minutes : [240],
     division: item?.division_id ?? '',
     audience: (item?.audience ?? 'team') as Editor['audience'],
-    personId: item?.audience_user_id ?? '',
+    personIds: item?.audience_user_ids ?? [],
   }
 }
 
@@ -173,6 +173,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [items, setItems] = useState<FeedItem[]>([])
   const [audienceOptions, setAudienceOptions] = useState<AudienceOptions | null>(null)
   const [personQuery, setPersonQuery] = useState('')
+  // Persona elegida en el buscador, pendiente de agregar a la lista.
+  const [pendingPersonId, setPendingPersonId] = useState('')
   // Cambios en vivo: si otra sesión crea, edita o elimina una actividad, o responde a una convocatoria, el calendario se actualiza solo.
   useLiveRefresh('calendar-live', [
     { table: 'personal_activities' },
@@ -379,9 +381,12 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     }
     setSaving(true)
     setMessage(null)
+    if (team && editor.audience === 'person' && editor.personIds.length === 0) {
+      return setMessage({ tone: 'danger', text: 'Elige al menos una persona para este evento.' })
+    }
     if (team) {
       const teamRepeat = canRepeat(editor) ? editor.repeat : 'none'
-      const { error: teamError } = await supabase.rpc('calendar_save_team_event_v3', {
+      const { error: teamError } = await supabase.rpc('calendar_save_team_event_v4', {
         p_id: editor.id,
         p_team: team.id,
         p_title: editor.title.trim(),
@@ -392,7 +397,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         p_ends: ends.toISOString(),
         p_division: editor.audience === 'division' ? editor.division || null : null,
         p_audience: editor.audience,
-        p_audience_user: editor.audience === 'person' ? editor.personId || null : null,
+        p_audience_users: editor.audience === 'person' ? editor.personIds : null,
         p_repeat: teamRepeat,
         p_repeat_until: teamRepeat === 'none' || !editor.repeatUntil ? null : new Date(`${editor.repeatUntil}T23:59:59`).toISOString(),
         p_reminders: orgReminderLimit === 1 ? [240] : editor.reminders,
@@ -756,7 +761,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
             {selected.location && <p className="text-[var(--ax-muted)]">{selected.location}</p>}
             {selected.description && <p className="whitespace-pre-line text-[var(--ax-muted)]">{selected.description}</p>}
             {selected.source === 'team' && selected.audience && selected.audience !== 'team' && (
-              <p className="text-xs text-[var(--ax-muted)]">Dirigido a: {audienceLabels[selected.audience] ?? 'equipo'}</p>
+              <p className="text-sm text-[var(--ax-text-secondary)]"><span className="text-[var(--ax-muted)]">Dirigido a:</span> {selected.audience_label ?? audienceLabels[selected.audience] ?? 'equipo'}</p>
             )}
             <p className="text-[var(--ax-muted)]">{selected.source === 'personal' ? (selected.type_label ?? 'Actividad personal') : selected.owner_name ?? ''}</p>
           </div>
@@ -839,28 +844,53 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                 )}
                 <FieldLabel>Dirigido a</FieldLabel>
                 <div className="flex flex-wrap gap-2">
-                  <Segment active={editor.audience === 'team'} label="Todo el equipo" onClick={() => setEditor({ ...editor, audience: 'team', division: '', personId: '' })} />
-                  {divisions.map((d) => <Segment key={d.id} active={editor.audience === 'division' && editor.division === d.id} label={d.name} onClick={() => setEditor({ ...editor, audience: 'division', division: d.id, personId: '' })} />)}
-                  <Segment active={editor.audience === 'staff'} label="Cuerpo técnico" onClick={() => setEditor({ ...editor, audience: 'staff', division: '', personId: '' })} />
-                  <Segment active={editor.audience === 'person'} label="Persona" onClick={() => setEditor({ ...editor, audience: 'person', division: '' })} />
+                  <Segment active={editor.audience === 'team'} label="Todo el equipo" onClick={() => setEditor({ ...editor, audience: 'team', division: '', personIds: [] })} />
+                  {divisions.map((d) => <Segment key={d.id} active={editor.audience === 'division' && editor.division === d.id} label={d.name} onClick={() => setEditor({ ...editor, audience: 'division', division: d.id, personIds: [] })} />)}
+                  <Segment active={editor.audience === 'staff'} label="Cuerpo técnico" onClick={() => setEditor({ ...editor, audience: 'staff', division: '', personIds: [] })} />
+                  <Segment active={editor.audience === 'person'} label="Persona" onClick={() => { setEditor({ ...editor, audience: 'person', division: '' }); setPendingPersonId('') }} />
                 </div>
-                {editor.audience === 'person' && (
-                  <div className="mt-3">
-                    <input className={inputClass} placeholder="Buscar jugador, directivo o staff" value={personQuery} onChange={(e) => setPersonQuery(e.target.value)} />
-                    {editor.personId && (
-                      <p className="mt-2 text-xs text-[var(--ax-muted)]">Seleccionado: {[...(audienceOptions?.staff ?? []), ...(audienceOptions?.players ?? [])].find((o) => o.user_id === editor.personId)?.name ?? 'persona'}</p>
-                    )}
-                    <div className="mt-2 flex flex-col gap-1">
-                      {[...(audienceOptions?.staff ?? []), ...(audienceOptions?.players ?? [])]
-                        .filter((o, i, all) => all.findIndex((x) => x.user_id === o.user_id) === i)
-                        .filter((o) => !personQuery.trim() || o.name.toLowerCase().includes(personQuery.trim().toLowerCase()))
-                        .slice(0, 6)
-                        .map((o) => (
-                          <button key={o.user_id} type="button" onClick={() => { setEditor({ ...editor, personId: o.user_id }); setPersonQuery('') }} className={`cursor-pointer rounded-[10px] px-3 py-2 text-left text-sm ${editor.personId === o.user_id ? 'bg-[var(--ax-hover)] font-semibold text-[var(--ax-text)]' : 'text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)]'}`}>{o.name}</button>
-                        ))}
+                {editor.audience === 'person' && (() => {
+                  const people = [...(audienceOptions?.staff ?? []), ...(audienceOptions?.players ?? [])]
+                    .filter((o, i, all) => all.findIndex((x) => x.user_id === o.user_id) === i)
+                  const nameOf = (id: string) => people.find((o) => o.user_id === id)?.name ?? 'Persona'
+                  const query = personQuery.trim().toLowerCase()
+                  const results = people
+                    .filter((o) => !editor.personIds.includes(o.user_id))
+                    .filter((o) => !query || o.name.toLowerCase().includes(query))
+                    .slice(0, 6)
+                  return (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <FieldLabel>Personas seleccionadas</FieldLabel>
+                        {editor.personIds.length ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {editor.personIds.map((id) => (
+                              <span key={id} className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--ax-accent-line)] bg-[var(--ax-accent)]/10 py-1.5 pl-3 pr-1.5 text-sm font-semibold text-[var(--ax-text)]">
+                                {nameOf(id)}
+                                <button type="button" aria-label={`Quitar a ${nameOf(id)}`} onClick={() => setEditor({ ...editor, personIds: editor.personIds.filter((x) => x !== id) })} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-[8px] text-[var(--ax-muted)] hover:bg-[var(--ax-hover)]"><X size={13} /></button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : <p className="mt-2 text-sm text-[var(--ax-muted)]">Todavía no hay personas. Busca y agrega.</p>}
+                      </div>
+                      <div>
+                        <input className={inputClass} placeholder="Buscar jugador, directivo o staff" value={personQuery} onChange={(e) => { setPersonQuery(e.target.value); setPendingPersonId('') }} />
+                        <div className="mt-2 flex flex-col gap-1">
+                          {results.map((o) => (
+                            <button key={o.user_id} type="button" onClick={() => setPendingPersonId(o.user_id)} className={`cursor-pointer rounded-[10px] px-3 py-2 text-left text-sm ${pendingPersonId === o.user_id ? 'bg-[var(--ax-hover)] font-semibold text-[var(--ax-text)]' : 'text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)]'}`}>{o.name}</button>
+                          ))}
+                          {!results.length && <p className="px-3 py-2 text-sm text-[var(--ax-muted)]">No hay más personas con ese nombre.</p>}
+                        </div>
+                        {pendingPersonId && (
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] px-3 py-2.5">
+                            <span className="text-sm text-[var(--ax-text)]">{nameOf(pendingPersonId)}</span>
+                            <Button variant="secondary" onClick={() => { setEditor({ ...editor, personIds: [...editor.personIds, pendingPersonId] }); setPendingPersonId(''); setPersonQuery('') }}>Agregar a la lista</Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             )}
             {!isMgmt && managedTeams.length > 0 && (

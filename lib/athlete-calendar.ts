@@ -22,7 +22,8 @@ export type FeedItem = {
   reminder_minutes?: number[] | null
   division_id?: string | null
   audience?: 'team' | 'division' | 'staff' | 'person' | null
-  audience_user_id?: string | null
+  audience_user_ids?: string[] | null
+  audience_label?: string | null
   type_id?: string | null
   type_label?: string | null
   type_color?: string | null
