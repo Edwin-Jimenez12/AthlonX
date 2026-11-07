@@ -322,6 +322,11 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` y `npm run build` correctos; las dos páginas responden 200; capturas en escritorio (1280) y móvil (390), sin desplazamiento horizontal; enlaces del pie comprobados.
 - **Pendiente**: revisión legal del texto por Edwin (idealmente por un abogado en Panamá). Después: agregar `https://athlonx.world/privacidad` y `https://athlonx.world/terminos` en Google Auth Platform → Branding y publicar la app.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Responsable y contacto en las páginas legales
+
+- **Qué se hizo**: correo de contacto de Términos y Privacidad: `athlonxteam@gmail.com`. Dirección: ciudad de Panamá. Responsable como persona natural mientras no exista empresa; el RUC solo se muestra si se completa (`LEGAL_ENTITY` y `operatorText()` en `Components/legal/legal-page.tsx`). El correo del pie de página no cambia.
+- **Pendiente**: confirmar el nombre del responsable (propuesto: Edwin Jiménez, persona natural); hoy aparece "[Nombre del responsable]".
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

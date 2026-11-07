@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { LEGAL_ENTITY, LegalPage, List, Strong, type LegalSection } from '../../Components/legal/legal-page'
+import { LEGAL_ENTITY, LegalPage, List, Strong, operatorText, type LegalSection } from '../../Components/legal/legal-page'
 
 export const metadata: Metadata = {
   title: 'Términos y condiciones · AthlonX',
@@ -17,7 +17,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          Estos Términos y condiciones regulan el uso de AthlonX ({LEGAL_ENTITY.site}), plataforma operada por <Strong>{LEGAL_ENTITY.name}</Strong>, RUC {LEGAL_ENTITY.ruc}, con domicilio en {LEGAL_ENTITY.address}.
+          Estos Términos y condiciones regulan el uso de AthlonX ({LEGAL_ENTITY.site}), plataforma operada por <Strong>{LEGAL_ENTITY.name}</Strong>{operatorText()}.
         </p>
         <p>Al crear una cuenta o usar AthlonX aceptas estos términos y nuestra <Link className={link} href="/privacidad">Política de privacidad</Link>. Si no estás de acuerdo, no uses la plataforma.</p>
       </>

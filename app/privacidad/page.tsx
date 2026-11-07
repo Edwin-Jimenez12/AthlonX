@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { LEGAL_ENTITY, LegalPage, List, Strong, type LegalSection } from '../../Components/legal/legal-page'
+import { LEGAL_ENTITY, LegalPage, List, Strong, operatorText, type LegalSection } from '../../Components/legal/legal-page'
 
 export const metadata: Metadata = {
   title: 'Política de privacidad · AthlonX',
@@ -16,7 +16,7 @@ const sections: LegalSection[] = [
     content: (
       <>
         <p>
-          AthlonX ({LEGAL_ENTITY.site}) es una plataforma de gestión deportiva operada por <Strong>{LEGAL_ENTITY.name}</Strong>, RUC {LEGAL_ENTITY.ruc}, con domicilio en {LEGAL_ENTITY.address} (en adelante, &quot;AthlonX&quot;, &quot;nosotros&quot;).
+          AthlonX ({LEGAL_ENTITY.site}) es una plataforma de gestión deportiva operada por <Strong>{LEGAL_ENTITY.name}</Strong>{operatorText()} (en adelante, &quot;AthlonX&quot;, &quot;nosotros&quot;).
         </p>
         <p>
           AthlonX es el responsable del tratamiento de los datos personales que se registran en la plataforma. Para cualquier asunto relacionado con tus datos puedes escribirnos a <a className="font-semibold text-[#B4FF45] underline-offset-4 hover:underline" href={`mailto:${LEGAL_ENTITY.email}`}>{LEGAL_ENTITY.email}</a>.
