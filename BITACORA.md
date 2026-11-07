@@ -130,6 +130,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menú completo mientras carga la cuenta
+
+**Qué pasaba**: al cargar la página, el menú mostraba solo la lista por defecto (Búsqueda, Notificaciones, Calendario) hasta que cargaban las vistas de la cuenta; luego cambiaba a la de su rol.
+
+**Qué se hizo** (`Components/dashboard-sidebar.tsx`): el menú guarda en el navegador la última lista de secciones que mostró (`athlonx-nav-cache`) y la usa mientras carga la cuenta, así aparecen todas las secciones del rol desde el inicio. La lectura se hace después de montar el componente para no desajustar el render del servidor. La primera vez que alguien entra en un navegador no hay lista guardada; ahí se muestra la lista por defecto hasta que carga.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador: recargar en Calendario con cuenta personal y con cuenta de equipo.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Torneos en la cuenta personal
 
 **Decisión de Edwin**: atleta y entrenador ven la sección Torneos con todo lo que muestra la de equipo; lo único que no pueden hacer es crear un torneo.

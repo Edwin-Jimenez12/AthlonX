@@ -85,6 +85,8 @@ export function DashboardSidebar() {
   const [isStaff, setIsStaff] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [contexts, setContexts] = useState<AccountContext[]>([])
+  // Hasta que cargan las vistas de la cuenta, el menú usa la última lista que se mostró (guardada en el navegador).
+  const [navReady, setNavReady] = useState(false)
   const [activeContextId, setActiveContextId] = useState('')
   const close = () => setOpen(false)
 
@@ -139,6 +141,7 @@ export function DashboardSidebar() {
         ?? (preferredContextType ? availableContexts.find((context) => context.contextType === preferredContextType) : null)
         ?? availableContexts[0]
       setActiveContextId(selectedContext?.id ?? '')
+      setNavReady(true)
     }
     void loadAccountType()
 
@@ -189,6 +192,25 @@ export function DashboardSidebar() {
     baseNavigation = staffNavigation
   }
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }] : baseNavigation
+
+  // Guarda la lista del menú cuando ya está lista, y la usa mientras carga la cuenta.
+  const navSnapshot = navigation.map((item) => item.href ?? item.label).join('|')
+  useEffect(() => {
+    if (!navReady) return
+    try { window.localStorage.setItem('athlonx-nav-cache', JSON.stringify(navigation.filter((item) => item.href).map((item) => item.href))) } catch { /* sin almacenamiento */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navReady, navSnapshot])
+  const knownNavigation = [...personNavigation, ...athleteNavigation, ...trainerNavigation, ...staffNavigation, ...teamNavigation, ...organizationNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }]
+  // La lista guardada se lee después de montar el componente, para no desajustar el render del servidor.
+  const [cachedNavigation, setCachedNavigation] = useState<NavigationItem[]>([])
+  useEffect(() => {
+    try {
+      const hrefs: string[] = JSON.parse(window.localStorage.getItem('athlonx-nav-cache') ?? '[]')
+      setCachedNavigation(hrefs.map((href) => knownNavigation.find((item) => item.href === href)).filter((item): item is NavigationItem => Boolean(item)))
+    } catch { setCachedNavigation([]) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const shownNavigation = navReady || cachedNavigation.length === 0 ? navigation : cachedNavigation
   const activeHref = navigation.find((item) => item.href && pathname === item.href.split('#')[0] && !item.href.includes('#'))?.href ?? ''
   const settingsNav = useSettingsNavConfig()
   const [themeMode] = useThemeMode()
@@ -255,7 +277,7 @@ export function DashboardSidebar() {
             <span className="font-barlow text-[18px] font-semibold leading-none">{section.label}</span>
           </button>
         })}
-        {!settingsSections && navigation.map(({ label, icon: Icon, href, disabled, notice }) => {
+        {!settingsSections && shownNavigation.map(({ label, icon: Icon, href, disabled, notice }) => {
           if (disabled) return <div key={label} aria-disabled="true" title={notice || calendarNotice} className={`relative z-10 flex w-full cursor-default items-center gap-3 rounded-xl px-3 py-2.5 ${muted}`}><Icon size={18} className="shrink-0" /><span className="font-barlow text-[18px] font-semibold leading-none">{label}</span><span className={`ml-auto rounded-full border px-2 py-0.5 font-body text-[9px] font-semibold uppercase tracking-[0.12em] ${pronto}`}>Pronto</span></div>
           if (!href) return null
           const isActive = href === activeHref
