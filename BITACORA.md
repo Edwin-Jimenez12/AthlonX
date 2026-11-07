@@ -130,6 +130,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Transición suave al reordenar tipos
+
+**Qué se hizo** (`Components/calendario/personal-types-sheet.tsx`): al mover un tipo, las demás filas se deslizan hasta su nueva posición (técnica FLIP, 260 ms). La fila levantada se agranda con un borde de su color y una sombra. El encabezado de la hoja tiene un degradado suave con el color de acento. Con "reducir movimiento" activado en el sistema, no hay animación.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador, en escritorio y celular.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menú: Calendario antes de Torneos
 
 **Qué se hizo** (`Components/dashboard-sidebar.tsx`): en el menú de equipo y de organización, Calendario va antes que Eventos, y Eventos se llama Torneos con icono de trofeo. Sigue apuntando a `/eventos`, que ya muestra los torneos. Las cuentas personales (atleta, entrenador) no tienen esa entrada en su menú; no se agregó.

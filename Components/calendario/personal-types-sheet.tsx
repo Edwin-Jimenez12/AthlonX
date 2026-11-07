@@ -1,7 +1,7 @@
 'use client'
 
 import { GripVertical, Plus, RotateCcw, Trash2, X } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Button, FieldLabel, inputClass } from '../mi-equipo/ui'
 
@@ -59,6 +59,24 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
   const orderRef = useRef<string[] | null>(null)
   const pressRef = useRef<{ timer: number | null; pointerId: number; startY: number; el: HTMLElement | null }>({ timer: null, pointerId: -1, startY: 0, el: null })
   const rowRefs = useRef<Record<string, HTMLLIElement | null>>({})
+
+  // Animación de reordenado: cada fila se desliza desde su posición anterior hasta la nueva (técnica FLIP).
+  // La fila que se levanta no se anima, para que siga al dedo.
+  const previousTops = useRef<Record<string, number>>({})
+  useLayoutEffect(() => {
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    for (const type of types.length ? (localOrder ? localOrder.map((id) => types.find((item) => item.id === id)).filter((item): item is PersonalType => Boolean(item)) : types) : []) {
+      const el = rowRefs.current[type.id]
+      if (!el) continue
+      const top = el.getBoundingClientRect().top
+      const before = previousTops.current[type.id]
+      if (!reduce && before !== undefined && liftedRef.current !== type.id) {
+        const delta = before - top
+        if (Math.abs(delta) > 0.5) el.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], { duration: 260, easing: 'cubic-bezier(.22,.61,.36,1)' })
+      }
+      previousTops.current[type.id] = top
+    }
+  })
 
   const list = localOrder
     ? localOrder.map((id) => types.find((type) => type.id === id)).filter((type): type is PersonalType => Boolean(type))
@@ -216,7 +234,7 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
 
   return (
     <section role="dialog" aria-modal="false" aria-labelledby="tipos-titulo" className={sheetClass}>
-      <header className="flex shrink-0 items-center gap-2 border-b border-[var(--ax-line)] bg-[var(--ax-surface-raised)] py-2 pl-4 pr-2">
+      <header className="flex shrink-0 items-center gap-2 border-b border-[var(--ax-line)] bg-gradient-to-r from-[var(--ax-accent-soft)] via-[var(--ax-surface-raised)] to-[var(--ax-surface-raised)] py-2 pl-4 pr-2">
         <h2 id="tipos-titulo" className="min-w-0 flex-1 truncate font-display text-[22px] uppercase leading-none tracking-[.02em] text-[var(--ax-text)]">Tipos de evento</h2>
         <button type="button" onClick={onClose} aria-label="Cerrar tipos de evento" className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-[var(--ax-text-secondary)] hover:bg-[var(--ax-hover)] hover:text-[var(--ax-text)]">
           <X size={18} aria-hidden="true" />
@@ -240,8 +258,8 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
                 onPointerMove={onRowPointerMove}
                 onPointerUp={() => void onRowPointerUp()}
                 onPointerCancel={() => void onRowPointerUp()}
-                className={`space-y-3 px-3 py-3 transition-[transform,box-shadow,background-color] duration-150 select-none ${lifted ? 'relative z-10 scale-[1.02] rounded-[10px] bg-[var(--ax-surface-raised)] shadow-[var(--ax-shadow-pop)]' : ''}`}
-                style={{ touchAction: lifted ? 'none' : 'pan-y', WebkitTouchCallout: 'none' }}
+                className={`space-y-3 px-3 py-3 transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(.22,.61,.36,1)] select-none ${lifted ? 'relative z-10 scale-[1.02] rounded-[10px] bg-[var(--ax-surface-raised)]' : ''}`}
+                style={{ touchAction: lifted ? 'none' : 'pan-y', WebkitTouchCallout: 'none', boxShadow: lifted ? `0 0 0 1px ${type.color}, 0 14px 32px -12px rgba(2,11,18,.55)` : undefined }}
               >
                 <div className="flex items-center gap-3">
                   <div
