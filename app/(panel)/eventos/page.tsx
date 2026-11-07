@@ -168,7 +168,9 @@ export default function EventsPage() {
   const statusTournaments = status === 'all' ? nonDraftTournaments : nonDraftTournaments.filter((tournament) => tournament.status === status)
   const shownTournaments = statusTournaments.slice(0, visibleCount)
   const draftTournaments = filteredTournaments.filter((tournament) => tournament.status === 'draft' && tournament.created_by === currentUserId && (activeContext?.contextType !== 'organization' || tournament.organization_id === organizationId))
-  const canCreate = Boolean(organizationId || sourceTeamId)
+  // La cuenta personal (atleta o entrenador) ve todos los torneos, pero no crea torneos.
+  const isPersonaView = activeContext?.contextType === 'personal' || (activeContext?.contextType === 'team' && (activeContext.role === 'atleta' || activeContext.role === 'entrenador'))
+  const canCreate = !isPersonaView && Boolean(organizationId || sourceTeamId)
   const isOrganization = activeContext?.contextType === 'organization'
   const labelFor = (tournament: Tournament) => modalities.find((item) => item.id === tournament.modality_id)?.name || disciplines.find((item) => item.id === tournament.discipline_id)?.name
   const canEdit = (tournament: Tournament) => tournament.created_by === currentUserId && (!isOrganization || tournament.organization_id === organizationId)

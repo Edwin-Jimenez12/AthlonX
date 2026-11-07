@@ -130,6 +130,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Torneos en la cuenta personal
+
+**Decisión de Edwin**: atleta y entrenador ven la sección Torneos con todo lo que muestra la de equipo; lo único que no pueden hacer es crear un torneo.
+
+**Qué se hizo**:
+- `Components/dashboard-sidebar.tsx`: Torneos (trofeo) después de Calendario, en los menús de atleta y de entrenador.
+- `app/(panel)/eventos/page.tsx`: en la vista personal (contexto personal, o contexto de equipo con rol atleta o entrenador) no aparece "Crear evento" ni el panel de borradores.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador con una cuenta de atleta y una de entrenador.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Transición suave al reordenar tipos
 
 **Qué se hizo** (`Components/calendario/personal-types-sheet.tsx`): al mover un tipo, las demás filas se deslizan hasta su nueva posición (técnica FLIP, 260 ms). La fila levantada se agranda con un borde de su color y una sombra. El encabezado de la hoja tiene un degradado suave con el color de acento. Con "reducir movimiento" activado en el sistema, no hay animación.
