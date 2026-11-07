@@ -124,11 +124,11 @@ export function DashboardSidebar() {
     let active = true
 
     async function loadAccountType() {
-      if (!supabase) return
+      if (!supabase) return setNavReady(true)
       const { data } = await supabase.auth.getUser()
       if (!active) return
       setAccountType(data.user?.user_metadata?.account_type ?? '')
-      if (!data.user) return
+      if (!data.user) return setNavReady(true)
       const metadataRoles = Array.isArray(data.user?.user_metadata?.roles) ? data.user.user_metadata.roles : []
       const [{ data: storedRoles }, accountContexts, managedTeams] = await Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', data.user.id),
@@ -235,25 +235,33 @@ export function DashboardSidebar() {
   }
   const navigation = isPlatformAdmin ? [...baseNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }] : baseNavigation
 
-  // Guarda la lista del menú cuando ya está lista, y la usa mientras carga la cuenta.
+  // Guarda cómo se arma el menú cuando ya está listo. En una cuenta de persona se guardan sus roles, para
+  // reconstruir el mismo menú (con Mi equipo y su ruta) mientras carga la cuenta en la siguiente visita.
   const navSnapshot = navigation.map((item) => item.href ?? item.label).join('|')
   useEffect(() => {
     if (!navReady) return
-    try { window.localStorage.setItem('athlonx-nav-cache', JSON.stringify(navigation.filter((item) => item.href).map((item) => item.href))) } catch { /* sin almacenamiento */ }
+    const cache = { v: 2, persona: isPersonaAccount, roles: personRoles, admin: isPlatformAdmin, hrefs: navigation.filter((item) => item.href).map((item) => item.href) }
+    try { window.localStorage.setItem('athlonx-nav-cache', JSON.stringify(cache)) } catch { /* sin almacenamiento */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navReady, navSnapshot])
   const knownNavigation = [...personaNavigation(['atleta', 'entrenador', 'staff', 'directivo']), ...personNavigation, ...athleteNavigation, ...trainerNavigation, ...staffNavigation, ...teamNavigation, ...organizationNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }]
-  // La lista guardada se lee después de montar el componente, para no desajustar el render del servidor.
-  const [cachedNavigation, setCachedNavigation] = useState<NavigationItem[]>([])
-  useEffect(() => {
+  // La copia guardada se lee al montar y antes de pintar (useLayoutEffect), para no desajustar el render del servidor
+  // y para que el menú aparezca completo desde el primer cuadro. Sin copia, se muestran barras de carga, no una lista equivocada.
+  const [cachedNavigation, setCachedNavigation] = useState<NavigationItem[] | null>(null)
+  useLayoutEffect(() => {
     try {
-      const hrefs: string[] = JSON.parse(window.localStorage.getItem('athlonx-nav-cache') ?? '[]')
-      setCachedNavigation(hrefs.map((href) => knownNavigation.find((item) => item.href === href)).filter((item): item is NavigationItem => Boolean(item)))
-    } catch { setCachedNavigation([]) }
+      const raw = JSON.parse(window.localStorage.getItem('athlonx-nav-cache') ?? 'null')
+      if (raw && raw.v === 2) {
+        const base = raw.persona ? personaNavigation(Array.isArray(raw.roles) ? raw.roles : []) : (raw.hrefs as string[]).map((href) => knownNavigation.find((item) => item.href === href)).filter((item): item is NavigationItem => Boolean(item))
+        setCachedNavigation(raw.admin ? [...base, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }] : base)
+      } else if (Array.isArray(raw)) {
+        setCachedNavigation(raw.map((href: string) => knownNavigation.find((item) => item.href === href)).filter((item): item is NavigationItem => Boolean(item)))
+      }
+    } catch { /* sin copia guardada */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const shownNavigation = navReady || cachedNavigation.length === 0 ? navigation : cachedNavigation
-  const activeHref = navigation.find((item) => item.href && !item.href.includes('#') && (pathname === item.href.split('#')[0] || item.match?.some((path) => pathname === path || pathname?.startsWith(`${path}/`))))?.href ?? ''
+  const shownNavigation: NavigationItem[] | null = navReady ? navigation : cachedNavigation?.length ? cachedNavigation : null
+  const activeHref = (shownNavigation ?? []).find((item) => item.href && !item.href.includes('#') && (pathname === item.href.split('#')[0] || item.match?.some((path) => pathname === path || pathname?.startsWith(`${path}/`))))?.href ?? ''
   const settingsNav = useSettingsNavConfig()
   const [themeMode] = useThemeMode()
   const light = themeMode === 'light'
@@ -278,7 +286,7 @@ export function DashboardSidebar() {
   }, [])
   // Las secciones cambian al cargar la cuenta (vista de equipo, personal u organización). Por eso el indicador
   // se vuelve a medir cuando cambia la lista, cuando el menú cambia de tamaño y en el siguiente cuadro de pantalla.
-  const navSignature = navigation.map((item) => item.href ?? item.label).join('|')
+  const navSignature = (shownNavigation ?? []).map((item) => item.href ?? item.label).join('|')
   useEffect(() => {
     const nav = navRef.current
     if (!nav || typeof ResizeObserver === 'undefined') return
@@ -319,7 +327,13 @@ export function DashboardSidebar() {
             <span className="font-barlow text-[18px] font-semibold leading-none">{section.label}</span>
           </button>
         })}
-        {!settingsSections && shownNavigation.map(({ label, icon: Icon, href, disabled, notice }) => {
+        {!settingsSections && !shownNavigation && Array.from({ length: 6 }, (_, index) => (
+          <div key={`cargando-${index}`} aria-hidden="true" className="flex items-center gap-3 px-3 py-2.5">
+            <span className={`h-[18px] w-[18px] shrink-0 animate-pulse rounded-md ${light ? 'bg-[#0b1d2c]/10' : 'bg-white/[.08]'}`} />
+            <span className={`h-3.5 animate-pulse rounded-md ${light ? 'bg-[#0b1d2c]/10' : 'bg-white/[.08]'}`} style={{ width: `${[58, 72, 50, 66, 54, 62][index]}%` }} />
+          </div>
+        ))}
+        {!settingsSections && shownNavigation?.map(({ label, icon: Icon, href, disabled, notice }) => {
           if (disabled) return <div key={label} aria-disabled="true" title={notice || calendarNotice} className={`relative z-10 flex w-full cursor-default items-center gap-3 rounded-xl px-3 py-2.5 ${muted}`}><Icon size={18} className="shrink-0" /><span className="font-barlow text-[18px] font-semibold leading-none">{label}</span><span className={`ml-auto rounded-full border px-2 py-0.5 font-body text-[9px] font-semibold uppercase tracking-[0.12em] ${pronto}`}>Pronto</span></div>
           if (!href) return null
           const isActive = href === activeHref

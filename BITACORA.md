@@ -235,6 +235,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios y `npm run build` correcto. No se probó con sesión real en navegador.
 - **Pendiente**: las secciones de organización (Organización, Equipos, Participantes) no salen en la cuenta de persona; siguen siendo de la cuenta de organización. Probar con la cuenta nueva: menú completo, pestañas de Mi equipo y foto en la plantilla.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menú precargado con las secciones de los roles
+
+- **Qué pasó**: al recargar, el menú se armaba con una copia que solo guardaba enlaces, o con una lista por defecto, y "Mi equipo" faltaba hasta que terminaba de cargar la cuenta.
+- **Qué se hizo** (`Components/dashboard-sidebar.tsx`): la copia del menú (`athlonx-nav-cache`, versión 2) guarda los roles de la cuenta de persona y se reconstruye el mismo menú con `personaNavigation(roles)`, en `useLayoutEffect` (antes de pintar). Sin copia se ven barras de carga en vez de una lista equivocada. Sin sesión, el menú no se queda cargando.
+- **Verificación**: `tsc` sin errores propios. En navegador (`next dev`) con una copia de roles atleta, entrenador y directivo, el menú sale completo desde el primer cuadro: Búsqueda, Notificaciones, Mi equipo, Calendario, Torneos, Estadísticas, Entrenamientos, Carga y salud, Formaciones y Anuncios. Sin copia: 6 barras de carga.
+- **Pendiente**: la primera visita en un navegador nuevo (sin copia) muestra barras de carga hasta que llegan los roles.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
