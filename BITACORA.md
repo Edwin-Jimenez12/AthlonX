@@ -93,6 +93,10 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+**Cuenta única con roles**
+- [ ] Una sola cuenta de persona con varios roles y una sola vista: el menú se arma con la unión de las secciones de cada rol (atleta, entrenador, staff, directivo), sin cambiar de vista. Quitar "Roles" del minimenú de perfil. En la búsqueda, los roles se ven como etiquetas. El plan se conserva por rol (persona, equipo, organización) dentro de la misma cuenta. Decidido por Edwin el 2026-11-07.
+- [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
+
 **Calendario y tiempo real**
 - [ ] Regla de repetición en organización: definir cómo se repiten los eventos de la organización por plan (hoy Free tiene 2 repetidos; falta la regla completa). Pospuesto por decisión de Edwin (2026-11-07).
 - [ ] Sincronización real con Google y Outlook (OAuth y verificación de la app).
@@ -184,6 +188,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Qué se hizo**: `supabase/calendar-notify-once-migration.sql` (aplicada, HTTP 201) deja el aviso solo al crear el evento, en equipo y en organización. Las ediciones ya no avisan.
 - **Verificación**: consulta de solo lectura que confirma que el disparador queda solo en inserción.
 - **Pendiente**: los avisos ya generados no se borraron (siguen en el historial). Revisar si se quieren limpiar. Si se quiere avisar de ediciones importantes (fecha u hora), hay que añadirlo de forma explícita.
+
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Fusión de las cuentas de Edwin Jiménez en una sola
+
+- **Qué se hizo** (aprobado por Edwin, sin respaldo por decisión suya): las tres cuentas "Edwin Jiménez" quedaron en una sola, la A (`c00f5ced…`, la más antigua y con plan `pro_completo`). Regla: lo que A no tenía pasó a A; en conflictos ganó A y se borró lo de B/C.
+  - Pasaron a A: 16 notificaciones, 5 tipos de evento personales, la vinculación como jugador de la plantilla de Titanes RC, recordatorios enviados, solicitudes de afiliación y el destinatario de un evento.
+  - Conflictos resueltos a favor de A: membresía en Titanes RC (A entrenador; la de atleta de B se borró), contextos y roles duplicados, preferencias de cuenta.
+  - Perfil de A completado con los campos vacíos desde B y C. Cuentas B (`daae8065…`) y C (`999243a0…`) borradas de `auth.users`.
+- **Script ejecutado**: transacción única con `DO $$ … $$` (no se guardó en el repo porque lleva IDs de cuentas y es de un solo uso).
+- **Verificación**: barrido de las 306 columnas uuid/uuid[] del esquema público: ya no queda ninguna referencia a B ni a C. Solo hay un perfil "Edwin Jiménez". A tiene roles atleta y entrenador, 1 equipo (entrenador), 1 vínculo de jugador, 5 tipos, 34 notificaciones y su plan.
+- **Archivos**: `supabase/consultas/verificar-cuenta-unica.sql` (consulta de solo lectura por nombre, para comprobarlo en el SQL Editor).
+- **Pendiente**: el modelo de cuenta única con roles y una sola vista (ver la lista de pendientes). Probar en navegador que la cuenta A ve el calendario, el equipo y las notificaciones unidas.
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
