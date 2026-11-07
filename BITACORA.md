@@ -325,7 +325,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Responsable y contacto en las páginas legales
 
 - **Qué se hizo**: correo de contacto de Términos y Privacidad: `athlonxteam@gmail.com`. Dirección: ciudad de Panamá. Responsable como persona natural mientras no exista empresa; el RUC solo se muestra si se completa (`LEGAL_ENTITY` y `operatorText()` en `Components/legal/legal-page.tsx`). El correo del pie de página no cambia.
-- **Pendiente**: confirmar el nombre del responsable (propuesto: Edwin Jiménez, persona natural); hoy aparece "[Nombre del responsable]".
+- **Actualización**: Edwin no quiere su nombre en las páginas. El responsable queda como "el equipo de AthlonX" (nombre comercial), con domicilio en la ciudad de Panamá. Cuando exista empresa: razón social y RUC en `LEGAL_ENTITY`.
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 

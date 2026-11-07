@@ -4,11 +4,11 @@ import SiteFooter from '../site-footer'
 
 export type LegalSection = { id: string; title: string; content: ReactNode }
 
-// Datos del responsable. Mientras no exista una empresa, el responsable es una persona natural.
-// Cuando se constituya la sociedad: cambiar el nombre, poner kind 'empresa' y agregar el RUC (si está vacío no se muestra).
+// Datos del responsable. Mientras no exista una empresa, se identifica con el nombre comercial (sin datos personales).
+// Cuando se constituya la sociedad: poner su razón social en name y su RUC (si está vacío no se muestra).
 export const LEGAL_ENTITY = {
-  name: '[Nombre del responsable]',
-  kind: 'persona natural',
+  name: 'el equipo de AthlonX',
+  kind: 'nombre comercial' as 'nombre comercial' | 'persona natural' | 'empresa',
   ruc: '',
   address: 'la ciudad de Panamá, República de Panamá',
   email: 'athlonxteam@gmail.com',
@@ -17,7 +17,7 @@ export const LEGAL_ENTITY = {
 
 // "operada por X, persona natural, con domicilio en …" (el RUC solo aparece si existe).
 export function operatorText() {
-  return `${LEGAL_ENTITY.kind === 'empresa' ? '' : `, ${LEGAL_ENTITY.kind}`}${LEGAL_ENTITY.ruc ? `, RUC ${LEGAL_ENTITY.ruc}` : ''}, con domicilio en ${LEGAL_ENTITY.address}`
+  return `${LEGAL_ENTITY.kind === 'persona natural' ? ', persona natural' : ''}${LEGAL_ENTITY.ruc ? `, RUC ${LEGAL_ENTITY.ruc}` : ''}, con domicilio en ${LEGAL_ENTITY.address}`
 }
 
 // Página legal (Términos, Privacidad): índice lateral en escritorio, secciones numeradas y resumen al inicio.
