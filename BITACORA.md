@@ -130,6 +130,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Orden de los tipos de evento
+
+**Qué se hizo**: los tipos de evento se pueden reordenar. En la hoja de tipos se mantiene presionado un tipo (unos 350 ms) y al moverlo cambia de lugar; con teclado, el asa responde a las flechas arriba y abajo. El orden se guarda por persona y se refleja en los filtros del calendario y en el selector del formulario de actividad. Archivos: `Components/calendario/personal-types-sheet.tsx`; SQL: `supabase/personal-event-types-order-migration.sql` (aplicado, HTTP 201; `personal_types_reorder` y columna `sort_order` verificadas).
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador, en escritorio y en celular.
+
+---
+
 ## 2026-11-06 · `claude/great-ritchie-2n8uq9` · nube → Añadir jugador sin "Cargo visible"
 
 **Qué se hizo**: en `Components/mi-equipo/invite-panel.tsx`, el campo "Cargo visible" ya no aparece cuando el rol es atleta (Añadir jugador desde la plantilla); la invitación se envía con el cargo "Jugador". Para entrenador, staff y directivo el campo sigue, para cargos como "Preparador físico".
