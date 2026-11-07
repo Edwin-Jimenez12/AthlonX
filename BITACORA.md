@@ -178,6 +178,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: migración aplicada; el evento "adf" quedó con `audience_user_ids` = Edwin Jiménez y etiqueta "Edwin Jiménez" (consulta de solo lectura). `tsc` sin errores propios. Falta probar en navegador con varias personas y con una cuenta de jugador.
 - **Pendiente**: hay tres perfiles llamados "Edwin Jiménez"; en el buscador aparecen los tres con el mismo nombre. Conviene mostrar un dato extra (cargo o correo) o unificar cuentas.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Notificaciones de actividad: una sola vez
+
+- **Qué pasó**: el aviso "Nueva actividad del equipo" se generaba en cada inserción y en cada edición. Un evento repetido, o uno editado varias veces, avisaba de nuevo (un evento semanal tenía 24 avisos; otro, 32).
+- **Qué se hizo**: `supabase/calendar-notify-once-migration.sql` (aplicada, HTTP 201) deja el aviso solo al crear el evento, en equipo y en organización. Las ediciones ya no avisan.
+- **Verificación**: consulta de solo lectura que confirma que el disparador queda solo en inserción.
+- **Pendiente**: los avisos ya generados no se borraron (siguen en el historial). Revisar si se quieren limpiar. Si se quiere avisar de ediciones importantes (fecha u hora), hay que añadirlo de forma explícita.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
