@@ -24,7 +24,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Probar en navegador, con una cuenta de organización real, el calendario y Participantes en Free y en Pro.
 - [x] Pasar a código, según Figma y separado por plan: Organización, Equipos y Torneos (entrada del 2026-11-04, "Secciones de organización según Figma").
 - [ ] Patrocinios: mostrar los logotipos en la página pública del torneo y permitir subir la imagen (hoy se guarda un enlace).
-- [ ] Sincronización real con Google y Outlook (el interruptor de Pro queda guardado solo en pantalla).
+- [ ] Sincronización real con Google y Outlook: ver "Calendario y tiempo real".
 - [x] Organización: repetir eventos y recordatorios por plan (entrada del 2026-11-04).
 - [ ] Panel administrativo: editar límites y funciones (`limits`, `feature_flags`) de cada plan desde la pantalla de Planes.
 - [x] Planes de equipo (Free, Pro, Élite) y la sección Finanzas en código (entrada del 2026-11-04, "Planes de la cuenta de equipo y Finanzas en código").
@@ -36,7 +36,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Confirmar la frase para el organizador de una cuenta eliminada (propuesta: "Organización eliminada").
 
 **Calendario**
-- [ ] Sincronización con Google Calendar y Outlook (Pro): requiere crear las credenciales de Google y de Microsoft.
+- [ ] Sincronización con Google Calendar y Outlook: ver "Calendario y tiempo real".
 - [ ] Lista de preparación en el detalle del evento (diseño de Figma; no hay datos todavía).
 - [ ] Recordatorios personalizados para eventos de equipo y organización en Pro (hoy todos reciben 4 horas antes).
 - [ ] Exportar a ICS: postergado.
@@ -55,8 +55,8 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [x] Modo claro y versión móvil de los 4 sets de la cuenta personal (entrada del 2026-11-05, "Modo claro y móvil de la cuenta personal"). Pendiente: versión de tableta y revisión de Edwin.
 - [ ] Recordatorios por correo: el recordatorio de un evento llega también al correo de la cuenta (personal, equipo u organización). Requiere un proveedor de correo.
 - [ ] Estadísticas por año en vez de temporada, en todas las cuentas: vista por semana, mes y año; Free ve el año actual y Pro los años anteriores. Quitar la tarjeta "Temporada" de Configuración del equipo y de la organización, y cambiar `team_season`, `team_set_season` y las vistas de Estadísticas y Finanzas.
-- [ ] Atleta Free: 1 actividad personal repetida al mes; la repetición se desactiva al terminar el mes.
-- [ ] Entrenador Free: 5 eventos del equipo al mes (hoy el límite del equipo Free es 10). Definir cómo conviven el límite del entrenador y el del equipo.
+- [x] ~~Atleta Free: 1 actividad personal repetida al mes~~. Reemplazado: Free tiene 5 actividades al mes con 2 repetidas (entrada del 2026-11-07).
+- [x] Entrenador/equipo Free: 5 eventos al mes con 2 repetidos, igual para persona, equipo y organización (entrada del 2026-11-07).
 - [ ] El entrenador no crea eventos Amistoso ni torneos, y no da permisos de edición por evento: eso lo hace un directivo. Solo edita un evento si un directivo le da permiso como staff.
 - [ ] Confirmar que "Equipos que entrena" (Free 1, Pro 3) cuenta los equipos donde tiene el cargo de entrenador.
 - [ ] Pro completo: asistencia en cancha pendiente (por definir). Formaciones y anuncios ya están construidos (entrada del 2026-11-05, "Cuenta personal aplicada en código").
@@ -95,15 +95,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 **Cuenta única con roles**
 - [x] Una sola cuenta de persona con varios roles y una sola vista (menú, entrada del 2026-11-07 "Menú unificado por roles"): el menú se arma con la unión de las secciones de cada rol (atleta, entrenador, staff, directivo), sin cambiar de vista. Quitar "Roles" del minimenú de perfil. En la búsqueda, los roles se ven como etiquetas. El plan se conserva por rol (persona, equipo, organización) dentro de la misma cuenta. Decidido por Edwin el 2026-11-07.
-- [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
+- [x] El registro crea una sola cuenta de persona, sin rol; el rol se elige dentro de la plataforma (entrada del 2026-11-07, "Acceso con Google y cuenta sin rol").
 
 **Acceso con Google y verificación**
 - [x] Páginas públicas de Política de privacidad y Términos y condiciones: `/privacidad` y `/terminos` (entrada del 2026-11-07). Falta que Edwin revise el texto y complete razón social, RUC y dirección (`LEGAL_ENTITY` en `Components/legal/legal-page.tsx`). Las pide Google para publicar la app de inicio de sesión y para verificar el permiso de Google Calendar. El contenido legal lo revisa Edwin. Proyecto de Google Cloud: `athlonx`.
-- [ ] Publicar la app de Google Auth Platform ("In production") cuando existan esas páginas. Mientras tanto queda en "Testing" con usuarios de prueba (máximo 100).
+- [x] App de Google Auth Platform publicada ("En producción") con las URL de privacidad y términos (2026-11-07).
+- [ ] Verificación del correo con código de 6 dígitos en el registro: requiere Resend como SMTP en Supabase (DNS de athlonx.world).
 
 **Calendario y tiempo real**
 - [x] Regla de repetición en organización: es la misma que para persona y equipo (Free: 5 eventos al mes, 2 repetidos; Pro: sin límite). Ya aplicada en `calendar-free-limits-migration.sql`. Confirmado por Edwin (2026-11-07).
-- [ ] Sincronización real con Google y Outlook (OAuth y verificación de la app).
+- [ ] Google Calendar (siguiente): activar la API de Calendar y el permiso en el proyecto `athlonx`, construir la conexión (AthlonX → Google y luego Google → AthlonX con renovación automática) y enviar la verificación de Google (video, Search Console). Outlook después.
 - [ ] Recordatorios por correo (Resend y DNS de athlonx.world).
 - [ ] Tiempo real en el resto de la plataforma: el calendario y los marcadores ya se actualizan entre dispositivos; falta extenderlo a notificaciones, plantillas, convocatorias y cuotas.
 
