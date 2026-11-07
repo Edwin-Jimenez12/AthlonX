@@ -125,6 +125,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios. Consulta de solo lectura sobre `team_calendar_events` para el evento "dad".
 - **Pendiente**: quitar la fecha de fin del evento "dad" si se quiere que se repita siempre (acción sobre datos, pendiente de confirmar con Edwin).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Límite de 5 actividades al mes en Free, 2 repetidas
+
+- **Qué se hizo**: Free (cuenta personal, equipo y organización) queda con 5 actividades al mes, de las cuales 2 pueden repetirse. Pro (y Élite) sin límite de actividades ni de repeticiones.
+  - Cuenta personal: `libre` con `limits.eventos_repetidos = 2`. `calendar_save_personal_activity` cuenta las series repetidas activas antes de guardar. Pro sigue sin límite.
+  - Equipo: `team_free` pasa de 10 a 5 eventos al mes; sigue con 2 repetidos. Pro sin cambios.
+  - Organización: `org_free` activa `repetir_eventos` con 2 repetidos (antes no podía repetir). Nuevo trigger `enforce_org_repeat_limit`. `org_pro` pasa de 30 a sin límite de eventos.
+  - Textos de la página de planes: "5 actividades al mes, incluidas 2 repetidas" (Libre), "5 eventos al mes, incluidos 2 repetidos" (equipo y organización Free), "Eventos y repeticiones sin límite" (organización Pro).
+  - Calendario: se muestran las repeticiones en Free y el uso de organización también cuenta los repetidos.
+- **Archivos clave**: `supabase/calendar-free-limits-migration.sql` (migración aplicada), `Components/calendario/athlete-calendar.tsx` (`canRepeat`, `personalRepeatAllowed`, "Repetir hasta" visible en Free).
+- **Verificación**: migración aplicada en `mlvtsgseneqzihwkiatg` (HTTP 201) y comprobada con consulta de solo lectura en los planes. `tsc` sin errores propios. Falta probarlo en navegador: crear la 6.ª actividad de Free y la 3.ª repetición, y ver el mensaje.
+- **Pendiente**: el límite de 5 cuenta cada actividad creada en el mes (incluidas las repetidas que se guardaron ese mes). Revisar si se quiere contar solo las creadas en la cuenta personal o también las de equipo que el atleta ve.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

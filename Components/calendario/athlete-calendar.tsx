@@ -179,9 +179,12 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const orgEventsUsed = orgUsage?.usage?.eventos_mes ?? 0
   const orgFlag = (key: string) => plan?.feature_flags?.[key] === true
   const orgReminderLimit = plan?.limits?.recordatorios_evento ?? null
-  // Repetir: organización por función del plan; equipo por cantidad de eventos repetidos (Free: 1).
+  // Cuenta personal: Libre permite algunas actividades repetidas (2); Pro y Élite, sin límite.
+  const personalRepeatLimit = plan?.limits?.eventos_repetidos ?? null
+  const personalRepeatAllowed = unlimited || (personalRepeatLimit ?? 0) > 0
+  // Repetir: Free y Pro por cantidad de eventos repetidos (Free: 2); Pro sin límite. La organización necesita además su función.
   const canRepeat = (ed: Editor) => {
-    if (!isTeam) return orgFlag('repetir_eventos')
+    if (!isTeam && !orgFlag('repetir_eventos')) return false
     const lim = orgUsage?.limits?.eventos_repetidos ?? null
     if (lim === null) return true
     const editingRepeat = Boolean(ed.id) && items.some((i) => i.id === ed.id && i.repeat_rule !== 'none')
@@ -891,7 +894,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                           <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
                         </label>
                       )}
-                      {isTeam && orgUsage?.limits?.eventos_repetidos != null && (
+                      {isMgmt && orgUsage?.limits?.eventos_repetidos != null && (
                         <p className="mt-2 text-xs text-[var(--ax-muted)]">Plan {plan?.name}: {orgUsage.usage?.eventos_repetidos ?? 0} de {orgUsage.limits.eventos_repetidos} evento repetido en uso.</p>
                       )}
                     </>
@@ -929,7 +932,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               <>
             <div className="md:col-span-2">
               <FieldLabel>Repetir</FieldLabel>
-              {unlimited ? (
+              {personalRepeatAllowed ? (
                 <div className="flex flex-wrap gap-2">
                   <Segment active={editor.repeat === 'none'} label="No se repite" onClick={() => setEditor({ ...editor, repeat: 'none' })} />
                   <Segment active={editor.repeat === 'weekly'} label="Cada semana" onClick={() => setEditor({ ...editor, repeat: 'weekly' })} />
@@ -938,7 +941,10 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               ) : (
                 <p className="text-sm text-[var(--ax-muted)]">Repetir actividades es parte del plan Pro.</p>
               )}
-              {unlimited && editor.repeat !== 'none' && (
+              {!unlimited && personalRepeatAllowed && (
+                <p className="mt-2 text-xs text-[var(--ax-muted)]">Plan {plan?.name}: hasta {personalRepeatLimit} actividades repetidas, dentro de tus {limit} del mes.</p>
+              )}
+              {personalRepeatAllowed && editor.repeat !== 'none' && (
                 <label className="mt-3 block">
                   <FieldLabel>Repetir hasta (vacío = sin fin)</FieldLabel>
                   <input className={inputClass} type="date" value={editor.repeatUntil} onChange={(e) => setEditor({ ...editor, repeatUntil: e.target.value })} />
