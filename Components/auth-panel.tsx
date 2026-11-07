@@ -211,7 +211,13 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
       }
       const contexts = !isRegister && result.data.user ? await loadAccountContexts(result.data.user.id) : []
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
-      const selectedContext = contexts.find((context) => context.id === storedContextId) ?? contexts[0]
+      // Persona: vista personal (una sola vista con todos sus roles). Equipo y organización: su propio contexto.
+      const loginType = result.data.user?.user_metadata?.account_type
+      const ownType = loginType === 'equipo' ? 'team' : loginType === 'organizacion' ? 'organization' : 'personal'
+      const storedSelected = contexts.find((context) => context.id === storedContextId)
+      const selectedContext = (storedSelected?.contextType === ownType ? storedSelected : null)
+        ?? contexts.find((context) => context.contextType === ownType)
+        ?? contexts[0]
       if (selectedContext) {
         window.localStorage.setItem('athlonx-active-context-id', selectedContext.id)
         if (selectedContext.teamId) window.localStorage.setItem('athlonx-active-team-id', selectedContext.teamId)

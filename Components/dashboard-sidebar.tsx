@@ -11,7 +11,8 @@ import { useThemeMode } from '../lib/theme'
 import { loadManagedTeams } from '../lib/team-access'
 import { supabase } from '../lib/supabase'
 
-type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean; notice?: string }
+// match: otras rutas que también marcan la sección como activa (por ejemplo, las pestañas de Mi equipo por rol).
+type NavigationItem = { label: string; icon: LucideIcon; href?: string; disabled?: boolean; notice?: string; match?: string[] }
 
 const calendarNotice = 'El calendario llegará próximamente.'
 
@@ -77,6 +78,33 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Participantes', icon: Shield, href: '/participantes' },
 ]
 
+// Cuenta de persona: una sola vista. El menú junta las secciones de todos sus roles, sin repetirlas.
+// Mi equipo abre la vista del primer rol con equipo; dentro, las pestañas cambian entre atleta, entrenador, directivo y staff.
+const teamRolePaths = ['/entrenador', '/directivo', '/staff', '/atleta']
+function personaNavigation(roles: string[]): NavigationItem[] {
+  const has = (role: string) => roles.includes(role)
+  const teamHref = has('entrenador') ? '/entrenador' : has('directivo') ? '/directivo' : has('staff') ? '/staff' : '/atleta'
+  const items: NavigationItem[] = [
+    { label: 'Búsqueda', icon: Search, href: '/busqueda' },
+    { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
+  ]
+  if (roles.length) items.push({ label: 'Mi equipo', icon: Shield, href: teamHref, match: teamRolePaths })
+  items.push(
+    { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+    { label: 'Torneos', icon: Trophy, href: '/eventos' },
+    { label: 'Estadísticas', icon: BarChart3, href: '/estadisticas' },
+  )
+  if (has('atleta') || has('entrenador')) items.push(
+    { label: 'Entrenamientos', icon: Dumbbell, href: '/entrenamientos' },
+    { label: 'Carga y salud', icon: Activity, href: '/carga-salud' },
+  )
+  if (has('entrenador')) items.push(
+    { label: 'Formaciones', icon: MapIcon, href: '/formaciones' },
+    { label: 'Anuncios', icon: Megaphone, href: '/anuncios' },
+  )
+  return items
+}
+
 export function DashboardSidebar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -84,6 +112,8 @@ export function DashboardSidebar() {
   const [isTrainer, setIsTrainer] = useState(false)
   const [isStaff, setIsStaff] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  // Roles de la cuenta de persona (atleta, entrenador, staff, directivo), de todas las fuentes.
+  const [personRoles, setPersonRoles] = useState<string[]>([])
   const [contexts, setContexts] = useState<AccountContext[]>([])
   // Hasta que cargan las vistas de la cuenta, el menú usa la última lista que se mostró (guardada en el navegador).
   const [navReady, setNavReady] = useState(false)
@@ -128,6 +158,11 @@ export function DashboardSidebar() {
       }
       const availableContexts = [...contextsByKey.values()]
       setContexts(availableContexts)
+      setPersonRoles(Array.from(new Set([
+        ...metadataRoles,
+        ...(storedRoles ?? []).map(({ role }) => role),
+        ...availableContexts.filter((context) => context.contextType !== 'organization').map((context) => context.role),
+      ].filter((role): role is string => ['atleta', 'entrenador', 'staff', 'directivo'].includes(role)))))
       const storedContextId = window.localStorage.getItem('athlonx-active-context-id')
       const storedContext = availableContexts.find((context) => context.id === storedContextId)
       const accountType = data.user.user_metadata?.account_type
@@ -135,12 +170,16 @@ export function DashboardSidebar() {
         ? storedContext?.contextType === 'team'
         : accountType === 'organizacion'
           ? storedContext?.contextType === 'organization'
-          : Boolean(storedContext)
-      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : null
+          : storedContext?.contextType === 'personal'
+      // Persona: la vista es siempre la personal (calendario y secciones unidas de todos sus roles).
+      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : 'personal'
       const selectedContext = (storedContextMatchesAccount ? storedContext : null)
         ?? (preferredContextType ? availableContexts.find((context) => context.contextType === preferredContextType) : null)
         ?? availableContexts[0]
       setActiveContextId(selectedContext?.id ?? '')
+      if (selectedContext) {
+        try { window.localStorage.setItem('athlonx-active-context-id', selectedContext.id) } catch { /* sin almacenamiento */ }
+      }
       setNavReady(true)
     }
     void loadAccountType()
@@ -163,8 +202,11 @@ export function DashboardSidebar() {
   }, [])
 
   const activeContext = contexts.find((context) => context.id === activeContextId)
+  const isPersonaAccount = navReady && accountType !== 'equipo' && accountType !== 'organizacion'
   let baseNavigation = personNavigation
-  if (activeContext?.contextType === 'organization') {
+  if (isPersonaAccount) {
+    baseNavigation = personaNavigation(personRoles)
+  } else if (activeContext?.contextType === 'organization') {
     baseNavigation = organizationNavigation
   } else if (activeContext?.contextType === 'personal' && activeContext.role === 'atleta') {
     baseNavigation = athleteNavigation
@@ -200,7 +242,7 @@ export function DashboardSidebar() {
     try { window.localStorage.setItem('athlonx-nav-cache', JSON.stringify(navigation.filter((item) => item.href).map((item) => item.href))) } catch { /* sin almacenamiento */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navReady, navSnapshot])
-  const knownNavigation = [...personNavigation, ...athleteNavigation, ...trainerNavigation, ...staffNavigation, ...teamNavigation, ...organizationNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }]
+  const knownNavigation = [...personaNavigation(['atleta', 'entrenador', 'staff', 'directivo']), ...personNavigation, ...athleteNavigation, ...trainerNavigation, ...staffNavigation, ...teamNavigation, ...organizationNavigation, { label: 'Actualizaciones', icon: Megaphone, href: '/actualizaciones' }]
   // La lista guardada se lee después de montar el componente, para no desajustar el render del servidor.
   const [cachedNavigation, setCachedNavigation] = useState<NavigationItem[]>([])
   useEffect(() => {
@@ -211,7 +253,7 @@ export function DashboardSidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const shownNavigation = navReady || cachedNavigation.length === 0 ? navigation : cachedNavigation
-  const activeHref = navigation.find((item) => item.href && pathname === item.href.split('#')[0] && !item.href.includes('#'))?.href ?? ''
+  const activeHref = navigation.find((item) => item.href && !item.href.includes('#') && (pathname === item.href.split('#')[0] || item.match?.some((path) => pathname === path || pathname?.startsWith(`${path}/`))))?.href ?? ''
   const settingsNav = useSettingsNavConfig()
   const [themeMode] = useThemeMode()
   const light = themeMode === 'light'

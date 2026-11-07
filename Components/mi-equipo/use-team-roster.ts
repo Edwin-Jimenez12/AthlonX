@@ -107,6 +107,8 @@ export function useTeamRoster(teamId: string | undefined) {
     const { data: profileRows } = profileIds.length ? await supabase.from('profiles').select('id, full_name, username, avatar_url').in('id', profileIds) : { data: [] as ProfileRow[] }
     const profiles = new Map(((profileRows ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]))
     const memberByUser = new Map(nextMembers.filter((member) => member.role === 'atleta').map((member) => [member.user_id, member]))
+    // Foto de cualquier membresía de la persona (el perfil puede no ser legible para la cuenta del equipo por privacidad).
+    const memberAvatar = new Map(nextMembers.filter((member) => member.avatar_url).map((member) => [member.user_id, member.avatar_url]))
 
     const nextPlayers: RosterPlayer[] = [
       ...roster.map(({ divisionId, player }) => {
@@ -120,7 +122,7 @@ export function useTeamRoster(teamId: string | undefined) {
           divisionId,
           fullName: profile?.full_name || player!.full_name,
           username: profile?.username ?? null,
-          avatarUrl: profile?.avatar_url || player!.photo_url,
+          avatarUrl: profile?.avatar_url || (player!.user_id ? memberAvatar.get(player!.user_id) : null) || player!.photo_url,
           shirtNumber: player!.shirt_number,
           position: player!.position,
           pending: false,

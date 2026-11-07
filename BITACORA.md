@@ -94,7 +94,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 ---
 
 **Cuenta única con roles**
-- [ ] Una sola cuenta de persona con varios roles y una sola vista: el menú se arma con la unión de las secciones de cada rol (atleta, entrenador, staff, directivo), sin cambiar de vista. Quitar "Roles" del minimenú de perfil. En la búsqueda, los roles se ven como etiquetas. El plan se conserva por rol (persona, equipo, organización) dentro de la misma cuenta. Decidido por Edwin el 2026-11-07.
+- [x] Una sola cuenta de persona con varios roles y una sola vista (menú, entrada del 2026-11-07 "Menú unificado por roles"): el menú se arma con la unión de las secciones de cada rol (atleta, entrenador, staff, directivo), sin cambiar de vista. Quitar "Roles" del minimenú de perfil. En la búsqueda, los roles se ven como etiquetas. El plan se conserva por rol (persona, equipo, organización) dentro de la misma cuenta. Decidido por Edwin el 2026-11-07.
 - [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
 
 **Calendario y tiempo real**
@@ -222,6 +222,18 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Qué se hizo**: se quitó la sección "Roles" (cambio de vista entre atleta, entrenador, staff y directivo) del minimenú de perfil. Los roles se gestionan en Mi perfil → Equipos y roles. Se borró el código que solo servía para ese selector (`RolesSection` en `Components/account-menu.tsx`; `selectContext` en `Components/dashboard-header.tsx`).
 - **Verificación**: `tsc` sin errores propios.
 - **Pendiente**: sin el selector, la vista se queda en el último rol elegido (guardado en el navegador). Hasta que exista la vista única con el menú armado por roles (ver pendientes "Cuenta única con roles"), no hay forma de cambiar a las secciones de otro rol desde el menú.
+
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menú unificado por roles en la cuenta de persona y foto en la plantilla
+
+- **Qué se hizo**
+  - Cuenta de persona: el menú lateral ya no depende de un rol elegido. Junta las secciones de todos sus roles (de `user_roles`, metadatos y contextos), sin repetir: Búsqueda, Notificaciones, Mi equipo, Calendario, Torneos, Estadísticas; con atleta o entrenador, Entrenamientos y Carga y salud; con entrenador, Formaciones y Anuncios.
+  - "Mi equipo" abre la vista del primer rol con equipo (entrenador → directivo → staff → atleta) y se marca activa en `/atleta`, `/entrenador`, `/directivo`, `/staff` y sus subrutas. Dentro, las pestañas que ya existían (`PersonaViewSwitcher`) cambian de rol.
+  - La cuenta de persona usa siempre su contexto personal (menú lateral, encabezado y acceso). Así el calendario es el unificado y no el de un equipo. Las cuentas de equipo y de organización no cambian.
+  - Plantilla: si la cuenta del equipo no puede leer el perfil del jugador (privacidad), la foto sale de su membresía en el equipo. Antes se veían solo iniciales.
+- **Archivos clave**: `Components/dashboard-sidebar.tsx` (`personaNavigation`, `match`), `Components/dashboard-header.tsx`, `Components/auth-panel.tsx`, `Components/mi-equipo/use-team-roster.ts`.
+- **Contexto**: Edwin borró las cuentas anteriores y creó una nueva (`bd561698…`) con roles atleta, directivo, entrenador y staff. En Titanes tiene membresía de atleta y de entrenador, y está vinculado como jugador.
+- **Verificación**: `tsc` sin errores propios y `npm run build` correcto. No se probó con sesión real en navegador.
+- **Pendiente**: las secciones de organización (Organización, Equipos, Participantes) no salen en la cuenta de persona; siguen siendo de la cuenta de organización. Probar con la cuenta nueva: menú completo, pestañas de Mi equipo y foto en la plantilla.
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 

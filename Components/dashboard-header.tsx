@@ -74,8 +74,8 @@ export function DashboardHeader() {
         ? storedContext?.contextType === 'team'
         : accountType === 'organizacion'
           ? storedContext?.contextType === 'organization'
-          : Boolean(storedContext)
-      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : null
+          : storedContext?.contextType === 'personal'
+      const preferredContextType = accountType === 'equipo' ? 'team' : accountType === 'organizacion' ? 'organization' : 'personal'
       const selectedContext = (storedContextMatchesAccount ? storedContext : null)
         ?? (preferredContextType ? availableContexts.find((context) => context.contextType === preferredContextType) : null)
         ?? availableContexts[0]
