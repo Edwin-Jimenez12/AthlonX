@@ -41,7 +41,7 @@ export default function RootLayout({children}: {children: ReactNode}) {
   return (
     <html lang="es">
       <body className={`${inter.variable} ${bebasNeue.variable} ${oswald.variable} ${barlowCondensed.variable}`}>
-        <div className="ax-boot" role="status" aria-live="polite">
+        <div className="ax-boot ax-tokens" role="status" aria-live="polite">
           <span>Cargando</span>
           <span className="ax-boot-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
         </div>

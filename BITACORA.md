@@ -207,6 +207,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: prueba de borrado de todos los usuarios salvo la cuenta principal dentro de un bloque que siempre se revierte: antes fallaba `ede6717e…`; después, los tres pasan. Quedan 4 usuarios en `auth.users` (los otros ya los había borrado Edwin desde el panel).
 - **Pendiente**: si hace falta borrar cuentas que anotaron otros deportes, revisar sus bloqueos de forma parecida (en esta prueba no fallaron).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Calendario propio para la fecha de nacimiento del registro
+
+- **Qué se hizo**
+  - Registro (persona): la fecha de nacimiento usa el selector propio (`DateField` de `Components/mi-perfil/ui.tsx`) en vez del calendario nativo del navegador. Abre en la lista de años, luego el mes, sin el botón "Hoy".
+  - `DateField` acepta ahora `name` (input oculto para formularios), `startView`, `labelClassName`, `triggerClassName`, `placeholder` y `showToday`. Mi perfil no cambia.
+  - Nueva clase `.ax-tokens` en `app/globals.css`: los tokens oscuros del panel para piezas fuera de `.athlonx-dashboard`. Corrige también el aviso "Cargando" al recargar, que se veía sin fondo ni borde porque esos tokens no existían fuera del panel.
+- **Archivos**: `Components/auth-panel.tsx`, `Components/mi-perfil/ui.tsx`, `app/globals.css`, `app/layout.tsx`.
+- **Verificación**: `tsc` sin errores propios. Capturas con `next dev` en escritorio (1280) y móvil (390): lista de años y mes de 1998 con fondo, borde y colores del panel; aviso "Cargando" con fondo y borde. Solo tema oscuro (el registro siempre es oscuro).
+- **Pendiente**: ninguno.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Building2, ChevronLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Search, UserRound, Users, X } from 'lucide-react'
 import { LocationFields } from './location-fields'
 import { StyledSelect } from './styled-select'
+import { DateField } from './mi-perfil/ui'
 import { loadAccountContexts } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 
@@ -37,6 +38,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [roles, setRoles] = useState<string[]>(['atleta'])
+  const [birthDate, setBirthDate] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('persona')
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [disciplineError, setDisciplineError] = useState('')
@@ -427,10 +429,19 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                       </div>
                     </FormSection>
                     <FormSection>
-                      <label className="block text-sm font-bold text-slate-200">
-                        Fecha de nacimiento
-                        <input required type="date" name="birthDate" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} className={`${fieldClass} mt-2 font-normal`} aria-label="Fecha de nacimiento" />
-                      </label>
+                      <div className="ax-tokens">
+                      <DateField
+                        label="Fecha de nacimiento"
+                        name="birthDate"
+                        value={birthDate}
+                        onChange={setBirthDate}
+                        startView="years"
+                        showToday={false}
+                        placeholder="Día / mes / año"
+                        labelClassName="block text-sm font-bold text-slate-200"
+                        triggerClassName={`${fieldClass} font-normal`}
+                      />
+                      </div>
                       {identityField}
                       <RoleSelector roles={roles} onChange={setRoles} />
                     </FormSection>

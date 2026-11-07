@@ -333,7 +333,10 @@ function partsOf(iso: string) {
 const roundIconButton = 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[var(--ax-text)] hover:bg-[var(--ax-hover)] disabled:cursor-not-allowed disabled:opacity-30'
 
 // Selector de fecha con el estilo de AthlonX (reemplaza el calendario nativo del navegador).
-export function DateField({ label, value, onChange, disabled = false, hint, min = '1900-01-01', max }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; hint?: string; min?: string; max?: string }) {
+// name: agrega un input oculto para formularios que leen el valor por nombre.
+// startView 'years': sin fecha elegida abre en la lista de años (útil para fecha de nacimiento).
+// labelClassName / triggerClassName: permiten usarlo fuera del panel (por ejemplo, en el registro).
+export function DateField({ label, value, onChange, disabled = false, hint, min = '1900-01-01', max, name, startView = 'days', labelClassName, triggerClassName, placeholder = 'Selecciona una fecha', showToday = true }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; hint?: string; min?: string; max?: string; name?: string; startView?: 'days' | 'years'; labelClassName?: string; triggerClassName?: string; placeholder?: string; showToday?: boolean }) {
   const today = todayIso()
   const maxIso = max ?? today
   const [open, setOpen] = useState(false)
@@ -377,9 +380,9 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
   function openPanel() {
     // Sin fecha elegida abre en el mes actual (o en el límite más cercano).
     const base = selected ?? partsOf(today < min ? min : today > maxIso ? maxIso : today)
-    setViewYear(base.year)
+    setViewYear(selected ? base.year : startView === 'years' ? Math.min(base.year, maxParts.year) : base.year)
     setViewMonth(base.month)
-    setView('days')
+    setView(selected ? 'days' : startView)
     setOpen(true)
   }
 
@@ -408,10 +411,11 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClassName ?? labelClass}>{label}</span>
       <div ref={wrapperRef} className="relative">
-        <button type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => (open ? setOpen(false) : openPanel())} className={cx(inputClass, 'flex cursor-pointer items-center justify-between gap-2 text-left', open && 'border-[var(--ax-accent-text)]')}>
-          <span className={cx('truncate', !displayValue && 'text-[var(--ax-muted)]')}>{displayValue || 'Selecciona una fecha'}</span>
+        {name && <input type="hidden" name={name} value={valid ? value : ''} />}
+        <button type="button" aria-haspopup="dialog" aria-expanded={open} aria-label={label} onClick={() => (open ? setOpen(false) : openPanel())} className={cx(triggerClassName ?? inputClass, 'flex cursor-pointer items-center justify-between gap-2 text-left', open && 'border-[var(--ax-accent-text)]')}>
+          <span className={cx('truncate', !displayValue && 'text-[var(--ax-muted)]')}>{displayValue || placeholder}</span>
           <CalendarDays size={16} aria-hidden="true" className="shrink-0 text-[var(--ax-muted)]" />
         </button>
 
@@ -458,7 +462,7 @@ export function DateField({ label, value, onChange, disabled = false, hint, min 
 
             <div className="mt-3 flex items-center justify-between border-t border-[var(--ax-line)] pt-3">
               <button type="button" onClick={() => pick('')} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--ax-muted)] hover:text-[var(--ax-text)]">Borrar</button>
-              <button type="button" disabled={!todayAllowed} onClick={() => pick(today)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--ax-accent-text)] hover:bg-[var(--ax-accent-soft)] disabled:cursor-not-allowed disabled:opacity-30">Hoy</button>
+              {showToday && <button type="button" disabled={!todayAllowed} onClick={() => pick(today)} className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--ax-accent-text)] hover:bg-[var(--ax-accent-soft)] disabled:cursor-not-allowed disabled:opacity-30">Hoy</button>}
             </div>
           </div>
         )}

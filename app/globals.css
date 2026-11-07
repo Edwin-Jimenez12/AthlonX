@@ -657,3 +657,40 @@ html.ax-ready .ax-boot {
     opacity: 1;
   }
 }
+
+/* Tokens del panel (tema oscuro) para piezas que se usan fuera de .athlonx-dashboard:
+   el registro, el aviso de carga al recargar, etc. */
+.ax-tokens {
+  --ax-bg: #061019;
+  --ax-surface: #0b1d2c;
+  --ax-surface-raised: #102536;
+  --ax-line: #29485d;
+  --ax-text: #e8eef3;
+  --ax-muted: #91a8ba;
+  --ax-accent: #b4ff45;
+  --ax-accent-text: #b4ff45;
+  --ax-on-accent: #07131e;
+  --ax-watermark: rgba(180, 255, 69, .05);
+  --ax-surface-sunken: #07131e;
+  --ax-sidebar: #081522;
+  --ax-line-soft: #1f4057;
+  --ax-line-strong: #31556b;
+  --ax-text-secondary: #c9d6e0;
+  --ax-accent-soft: rgba(180, 255, 69, .12);
+  --ax-accent-line: rgba(180, 255, 69, .35);
+  --ax-warning-text: #ffcf70;
+  --ax-warning-soft: rgba(255, 191, 64, .12);
+  --ax-info-text: #7fc8ff;
+  --ax-info-soft: rgba(127, 200, 255, .16);
+  --ax-violet-text: #c9a7ff;
+  --ax-violet-soft: rgba(201, 167, 255, .16);
+  --ax-danger-text: #ff9ca5;
+  --ax-danger-soft: rgba(255, 125, 136, .12);
+  --ax-danger-line: rgba(255, 125, 136, .40);
+  --ax-hover: rgba(255, 255, 255, .05);
+  --ax-shadow-pop: 0 12px 32px -8px rgba(2, 11, 18, .55);
+  --ax-card-yellow: #ffd23f;
+  --ax-card-yellow-soft: rgba(255, 210, 63, .14);
+  --ax-card-yellow-line: rgba(255, 210, 63, .45);
+  --ax-card-red: #ff5f6d;
+}
