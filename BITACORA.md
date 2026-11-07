@@ -137,6 +137,15 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: migración aplicada en `mlvtsgseneqzihwkiatg` (HTTP 201) y comprobada con consulta de solo lectura en los planes. `tsc` sin errores propios. Falta probarlo en navegador: crear la 6.ª actividad de Free y la 3.ª repetición, y ver el mensaje.
 - **Pendiente**: el límite de 5 cuenta cada actividad creada en el mes (incluidas las repetidas que se guardaron ese mes). Revisar si se quiere contar solo las creadas en la cuenta personal o también las de equipo que el atleta ve.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Calendario en vivo entre sesiones
+
+- **Qué pasó**: un evento de equipo creado el 9 de noviembre no aparecía en la otra pestaña/cuenta abierta. El calendario no escuchaba cambios; solo leía datos al cargar la página. El evento sí existe: es de equipo (`team_calendar_events`), no personal.
+- **Qué se hizo**
+  - Migración `supabase/calendar-realtime-migration.sql` (aplicada, HTTP 201): publica `personal_activities`, `team_calendar_events`, `organization_calendar_events` y `calendar_attendance` en `supabase_realtime`. Realtime respeta RLS: cada sesión solo recibe lo que puede leer.
+  - `Components/calendario/athlete-calendar.tsx`: `useLiveRefresh` (lib/live-refresh.ts) vuelve a leer el feed y la cuenta al haber cambios. El borrador abierto no se toca.
+- **Verificación**: consulta de solo lectura que confirma las cuatro tablas en la publicación. `tsc` sin errores propios. Falta probar con dos sesiones.
+- **Pendiente**: si la otra cuenta no es miembro del equipo, el evento no le aparecerá aunque el calendario esté en vivo (es por permisos, no por tiempo real). Probar también en el marcador de `/torneos/ver/[id]` con dos dispositivos.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

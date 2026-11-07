@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, Info, Pencil, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useLiveRefresh } from '../../lib/live-refresh'
 import { loadAccountPlan, type AccountPlan } from '../../lib/account-plans'
 import {
   addDays, dayKey, findClashes, formatDayLabel, formatTime, groupByDay, itemKind, monthGridDays, rangeFor, reminderLabels, startOfDay, startOfWeek,
@@ -156,6 +157,16 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [filter, setFilter] = useState<string>('todos')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [items, setItems] = useState<FeedItem[]>([])
+  // Cambios en vivo: si otra sesión crea, edita o elimina una actividad, o responde a una convocatoria, el calendario se actualiza solo.
+  useLiveRefresh('calendar-live', [
+    { table: 'personal_activities' },
+    { table: 'team_calendar_events' },
+    { table: 'organization_calendar_events' },
+    { table: 'calendar_attendance' },
+  ], () => {
+    void loadFeed()
+    void loadAccount()
+  })
   const [selected, setSelected] = useState<FeedItem | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
   // Borrador aparcado: si abres otro evento o uno nuevo, lo que estabas escribiendo no se pierde.
