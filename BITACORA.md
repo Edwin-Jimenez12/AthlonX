@@ -130,6 +130,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Indicador del menú al recargar
+
+**Qué pasaba**: al recargar la página de calendario, el indicador verde quedaba en "Mi equipo" y "Calendario" se veía apagado. El indicador se medía una sola vez, antes de que cargaran las vistas de la cuenta (que cambian la lista de secciones).
+
+**Qué se hizo**: `Components/dashboard-sidebar.tsx` vuelve a medir el indicador cuando cambia la lista de secciones, cuando el menú cambia de tamaño (ResizeObserver) y en el siguiente cuadro de pantalla.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador: recargar en Calendario, Estadísticas y Mi equipo.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Filtros de equipo y "Nueva etiqueta"
 
 **Qué se hizo**:

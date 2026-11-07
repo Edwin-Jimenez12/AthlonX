@@ -210,6 +210,20 @@ export function DashboardSidebar() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+  // Las secciones cambian al cargar la cuenta (vista de equipo, personal u organización). Por eso el indicador
+  // se vuelve a medir cuando cambia la lista, cuando el menú cambia de tamaño y en el siguiente cuadro de pantalla.
+  const navSignature = navigation.map((item) => item.href ?? item.label).join('|')
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setLayoutTick((tick) => tick + 1))
+    observer.observe(nav)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setLayoutTick((tick) => tick + 1))
+    return () => window.cancelAnimationFrame(frame)
+  }, [navSignature, activeKey])
   useLayoutEffect(() => {
     const node = activeKey ? itemRefs.current[activeKey] : null
     if (!node) {
@@ -217,7 +231,7 @@ export function DashboardSidebar() {
       return
     }
     setIndicator({ top: node.offsetTop, height: node.offsetHeight, visible: true })
-  }, [activeKey, layoutTick, open])
+  }, [activeKey, layoutTick, open, navSignature])
 
   // En móvil el botón, el velo y el menú van por encima de la cabecera (relative z-50), que ocupa todo el ancho.
   return <>
