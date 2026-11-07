@@ -81,14 +81,17 @@ const organizationNavigation: NavigationItem[] = [
 // Cuenta de persona: una sola vista. El menú junta las secciones de todos sus roles, sin repetirlas.
 // Mi equipo abre la vista del primer rol con equipo; dentro, las pestañas cambian entre atleta, entrenador, directivo y staff.
 const teamRolePaths = ['/entrenador', '/directivo', '/staff', '/atleta']
-function personaNavigation(roles: string[]): NavigationItem[] {
+// Sin rol todavía: se ven todas las secciones; el contenido pide elegir un rol (RoleGate).
+const allPersonaRoles = ['atleta', 'entrenador', 'staff', 'directivo']
+function personaNavigation(accountRoles: string[]): NavigationItem[] {
+  const roles = accountRoles.length ? accountRoles : allPersonaRoles
   const has = (role: string) => roles.includes(role)
   const teamHref = has('entrenador') ? '/entrenador' : has('directivo') ? '/directivo' : has('staff') ? '/staff' : '/atleta'
   const items: NavigationItem[] = [
     { label: 'Búsqueda', icon: Search, href: '/busqueda' },
     { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   ]
-  if (roles.length) items.push({ label: 'Mi equipo', icon: Shield, href: teamHref, match: teamRolePaths })
+  items.push({ label: 'Mi equipo', icon: Shield, href: teamHref, match: teamRolePaths })
   items.push(
     { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
     { label: 'Torneos', icon: Trophy, href: '/eventos' },

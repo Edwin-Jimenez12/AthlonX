@@ -274,6 +274,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: `tsc` sin errores propios.
 - **Pendiente**: lo mismo de la entrada anterior (OAuth de Google y correos con Resend).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Acceso con Google y cuenta sin rol
+
+- **Configurado por Edwin**: proyecto de Google Cloud `athlonx` (Google Auth Platform: branding, dominios `athlonx.world` y `mlvtsgseneqzihwkiatg.supabase.co`, cliente web "AthlonX Web" con retorno a `…supabase.co/auth/v1/callback`). Proveedor Google activado en Supabase y URLs de retorno `https://athlonx.world/**` y `http://localhost:3000/**`. La app sigue en "Testing" hasta tener privacidad y términos.
+- **Qué se hizo**
+  - `Components/auth-panel.tsx`: botón "Continuar con Google" en Iniciar sesión y "Registrarme con Google" en el registro de Persona (equipo y organización no lo tienen). Vuelve a `/busqueda`. Se quitaron del registro los roles y la fecha de nacimiento (persona se registra con `roles: []`; la fecha se completa en Mi perfil).
+  - Migración `supabase/register-without-role-google-migration.sql` (aplicada, HTTP 201): `handle_new_user` ya no asigna "atleta" por defecto; nuevo disparador `on_auth_user_created_oauth` (`handle_new_oauth_user`) para cuentas de Google: nombre y apellido desde el nombre de Google, foto de Google y nombre de usuario generado (por ejemplo `maria.jose.nunez`, con sufijo si ya existe).
+  - `Components/role-gate.tsx` (en `app/(panel)/layout.tsx`): una cuenta de persona sin rol ve el menú completo; Búsqueda, Notificaciones, Mi perfil, perfiles públicos y Configuración funcionan. En el resto, el contenido se reemplaza por "Elige tu rol deportivo" (Atleta, Entrenador, Staff, Directivo; varios a la vez), con confirmación en línea y "Guardar roles" (`set_my_personal_roles`). Al guardar, el menú y la sección se ajustan.
+  - `Components/dashboard-sidebar.tsx`: sin rol, el menú muestra las secciones de todos los roles.
+- **Verificación**: `tsc` y `npm run build` correctos. Alta de Google simulada en un bloque que se revierte: nombre "María José Núñez", nombre de pila "María", apellido "José Núñez", usuario `maria.jose.nunez`, foto sí, código AX-PER, sin roles. Capturas del panel de rol (escritorio y 390 px) y del botón de Google en el acceso. El salto real a Google no se pudo probar aquí (sin variables de Supabase en este entorno): probar en athlonx.world.
+- **Pendiente**: verificación del correo con código (necesita Resend como SMTP en Supabase); conexión con Google Calendar; páginas de privacidad y términos para publicar la app de Google.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

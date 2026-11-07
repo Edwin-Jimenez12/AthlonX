@@ -4,6 +4,7 @@ import { DashboardHeader } from '../../Components/dashboard-header'
 import { DashboardSidebar } from '../../Components/dashboard-sidebar'
 import { SettingsNavProvider } from '../../Components/settings-nav'
 import { ThemeSync } from '../../Components/theme-sync'
+import { RoleGate } from '../../Components/role-gate'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return <SettingsNavProvider>
@@ -11,7 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <ThemeSync />
       <DashboardSidebar />
       <DashboardHeader />
-      {children}
+      <RoleGate>{children}</RoleGate>
     </div>
   </SettingsNavProvider>
 }

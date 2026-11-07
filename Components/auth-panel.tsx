@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Building2, ChevronLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Search, UserRound, Users, X } from 'lucide-react'
 import { LocationFields } from './location-fields'
 import { StyledSelect } from './styled-select'
-import { DateField } from './mi-perfil/ui'
+import { FcGoogle } from 'react-icons/fc'
 import { loadAccountContexts } from '../lib/account-contexts'
 import { supabase } from '../lib/supabase'
 
@@ -37,8 +37,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
-  const [roles, setRoles] = useState<string[]>(['atleta'])
-  const [birthDate, setBirthDate] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('persona')
   const [disciplines, setDisciplines] = useState<Discipline[]>([])
   const [disciplineError, setDisciplineError] = useState('')
@@ -89,6 +87,20 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }, STEP_MS)
   }
 
+  async function continueWithGoogle() {
+    if (!supabase) return setMessage('Falta configurar Supabase en el archivo .env.local.')
+    setLoading(true)
+    setMessage('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/busqueda`, queryParams: { prompt: 'select_account' } },
+    })
+    if (error) {
+      setMessage(error.message.toLowerCase().includes('provider is not enabled') ? 'El acceso con Google todavía no está activado.' : error.message)
+      setLoading(false)
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase) {
@@ -106,7 +118,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }
     const firstName = (form.elements.namedItem('firstName') as HTMLInputElement | null)?.value.trim() ?? ''
     const lastName = (form.elements.namedItem('lastName') as HTMLInputElement | null)?.value.trim() ?? ''
-    const birthDate = (form.elements.namedItem('birthDate') as HTMLInputElement | null)?.value ?? ''
     const password = (form.elements.namedItem('password') as HTMLInputElement).value
     const confirmation = (form.elements.namedItem('confirmation') as HTMLInputElement | null)?.value
     const publicUsername = (form.elements.namedItem('publicUsername') as HTMLInputElement | null)?.value ?? ''
@@ -118,14 +129,6 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
     }
     if (isRegister && accountType === 'persona' && (!firstName || !lastName)) {
       setMessage('Ingresa tu nombre y tu apellido.')
-      return
-    }
-    if (isRegister && accountType === 'persona' && !birthDate) {
-      setMessage('Ingresa tu fecha de nacimiento.')
-      return
-    }
-    if (isRegister && accountType === 'persona' && birthDate > new Date().toISOString().slice(0, 10)) {
-      setMessage('La fecha de nacimiento no puede ser futura.')
       return
     }
     if (isRegister && accountType === 'organizacion' && !organizationName) {
@@ -164,9 +167,9 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                 full_name: accountType === 'organizacion' ? organizationName : accountType === 'equipo' ? teamName : `${firstName} ${lastName}`,
                 first_name: accountType === 'persona' ? firstName : null,
                 last_name: accountType === 'persona' ? lastName : null,
-                birth_date: accountType === 'persona' ? birthDate : null,
+                birth_date: null,
                 public_username: normalizedUsername,
-                roles: accountType === 'persona' ? roles : ['directivo'],
+                roles: accountType === 'persona' ? [] : ['directivo'],
                 account_type: accountType,
                 organization_name: organizationName,
                 organization_type: organizationType,
@@ -423,6 +426,10 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
           ) : (
             <form onSubmit={handleSubmit}>
               <div key={`${view}-${accountType}`} className={`space-y-5 ${stepDirection === 'back' && isRegister ? 'athlonx-step-back' : 'athlonx-step'}`}>
+                {((isRegister && accountType === 'persona') || view === 'login') && (
+                  <GoogleButton disabled={loading} label={isRegister ? 'Registrarme con Google' : 'Continuar con Google'} onClick={() => void continueWithGoogle()} />
+                )}
+
                 {isRegister && accountType === 'persona' && (
                   <>
                     <FormSection>
@@ -435,21 +442,7 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
                       </div>
                     </FormSection>
                     <FormSection>
-                      <div className="ax-tokens">
-                      <DateField
-                        label="Fecha de nacimiento"
-                        name="birthDate"
-                        value={birthDate}
-                        onChange={setBirthDate}
-                        startView="years"
-                        showToday={false}
-                        placeholder="Día / mes / año"
-                        labelClassName="block text-sm font-bold text-slate-200"
-                        triggerClassName={`${fieldClass} font-normal`}
-                      />
-                      </div>
                       {identityField}
-                      <RoleSelector roles={roles} onChange={setRoles} />
                     </FormSection>
                   </>
                 )}
@@ -510,6 +503,21 @@ export default function AuthPanel({ initialMode = 'login' }: { initialMode?: Aut
         </div>
 
         {message && <p role="status" aria-live="polite" className="mt-4 rounded-[5px] border border-[#B4FF45]/30 bg-[#B4FF45]/10 p-3 text-sm leading-5 text-[#D9FFB1]">{message}</p>}
+      </div>
+    </div>
+  )
+}
+
+// Google: solo para cuentas de persona. Si el correo no tiene cuenta, se crea una cuenta de persona sin rol.
+function GoogleButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <div className="space-y-5">
+      <button type="button" disabled={disabled} onClick={onClick} className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-[5px] border border-white/15 bg-white text-base font-semibold text-[#1f1f1f] transition hover:bg-[#f2f4f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B4FF45] disabled:cursor-wait disabled:opacity-60">
+        <FcGoogle size={20} aria-hidden="true" />
+        {label}
+      </button>
+      <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[.14em] text-slate-500">
+        <span className="h-px flex-1 bg-white/10" />o con tu correo<span className="h-px flex-1 bg-white/10" />
       </div>
     </div>
   )
@@ -621,36 +629,3 @@ function PasswordField({ name, placeholder, visible, onToggle }: { name: string;
   return <FieldWithIcon icon={<LockKeyhole size={17} />}><input required name={name} type={visible ? 'text' : 'password'} className="h-11 w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" placeholder={placeholder} /><button type="button" aria-label={visible ? `Ocultar ${placeholder.toLowerCase()}` : `Mostrar ${placeholder.toLowerCase()}`} onClick={onToggle} className="shrink-0 text-slate-400 transition hover:text-[#B4FF45]">{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button></FieldWithIcon>
 }
 
-function RoleSelector({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
-  const availableRoles = [
-    ['atleta', 'Atleta'],
-    ['entrenador', 'Entrenador'],
-    ['staff', 'Staff'],
-    ['directivo', 'Directivo'],
-  ]
-
-  function toggleRole(role: string) {
-    const nextRoles = roles.includes(role)
-      ? roles.filter((currentRole) => currentRole !== role)
-      : [...roles, role]
-
-    onChange(nextRoles.length ? nextRoles : ['atleta'])
-  }
-
-  return (
-    <fieldset className="space-y-2">
-      <legend className="text-sm font-semibold text-slate-300">¿Cómo utilizarás AthlonX?</legend>
-      <div className="flex flex-wrap gap-2">
-        {availableRoles.map(([value, label]) => {
-          const checked = roles.includes(value)
-          return (
-            <label key={value} className={`inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm transition ${checked ? 'border-[#B4FF45]/60 bg-[#B4FF45]/10 text-white' : 'border-white/15 text-slate-300 hover:border-[#B4FF45]/40'}`}>
-              <input type="checkbox" checked={checked} onChange={() => toggleRole(value)} className="accent-[#B4FF45]" />
-              {label}
-            </label>
-          )
-        })}
-      </div>
-    </fieldset>
-  )
-}
