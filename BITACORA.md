@@ -98,7 +98,7 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - [ ] Desde ahora, el registro crea una sola cuenta de persona (no perfiles separados por rol).
 
 **Calendario y tiempo real**
-- [ ] Regla de repetición en organización: definir cómo se repiten los eventos de la organización por plan (hoy Free tiene 2 repetidos; falta la regla completa). Pospuesto por decisión de Edwin (2026-11-07).
+- [x] Regla de repetición en organización: es la misma que para persona y equipo (Free: 5 eventos al mes, 2 repetidos; Pro: sin límite). Ya aplicada en `calendar-free-limits-migration.sql`. Confirmado por Edwin (2026-11-07).
 - [ ] Sincronización real con Google y Outlook (OAuth y verificación de la app).
 - [ ] Recordatorios por correo (Resend y DNS de athlonx.world).
 - [ ] Tiempo real en el resto de la plataforma: el calendario y los marcadores ya se actualizan entre dispositivos; falta extenderlo a notificaciones, plantillas, convocatorias y cuotas.
@@ -241,6 +241,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Qué se hizo** (`Components/dashboard-sidebar.tsx`): la copia del menú (`athlonx-nav-cache`, versión 2) guarda los roles de la cuenta de persona y se reconstruye el mismo menú con `personaNavigation(roles)`, en `useLayoutEffect` (antes de pintar). Sin copia se ven barras de carga en vez de una lista equivocada. Sin sesión, el menú no se queda cargando.
 - **Verificación**: `tsc` sin errores propios. En navegador (`next dev`) con una copia de roles atleta, entrenador y directivo, el menú sale completo desde el primer cuadro: Búsqueda, Notificaciones, Mi equipo, Calendario, Torneos, Estadísticas, Entrenamientos, Carga y salud, Formaciones y Anuncios. Sin copia: 6 barras de carga.
 - **Pendiente**: la primera visita en un navegador nuevo (sin copia) muestra barras de carga hasta que llegan los roles.
+
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Aviso con el detalle de lo que cambió en un evento
+
+- **Qué se hizo** (`supabase/calendar-change-notifications-migration.sql`, aplicada, HTTP 201)
+  - Al editar un evento de equipo u organización llega un aviso "Actividad … modificada" con lo que cambió: título, fecha, hora, lugar, tipo, repetición o "se repite hasta", y si cambió la descripción. Ejemplo: `cambió "Entreno": fecha: 12 nov → 13 nov; hora: 6:00 p. m.–7:00 p. m. → 7:00 p. m.–8:00 p. m.; lugar: Cancha 1 → Estadio`. Si no cambió nada visible, no hay aviso.
+  - El aviso de creación incluye ahora fecha y hora.
+  - Equipo: el aviso llega solo a quienes va dirigido el evento (todo el equipo con jugadores vinculados, la división, el cuerpo técnico o las personas elegidas), con `calendar_team_event_recipients`. Antes llegaba a todos los miembros.
+  - Funciones nuevas: `calendar_fmt_day`, `calendar_fmt_time` (hora de Panamá, en español), `calendar_type_label`, `calendar_repeat_label`, `calendar_change_summary`. Disparadores de nuevo en inserción y actualización.
+- **Verificación**: consulta del resumen con datos de prueba (el texto de arriba) y sin cambios (null); destinatarios en Titanes: todo el equipo 2, cuerpo técnico 2, una persona 1. Disparadores activos en inserción y actualización.
+- **Decidido por Edwin**: la regla de repetición de organización es la misma (5 al mes, 2 repetidos en Free); los jugadores sin cuenta ya están resueltos; lo probado en navegador funciona; el formulario y el límite del entrenador ya están arreglados.
+- **Pendiente del calendario**: sincronización con Google y Outlook, y recordatorios por correo.
 
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
