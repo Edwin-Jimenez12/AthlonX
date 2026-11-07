@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Activity, ArrowLeft, BarChart3, Bell, Building2, CalendarDays, Circle, Dumbbell, Globe2, Map as MapIcon, Menu, Megaphone, Search, Shield, Users, Wallet } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, Bell, Building2, CalendarDays, Circle, Dumbbell, Globe2, Map as MapIcon, Menu, Megaphone, Search, Shield, Trophy, Users, Wallet } from 'lucide-react'
 import { settingsSectionIcons, useSettingsNavConfig } from './settings-nav'
 import { usePathname } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -25,8 +25,8 @@ const teamNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Mi equipo', icon: Shield, href: '/equipo' },
-  { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+  { label: 'Torneos', icon: Trophy, href: '/eventos' },
   { label: 'Estadísticas', icon: BarChart3, href: '/estadisticas' },
   { label: 'Finanzas', icon: Wallet, href: '/finanzas' },
 ]
@@ -69,8 +69,8 @@ const organizationNavigation: NavigationItem[] = [
   { label: 'Búsqueda', icon: Search, href: '/busqueda' },
   { label: 'Notificaciones', icon: Bell, href: '/notificaciones' },
   { label: 'Organización', icon: Building2, href: '/organizaciones' },
-  { label: 'Eventos', icon: CalendarDays, href: '/eventos' },
   { label: 'Calendario', icon: CalendarDays, href: '/calendario' },
+  { label: 'Torneos', icon: Trophy, href: '/eventos' },
   { label: 'Equipos', icon: Users, href: '/equipos' },
   { label: 'Participantes', icon: Shield, href: '/participantes' },
 ]

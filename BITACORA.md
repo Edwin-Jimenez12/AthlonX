@@ -130,6 +130,14 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Menú: Calendario antes de Torneos
+
+**Qué se hizo** (`Components/dashboard-sidebar.tsx`): en el menú de equipo y de organización, Calendario va antes que Eventos, y Eventos se llama Torneos con icono de trofeo. Sigue apuntando a `/eventos`, que ya muestra los torneos. Las cuentas personales (atleta, entrenador) no tienen esa entrada en su menú; no se agregó.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Indicador del menú al recargar
 
 **Qué pasaba**: al recargar la página de calendario, el indicador verde quedaba en "Mi equipo" y "Calendario" se veía apagado. El indicador se medía una sola vez, antes de que cargaran las vistas de la cuenta (que cambian la lista de secciones).
