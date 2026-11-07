@@ -1,6 +1,6 @@
 'use client'
 
-import { Globe2, Lock, Moon, ShieldCheck, SlidersHorizontal, Sun, UserCog, UserRound, Users } from 'lucide-react'
+import { Globe2, Link2, Lock, Moon, ShieldCheck, SlidersHorizontal, Sun, UserCog, UserRound, Users } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ImageUploadField } from '../image-upload-field'
@@ -12,6 +12,7 @@ import { Badge } from '../mi-equipo/ui'
 import { Avatar, Card, CardRow, Chip, DateField, Field, FieldGrid, FixedChip, Hero, Hint, ListRow, LockedField, Pending, PhoneField, ReadValue, RowList, SaveStatus, SelectField, SettingRow, Segmented, Shell, Switch, initialsOf, useSaveStatus } from './ui'
 import type { Notice, SectionItem } from './ui'
 import { SecurityCards } from './password-card'
+import { ConnectionsSection } from './connections-section'
 import { DeleteAccountCard, SessionCard } from './delete-account-card'
 import { PlanCard } from './plan-card'
 import { useAccountMeta } from './use-account-meta'
@@ -21,6 +22,7 @@ export const personaSections: SectionItem[] = [
   { id: 'identidad', label: 'Información personal', description: 'Datos, contacto y foto', icon: UserRound },
   { id: 'participacion', label: 'Equipo y roles', description: 'Equipos y cargos', icon: Users },
   { id: 'configuracion', label: 'Configuración', description: 'Privacidad y preferencias', icon: SlidersHorizontal },
+  { id: 'conexiones', label: 'Conexiones', description: 'Google, Outlook y avisos', icon: Link2 },
   { id: 'seguridad', label: 'Seguridad', description: 'Contraseña y correo', icon: ShieldCheck },
   { id: 'cuenta', label: 'Cuenta', description: 'Correo, acceso y salida', icon: UserCog },
 ]
@@ -339,6 +341,8 @@ export function PersonaProfileView({
           </Card>
         </CardRow>
       )}
+
+      {section === 'conexiones' && <ConnectionsSection />}
 
       {section === 'seguridad' && <SecurityCards email={meta.email} />}
 

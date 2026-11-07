@@ -253,6 +253,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Decidido por Edwin**: la regla de repetición de organización es la misma (5 al mes, 2 repetidos en Free); los jugadores sin cuenta ya están resueltos; lo probado en navegador funciona; el formulario y el límite del entrenador ya están arreglados.
 - **Pendiente del calendario**: sincronización con Google y Outlook, y recordatorios por correo.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Mi perfil · Conexiones (Google, Outlook y canal de avisos)
+
+- **Qué se hizo**
+  - Nueva sección "Conexiones" en Mi perfil de la cuenta de persona (`Components/mi-perfil/connections-section.tsx`): tarjeta "Calendarios" con Google Calendar y Outlook (estado "No conectado"; botón Conectar desactivado hasta tener la app verificada; sin plan Pro muestra "Disponible en Pro" con enlace a planes) y tarjeta "Avisos" para elegir el canal: "Solo en la app" o "App y correo". Se guarda al momento.
+  - Migración `supabase/notification-channel-migration.sql` (aplicada, HTTP 201): `account_preferences.notification_channel` ('app' | 'app_email', por defecto 'app'). La política existente del dueño cubre lectura y escritura.
+  - Calendario: se quitó el botón "Conexiones" junto a "Crear actividad" y su panel. El texto del editor remite a Mi perfil → Conexiones.
+- **Decisión de diseño**: el correo de avisos no depende de Google. Google y Outlook sirven para sincronizar el calendario; los correos los envía AthlonX al correo de acceso (con Resend, pendiente). Por eso el canal de avisos es una preferencia aparte dentro de Conexiones.
+- **Verificación**: `tsc` sin errores propios. Columna nueva comprobada con consulta de solo lectura. No se probó en navegador con sesión.
+- **Pendiente**: OAuth de Google (proyecto en Google Cloud, pantalla de consentimiento, verificación y credenciales en Supabase o en el servidor). Envío de correos con Resend respetando `notification_channel`. Outlook después de Google.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

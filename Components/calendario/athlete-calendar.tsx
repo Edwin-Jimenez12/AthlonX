@@ -196,7 +196,6 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   // Al abrir el formulario (nuevo o editar) siempre aparece completo.
   const editorOpen = editor !== null
   useEffect(() => { if (editorOpen) setEditorMinimized(false) }, [editorOpen, editor?.id])
-  const [showConnections, setShowConnections] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
   const [upcoming, setUpcoming] = useState<FeedItem[]>([])
@@ -678,7 +677,6 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               {isMgmt && orgFlag('reportes') && (
                 <Button variant="secondary" onClick={() => exportOrg()}>Exportar PDF / CSV</Button>
               )}
-              <Button variant="secondary" onClick={() => setShowConnections((open) => !open)}>Conexiones</Button>
               <Button variant="primary" onClick={openNew}>{isMgmt ? '+ Crear evento' : '+ Crear actividad'}</Button>
             </div>
           )}
@@ -1011,7 +1009,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
                       <input type="checkbox" className="peer sr-only" checked={syncOn} onChange={(e) => setSyncOn(e.target.checked)} />
                       <span className="relative h-6 w-11 rounded-full bg-[var(--ax-line-strong)] transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[18px] after:w-[18px] after:rounded-full after:bg-[var(--ax-text)] after:transition-transform peer-checked:bg-[var(--ax-accent)] peer-checked:after:translate-x-5 peer-checked:after:bg-[var(--ax-on-accent)]" aria-hidden="true" />
                       {syncOn ? 'Activado' : 'Desactivado'}
-                      <span className="text-xs text-[var(--ax-muted)]">Se aplicará al conectar Google u Outlook en Conexiones.</span>
+                      <span className="text-xs text-[var(--ax-muted)]">Se aplicará al conectar Google u Outlook en Mi perfil → Conexiones.</span>
                     </label>
                   ) : <LockedFeature label="Sincronización automática" />}
                 </div>
@@ -1073,20 +1071,6 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         />
       )}
 
-      {showConnections && (
-        <Card>
-          <CardHeader id="conexiones" title="Conexiones" />
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {['Google Calendar', 'Outlook'].map((name) => (
-              <div key={name} className="flex flex-col gap-3 rounded-[14px] border border-[var(--ax-line)] p-5">
-                <p className="font-display text-[28px] uppercase leading-none text-[var(--ax-accent-text)]">{name}</p>
-                <p className="text-sm text-[var(--ax-muted)]">{(isMgmt ? orgFlag('sincronizacion') : unlimited) ? 'Próximamente' : 'Disponible en Pro'}</p>
-                <Button variant="secondary" disabled>Conectar</Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
 
           </div>
 
