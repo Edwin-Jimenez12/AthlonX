@@ -159,6 +159,13 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 - **Verificación**: migración aplicada; backfill comprobado (5 eventos, todos "team" porque no tenían división). `tsc` sin errores propios. No pude probar el feed con un usuario real: la sesión de solo lectura no tiene permiso de ejecución. Falta probar en navegador con dos cuentas (una del equipo sin cargo, otra con cargo).
 - **Pendiente**: revisar si los jugadores sin cuenta vinculada pueden recibir eventos (hoy no aparecen en la lista).
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Marcar notificaciones como leídas desde el minimenú
+
+- **Qué se hizo**: en el minimenú de notificaciones, cada notificación no leída tiene un ganchito abajo a la derecha. Al pulsarlo se guarda `read_at` en `user_notifications`, el punto verde desaparece y el contador de la campana baja. Las ya leídas no muestran el ganchito.
+- **Archivos**: `Components/notifications-menu.tsx` (`markRead`).
+- **Verificación**: `tsc` sin errores propios. Falta probarlo en navegador con una notificación nueva.
+- **Pendiente**: los botones Aceptar/Rechazar de solicitudes no marcan la notificación como leída por sí solos (ya se quita de la lista al responder).
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.

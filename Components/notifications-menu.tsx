@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Hash, Trophy, UserPlus, X } from 'lucide-react'
+import { Bell, Check, Hash, Trophy, UserPlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -39,6 +39,15 @@ export function NotificationsMenu() {
 
   useEffect(() => { void loadNotifications() }, [])
 
+  // Marca una notificación como leída: el ganchito desaparece y el contador de la campana baja.
+  async function markRead(notification: Notification) {
+    if (!supabase || notification.read_at) return
+    const readAt = new Date().toISOString()
+    const { error } = await supabase.from('user_notifications').update({ read_at: readAt }).eq('id', notification.id)
+    if (error) return setMessage(error.message)
+    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: readAt } : item))
+  }
+
   async function respond(notification: Notification, decision: 'accepted' | 'rejected') {
     if (!supabase) return
     if (notification.tournament_team_invitation_id) {
@@ -71,7 +80,7 @@ export function NotificationsMenu() {
     <div className="max-h-80 overflow-y-auto">
       {notifications.map((notification, index) => {
         const Icon = notificationIcon(notification)
-        return <article key={notification.id} className={`flex gap-3 px-4 py-3.5 ${index > 0 ? 'border-t border-[var(--ax-line)]' : ''}`}>
+        return <article key={notification.id} className={`relative flex gap-3 px-4 py-3.5 ${index > 0 ? 'border-t border-[var(--ax-line)]' : ''}`}>
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface-raised)] text-[var(--ax-text)]"><Icon size={16} /></span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -79,13 +88,14 @@ export function NotificationsMenu() {
               <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--ax-text)]">{notification.title}</p>
               <span className="shrink-0 text-[11px] text-[var(--ax-muted)]">{formatRelative(notification.created_at)}</span>
             </div>
-            <p className="mt-1 text-[13px] leading-5 text-[var(--ax-muted)]">{notification.body}</p>
+            <p className={`mt-1 text-[13px] leading-5 text-[var(--ax-muted)] ${notification.read_at ? '' : 'pr-9'}`}>{notification.body}</p>
             {canRespond(notification) && <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <span className="rounded-[6px] bg-amber-300/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">Pendiente</span>
               <button type="button" onClick={() => void respond(notification, 'accepted')} className="inline-flex h-8 cursor-pointer items-center rounded-[10px] bg-[var(--ax-accent)] px-3 text-xs font-bold text-[var(--ax-on-accent)] transition hover:opacity-90">Aceptar</button>
               <button type="button" onClick={() => void respond(notification, 'rejected')} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[var(--ax-danger-line)] px-3 text-xs font-bold text-[var(--ax-danger-text)] transition hover:bg-[var(--ax-danger-text)]/10"><X size={13} />Rechazar</button>
             </div>}
           </div>
+          {!notification.read_at && <button type="button" onClick={() => void markRead(notification)} aria-label="Marcar como leída" title="Marcar como leída" className="absolute bottom-3 right-3 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-[8px] border border-[var(--ax-accent-line)] text-[var(--ax-accent-text)] transition hover:bg-[var(--ax-accent)]/10"><Check size={14} /></button>}
         </article>
       })}
       {!notifications.length && <p className="px-4 py-8 text-center text-sm text-[var(--ax-muted)]">No tienes notificaciones nuevas.</p>}
