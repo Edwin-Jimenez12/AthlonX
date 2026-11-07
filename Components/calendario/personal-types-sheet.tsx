@@ -17,14 +17,6 @@ export type PersonalType = {
 // Paleta fija de 12 colores: se leen bien sobre tema claro y oscuro.
 export const palette = ['#b4ff45', '#4ea8ff', '#a78bfa', '#ff9f43', '#ff6b6b', '#2dd4bf', '#facc15', '#f472b6', '#22c55e', '#7dd3fc', '#818cf8', '#94a3b8']
 
-const categoryLabels: Record<PersonalType['category'], string> = {
-  training: 'Entrenamiento',
-  match: 'Partido',
-  meeting: 'Reunión',
-  personal: 'Personal',
-  other: 'Otro',
-}
-
 const sheetClass = 'ax-drop-in fixed inset-x-0 bottom-0 z-50 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[14px] border border-b-0 border-[var(--ax-line-strong)] bg-[var(--ax-surface)] shadow-[var(--ax-shadow-pop)] sm:inset-x-auto sm:right-6 sm:w-[560px] sm:max-h-[min(80vh,720px)]'
 
 // Tiempo que hay que mantener presionado un tipo para levantarlo y moverlo.
@@ -56,7 +48,6 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
   const [confirmReset, setConfirmReset] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [newLabel, setNewLabel] = useState('')
-  const [newCategory, setNewCategory] = useState<PersonalType['category']>('personal')
   const [newColor, setNewColor] = useState(palette[0])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null)
@@ -204,11 +195,11 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
     if (!label || label.length > 40) return setMessage({ tone: 'danger', text: 'Escribe un nombre de 1 a 40 caracteres.' })
     if (!supabase) return
     setBusy(true)
-    const { error } = await supabase.from('personal_event_types').insert({ user_id: userId, category: newCategory, label, color: newColor, sort_order: types.length + 1 })
+    const { error } = await supabase.from('personal_event_types').insert({ user_id: userId, category: 'other', label, color: newColor, sort_order: types.length + 1 })
     setBusy(false)
     if (error) return fail(error)
     setNewLabel('')
-    setMessage({ tone: 'success', text: `Tipo "${label}" agregado.` })
+    setMessage({ tone: 'success', text: `Etiqueta "${label}" guardada.` })
     await onChanged()
   }
 
@@ -300,17 +291,19 @@ export function PersonalTypesSheet({ types, userId, onChanged, onClose }: { type
         </ul>
 
         <div className="mt-6 space-y-3 rounded-[14px] border border-[var(--ax-line)] p-4">
-          <FieldLabel>Nuevo tipo</FieldLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input className={inputClass} placeholder="Ej. Práctica de tiro" maxLength={40} value={newLabel} onChange={(event) => setNewLabel(event.target.value)} aria-label="Nombre del nuevo tipo" />
-            <select className={inputClass} value={newCategory} onChange={(event) => setNewCategory(event.target.value as PersonalType['category'])} aria-label="Categoría del nuevo tipo">
-              {(Object.keys(categoryLabels) as PersonalType['category'][]).map((key) => <option key={key} value={key}>{categoryLabels[key]}</option>)}
-            </select>
-          </div>
-          <p className="text-xs text-[var(--ax-muted)]">La categoría decide cómo cuenta el evento (filtros, límites y reglas). El nombre lo eliges tú.</p>
+          <FieldLabel>Nueva etiqueta</FieldLabel>
+          <input
+            className={inputClass}
+            placeholder="Ej. Práctica de tiro"
+            maxLength={40}
+            value={newLabel}
+            onChange={(event) => setNewLabel(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void add() } }}
+            aria-label="Nombre de la nueva etiqueta"
+          />
           <PaletteGrid value={newColor} label="Color del nuevo tipo" onPick={setNewColor} />
           <div className="flex justify-end">
-            <Button variant="primary" icon={Plus} disabled={busy} onClick={() => void add()}>Agregar tipo</Button>
+            <Button variant="primary" icon={Plus} disabled={busy} onClick={() => void add()}>Guardar etiqueta</Button>
           </div>
         </div>
 

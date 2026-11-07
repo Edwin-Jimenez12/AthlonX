@@ -130,6 +130,17 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
 
 ---
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Filtros de equipo y "Nueva etiqueta"
+
+**Qué se hizo**:
+- En equipo y organización, los filtros y el selector de tipo del formulario solo muestran las cuatro categorías del equipo, en este orden: Entrenamiento, Partido, Reunión y Otro. Antes aparecían los tipos personales de la persona (error de mi cambio anterior).
+- En la cuenta personal, los filtros siguen siendo los tipos de la persona.
+- En la hoja de tipos, "Nuevo tipo" pasa a ser "Nueva etiqueta": se escribe el nombre y se guarda con Enter o con "Guardar etiqueta". Ya no hay selector de categoría; las etiquetas nuevas se guardan como categoría Otro, con su propio nombre. Se mantiene la paleta de colores.
+
+**Verificación**: `tsc` sin errores; `npm run build` correcto. Falta revisar en navegador, en equipo y en persona.
+
+---
+
 ## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Orden de los tipos de evento
 
 **Qué se hizo**: los tipos de evento se pueden reordenar. En la hoja de tipos se mantiene presionado un tipo (unos 350 ms) y al moverlo cambia de lugar; con teclado, el asa responde a las flechas arriba y abajo. El orden se guarda por persona y se refleja en los filtros del calendario y en el selector del formulario de actividad. Archivos: `Components/calendario/personal-types-sheet.tsx`; SQL: `supabase/personal-event-types-order-migration.sql` (aplicado, HTTP 201; `personal_types_reorder` y columna `sort_order` verificadas).

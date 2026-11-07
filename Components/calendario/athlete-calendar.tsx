@@ -30,11 +30,14 @@ const responses = [
 
 type ManagedTeam = { id: string; name: string; role: string }
 
+// Colores de los filtros de equipo y organización: los mismos de los predefinidos de la cuenta personal.
+const teamChipColor: Record<string, string> = { training: '#4ea8ff', match: '#b4ff45', meeting: '#a78bfa', other: '#ff9f43' }
+
 const teamEventTypes = [
   { id: 'training', label: 'Entrenamiento' },
   { id: 'match', label: 'Partido' },
   { id: 'meeting', label: 'Reunión' },
-  { id: 'other', label: 'Otra actividad' },
+  { id: 'other', label: 'Otro' },
 ] as const
 
 type Editor = {
@@ -271,14 +274,18 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   // Tipo de cada evento: el propio (actividades personales) o el predefinido de su categoría.
   const defaultTypeId = (category: string) => types.find((type) => type.default_key === category)?.id ?? null
   const typeIdOf = (item: FeedItem) => (item.source === 'personal' && item.type_id ? item.type_id : defaultTypeId(item.event_type))
-  // Si se borra el tipo que estaba seleccionado, vuelve a Todos.
+  // Equipo y organización filtran por sus cuatro categorías; la cuenta personal, por sus tipos.
+  const keyOf = (item: FeedItem) => (isMgmt && item.source !== 'personal' ? item.event_type : typeIdOf(item))
+  const validFilters = isMgmt ? teamEventTypes.map((type) => type.id as string) : types.map((type) => type.id)
+  // Si el filtro seleccionado ya no existe (se borró un tipo o se cambió de cuenta), vuelve a Todos.
   useEffect(() => {
-    if (filter !== 'todos' && filter !== 'equipos' && types.length && !types.some((type) => type.id === filter)) setFilter('todos')
-  }, [types, filter])
-  const visible = useMemo(
-    () => items.filter((item) => filter === 'todos' || (filter === 'equipos' ? item.source === 'team' : typeIdOf(item) === filter)),
+    if (filter !== 'todos' && filter !== 'equipos' && !validFilters.includes(filter)) setFilter('todos')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items, filter, types],
+  }, [types, filter, isMgmt])
+  const visible = useMemo(
+    () => items.filter((item) => filter === 'todos' || (filter === 'equipos' ? item.source === 'team' : keyOf(item) === filter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, filter, types, isMgmt],
   )
   const byDay = useMemo(() => groupByDay(visible), [visible])
 
@@ -655,7 +662,9 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
         <div className="flex flex-wrap gap-2">
           {[
             { id: 'todos', label: 'Todos', color: '#e8eef3' },
-            ...types.map((type) => ({ id: type.id, label: type.label, color: type.color })),
+            ...(isMgmt
+              ? teamEventTypes.map((type) => ({ id: type.id as string, label: type.label, color: teamChipColor[type.id] }))
+              : types.map((type) => ({ id: type.id, label: type.label, color: type.color }))),
             ...(isOrg && orgFlag('vista_equipos') ? [{ id: 'equipos', label: 'Todos los equipos', color: '' }] : []),
           ].map((f) => {
             const on = filter === f.id
