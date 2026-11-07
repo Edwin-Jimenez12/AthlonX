@@ -158,6 +158,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
   const [items, setItems] = useState<FeedItem[]>([])
   const [selected, setSelected] = useState<FeedItem | null>(null)
   const [editor, setEditor] = useState<Editor | null>(null)
+  // Borrador aparcado: si abres otro evento o uno nuevo, lo que estabas escribiendo no se pierde.
+  const [parkedDraft, setParkedDraft] = useState<Editor | null>(null)
   const [editorMinimized, setEditorMinimized] = useState(false)
   const [types, setTypes] = useState<PersonalType[]>([])
   const [typesOpen, setTypesOpen] = useState(false)
@@ -322,6 +324,8 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
       : await supabase.rpc('calendar_delete_personal_activity', { p_id: item.id })
     if (error) return setMessage({ tone: 'danger', text: error.message })
     setSelected(null)
+    // Solo se cierra el formulario si era justo ese evento; un borrador de otra actividad se conserva.
+    if (editor?.id === item.id) setEditor(null)
     setMessage({ tone: 'success', text: 'Actividad eliminada.' })
     await loadAccount()
     await loadFeed()
@@ -468,10 +472,23 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     printReport(`Calendario · ${organization?.name ?? team?.name ?? ''}`, header, rows)
   }
 
+  // Abre un formulario sin tirar el que está abierto: el anterior queda aparcado y se puede reanudar.
+  function openDraft(next: Editor) {
+    if (editor && (!next.id || editor.id !== next.id)) setParkedDraft(editor)
+    setEditor(next)
+    setMessage(null)
+  }
+
+  function resumeParkedDraft() {
+    const parked = parkedDraft
+    setParkedDraft(editor)
+    setEditor(parked)
+    setEditorMinimized(false)
+  }
+
   function openNew() {
     setSelected(null)
-    setEditor(isMgmt ? { ...toEditor(null, anchor), scope: mgmtId } : toEditor(null, anchor))
-    setMessage(null)
+    openDraft(isMgmt ? { ...toEditor(null, anchor), scope: mgmtId } : toEditor(null, anchor))
   }
 
   function ItemButton({ item }: { item: FeedItem }) {
@@ -479,7 +496,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     return (
       <button
         type="button"
-        onClick={() => { setEditor(null); setSelected(item) }}
+        onClick={() => setSelected(item)}
         className="flex w-full flex-col gap-0.5 rounded-[10px] border border-[var(--ax-line)] bg-[var(--ax-surface)] px-3 py-2 text-left hover:border-[var(--ax-line-strong)]"
       >
         <span className="text-[11px] font-semibold uppercase tracking-[.12em]" style={{ color: colorOf(item) }}>{time}</span>
@@ -494,7 +511,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
     return (
       <button
         type="button"
-        onClick={() => { setEditor(null); setSelected(item) }}
+        onClick={() => setSelected(item)}
         className="flex h-5 w-full items-center rounded-[6px] px-1.5 text-left text-[11px] font-medium"
         style={{ color, background: `${color}29` }}
       >
@@ -715,11 +732,22 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
           )}
           {(selected.source === 'personal' || ((selected.source === 'team' || selected.source === 'organization') && selected.can_edit)) && (
             <div className="mt-5 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => { setEditor(toEditor(selected, anchor)); setSelected(null) }}>Editar</Button>
+              <Button variant="secondary" onClick={() => { openDraft(toEditor(selected, anchor)); setSelected(null) }}>Editar</Button>
               <Button variant="secondary" onClick={() => void removeActivity(selected)}>Eliminar</Button>
             </div>
           )}
         </Card>
+      )}
+
+      {parkedDraft && (
+        <button
+          type="button"
+          onClick={resumeParkedDraft}
+          className="fixed bottom-4 left-4 z-40 flex cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--ax-line-strong)] bg-[var(--ax-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ax-text)] shadow-[var(--ax-shadow-pop)] hover:bg-[var(--ax-hover)] sm:bottom-6 sm:left-6"
+        >
+          <span className="text-[var(--ax-accent)]" aria-hidden="true">●</span>
+          Reanudar borrador{parkedDraft.title.trim() ? ` · ${parkedDraft.title.trim()}` : ''}
+        </button>
       )}
 
       {editor && (
@@ -988,7 +1016,7 @@ export default function AthleteCalendar({ organization = null, team = null }: { 
               <ul className="mt-3 flex flex-col gap-3">
                 {nextActivities.map((item) => (
                   <li key={item.id + item.starts_at}>
-                    <button type="button" onClick={() => { setEditor(null); setSelected(item) }} className="flex w-full gap-3 text-left">
+                    <button type="button" onClick={() => setSelected(item)} className="flex w-full gap-3 text-left">
                       <span className="w-[3px] shrink-0 rounded-full" style={{ background: colorOf(item) }} aria-hidden="true" />
                       <span className="flex min-w-0 flex-col">
                         <span className="text-[11px] text-[var(--ax-muted)]">

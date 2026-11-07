@@ -107,6 +107,16 @@ Lista viva de lo que queda por hacer. Cuando algo se termine, se marca con [x] y
   - Extender el mismo patrón al resto de la plataforma (calendario, notificaciones, plantillas, convocatorias, cuotas). Los recargos de otras pantallas siguen pendientes.
   - El indicador "Cargando" se oculta al terminar la carga del documento, no cuando terminan los datos de cada pantalla.
 
+## 2026-11-07 · `claude/great-ritchie-2n8uq9` · nube → Borrador del calendario y 2 eventos repetidos en Free
+
+- **Qué se hizo**
+  - Calendario: abrir, editar o eliminar otra actividad ya no descarta el borrador. Al abrir otro evento o uno nuevo, el formulario abierto queda aparcado y aparece el botón "Reanudar borrador" (abajo a la izquierda). Eliminar solo cierra el formulario si era ese mismo evento.
+  - Plan Free de equipo: eventos repetidos de 1 a 2. Límite (`limits.eventos_repetidos`) y texto de la página de planes ("10 eventos al mes y 2 eventos repetidos").
+- **Archivos clave**: `Components/calendario/athlete-calendar.tsx` (`openDraft`, `resumeParkedDraft`, `removeActivity`), `supabase/team-free-repeat-limit-migration.sql`, `supabase/team-plans-migration.sql` (semilla actualizada para que una reejecución no revierta el cambio).
+- **Aplicado en el proyecto `mlvtsgseneqzihwkiatg`**: la migración (HTTP 201). Verificado en solo lectura: `team_free` tiene `eventos_repetidos = 2` y el texto nuevo.
+- **Verificación**: `tsc` sin errores propios. Falta probarlo en navegador: crear un borrador, eliminar otro evento y comprobar que el borrador sigue.
+- **Pendiente**: la sincronización de cambios del borrador entre pestañas no existe; el borrador vive solo en la pantalla abierta.
+
 ## 2026-11-05 · `claude/great-ritchie-2n8uq9` · nube → Selector de vista con los tokens del panel
 
 **Qué se hizo**: `Components/context-switcher.tsx` usaba colores fijos (`#b4ff45`, `#0b1d2c`) y no los tokens `var(--ax-*)` del resto del panel. Se reescribió con tokens, radios de 14 px en paneles y 10 px en opciones, como en `Components/mi-equipo/ui.tsx`. Cada vista personal ahora dice "Cuenta personal" como subtítulo, en vez de repetir "Vista personal". La vista actual lleva una marca circular con check.
